@@ -604,3 +604,23 @@ body.no-voice .say-btn { display: none; }
   .sem-name { font-size: 18px; }
   .sem-stat { font-size: 14px; }
 }
+
+/* ---------- portrait fixes (user: iPad dọc chưa ổn) ---------- */
+/* the "✏️ Nháp" tab sits at the bottom centre in portrait: keep the Kiểm tra button and keypad above it */
+@media (orientation: portrait), (max-width: 900px) {
+  body.scratch-on .player { padding-bottom: calc(62px + var(--safe-b)); }
+  body.scratch-on .exam-pad { bottom: calc(62px + var(--safe-b)); }
+}
+/* 6-column number pads read 1 2 3 4 5 6 / 7 8 9 0 , ⌫ (the DOM order is the 3-column phone layout 7 8 9 / 4 5 6 / 1 2 3 / , 0 ⌫) */
+@media (orientation: portrait), (max-width: 900px) {
+  .answer-pane .keypad > :nth-child(1) { order: 7; }  .answer-pane .keypad > :nth-child(2) { order: 8; }  .answer-pane .keypad > :nth-child(3) { order: 9; }
+  .answer-pane .keypad > :nth-child(4) { order: 4; }  .answer-pane .keypad > :nth-child(5) { order: 5; }  .answer-pane .keypad > :nth-child(6) { order: 6; }
+  .answer-pane .keypad > :nth-child(7) { order: 1; }  .answer-pane .keypad > :nth-child(8) { order: 2; }  .answer-pane .keypad > :nth-child(9) { order: 3; }
+  .answer-pane .keypad > :nth-child(10) { order: 11; } .answer-pane .keypad > :nth-child(11) { order: 10; } .answer-pane .keypad > :nth-child(12) { order: 12; }
+}
+@media (min-width: 761px) {
+  .exam-pad .keypad > :nth-child(1) { order: 7; }  .exam-pad .keypad > :nth-child(2) { order: 8; }  .exam-pad .keypad > :nth-child(3) { order: 9; }
+  .exam-pad .keypad > :nth-child(4) { order: 4; }  .exam-pad .keypad > :nth-child(5) { order: 5; }  .exam-pad .keypad > :nth-child(6) { order: 6; }
+  .exam-pad .keypad > :nth-child(7) { order: 1; }  .exam-pad .keypad > :nth-child(8) { order: 2; }  .exam-pad .keypad > :nth-child(9) { order: 3; }
+  .exam-pad .keypad > :nth-child(10) { order: 11; } .exam-pad .keypad > :nth-child(11) { order: 10; } .exam-pad .keypad > :nth-child(12) { order: 12; }
+}

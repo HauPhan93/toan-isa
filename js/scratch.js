@@ -228,6 +228,7 @@
     build();
     if (k !== key) { key = k; strokes = []; redraw(); }
     root.hidden = false;
+    document.body.classList.add('scratch-on');   // portrait: the app keeps room above the bottom "Nháp" tab
     if (!tipShown) {
       tipShown = true;
       const tip = el('div', 'scr-tip', 'Giấy nháp nè bé yêu! ✏️');
@@ -239,6 +240,7 @@
     if (!root) return;
     if (isOpen) setOpen(false);
     root.hidden = true;
+    document.body.classList.remove('scratch-on');
   }
   window.Scratch = { attach, detach, isOpen: () => isOpen };
 })();

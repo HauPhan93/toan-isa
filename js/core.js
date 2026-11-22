@@ -284,6 +284,7 @@
       .replace(/(\d)\s*\/\s*(\d)/g, '$1 phần $2')
       .replace(/(\d)[\s\u202F](?=\d{3}\b)/g, '$1')
       .replace(/×/g, ' nhân ').replace(/(\d)\s*:\s*(\d)/g, '$1 chia $2').replace(/\s:\s/g, ' chia ')
+      .replace(/=\s*\?+/g, ' bằng bao nhiêu')
       .replace(/[−-](?=\s*\d)/g, ' trừ ').replace(/\+/g, ' cộng ').replace(/=/g, ' bằng ')
       .replace(/</g, ' bé hơn ').replace(/>/g, ' lớn hơn ')
       .replace(/\?\?|…|\.\.\./g, ' bao nhiêu ')
