@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v39';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v40';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
 
   const GRADE_INFO = {
     1: { color: '#F0A500', icon: '🐣', desc: 'Số đến 100 · Cộng, trừ trong phạm vi 10 · Hình, giờ, lịch' },
@@ -375,13 +375,13 @@
   }
   // The built-in Vietnamese voice of most iPhones and iPads says the word "bé" as "mớ", whatever the wording,
   // speed or spelling (user tests on an iPad and several iPhones; only one newer iPhone reads it right), and
-  // Safari gives websites no other voice. So on those devices ISA never sends "bé" to the voice:
+  // Safari gives websites no other voice. So ISA does not send "bé" to the voice:
   //   · "bé" meaning small (số bé, bé hơn, bé nhất — every use in the lessons) is read as "nhỏ";
-  //   · "bé" as ISA's word for the child (Bé ơi, bé thử lại nhé) is read as the word chosen in Góc phụ huynh.
-  // The text on screen stays "bé".
-  const IS_IOS = /iPhone|iPod|iPad/.test(navigator.userAgent) || IS_IPAD;
-  const KID_WORDS = ['bé', 'con', 'em', 'bạn'];
-  const kidWord = () => (KID_WORDS.includes(S.settings.kidWord) ? S.settings.kidWord : IS_IOS ? 'con' : 'bé');
+  //   · "bé" as ISA's word for the child (Bé ơi, bé thử lại nhé) is read as the word chosen in Góc phụ huynh,
+  //     "bạn" unless the parent picks another one (user request: "ưu tiên đọc là bạn"), on every device.
+  // The text on screen stays "bé". Picking "bé" there reads everything as written.
+  const KID_WORDS = ['bạn', 'con', 'em', 'bé'];
+  const kidWord = () => (KID_WORDS.includes(S.settings.kidWord) ? S.settings.kidWord : 'bạn');
   const KID_SMALL = /((?:số|đáy|tích|tổng|hiệu|thương|phần|hình|góc|cạnh|đoạn|từ|đến|hay|vị|mặt|quả|tròn|nhọn|chục|nhiên) )([Bb]é)(?![\p{L}])/giu;
   const KID_CALL = /(^|[^\p{L}])([Bb]é)(?= (?:ơi|làm|hãy|cố|cứ|đã|còn|muốn|đọc|xem|ôn|chạm|bấm|thử|được|tiến|tên)(?![\p{L}]))/gu;
   const KID_CALL2 = /((?:bên|[Cc]hào) )([Bb]é)(?![\p{L}])/gu;
@@ -1129,10 +1129,7 @@
       }),
       vlist.length > 1 ? h('div', { class: 'voice-note', style: { flexBasis: '100%' } }, '⭐ = giọng rõ nhất trên máy này') : null) : null;
     const kidRow = h('div', { class: 'row voice-row' },
-      h('div', { class: 'grow' }, 'Khi đọc, ISA gọi bé là',
-        h('div', { class: 'voice-note' }, IS_IOS
-          ? 'Giọng đọc của nhiều iPhone, iPad đọc chữ "bé" thành "mớ". Vì vậy trên máy này ISA đọc là "con" (và đọc "bé hơn" là "nhỏ hơn"); chữ trên màn hình vẫn là "bé". Nếu máy đọc đúng chữ "bé", chọn "bé".'
-          : 'Nếu máy đọc sai chữ "bé" (nghe thành "mớ"), chọn một từ khác. Chữ trên màn hình vẫn là "bé".')),
+      h('div', { class: 'grow' }, 'Khi đọc, ISA gọi bé là'),
       ...KID_WORDS.map(w => h('button', {
         class: 'btn small ' + (kidWord() === w ? '' : 'ghost'),
         onclick: () => { S.settings.kidWord = w; save(); sh.close(); parentCorner(); speak('Bé ơi, lớp 1 nè! 3 bé hơn 5.'); },
