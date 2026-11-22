@@ -21,7 +21,7 @@
     daily: { date: '', count: 0, goal: 20 },
     exams: {},
     totals: { answered: 0, correct: 0, seconds: 0 },
-    settings: { voice: true, sound: true, autoRead: false },
+    settings: { voice: true, sound: true, autoRead: false, voiceStyle: 'cute' },
   });
   let S = load();
   function load() {
@@ -264,6 +264,11 @@
 
   /* ------------------------------------------------------------------ speech */
   let viVoice = null;
+  // ISA's voice: the device's Vietnamese voice, raised and slowed a little for "Dễ thương" (the default).
+  const VOICE_STYLES = {
+    cute: { name: 'Dễ thương', pitch: 1.4, rate: 0.86 },
+    normal: { name: 'Bình thường', pitch: 1, rate: 0.92 },
+  };
   function pickVoice() {
     if (!('speechSynthesis' in window)) return;
     const vs = speechSynthesis.getVoices();
@@ -294,7 +299,9 @@
     if (!viVoice) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(speakable(text));
-    u.lang = 'vi-VN'; if (viVoice) u.voice = viVoice; u.rate = 0.92;
+    u.lang = 'vi-VN'; if (viVoice) u.voice = viVoice;
+    const st = VOICE_STYLES[S.settings.voiceStyle] || VOICE_STYLES.cute;
+    u.pitch = st.pitch; u.rate = st.rate;
     if (btn) { btn.classList.add('speaking'); u.onend = u.onerror = () => btn.classList.remove('speaking'); }
     speechSynthesis.speak(u);
     return u;
@@ -789,6 +796,13 @@
       t.onclick = () => { S.settings[key] = !S.settings[key]; t.classList.toggle('on', S.settings[key]); save(); };
       return h('div', { class: 'row' }, h('div', { class: 'grow' }, label), t);
     };
+    const curStyle = VOICE_STYLES[S.settings.voiceStyle] ? S.settings.voiceStyle : 'cute';
+    const styleRow = h('div', { class: 'row' }, h('div', { class: 'grow' }, 'Giọng ISA'),
+      ...Object.entries(VOICE_STYLES).map(([k, v]) => h('button', {
+        class: 'btn small ' + (curStyle === k ? '' : 'ghost'),
+        onclick: () => { S.settings.voiceStyle = k; save(); sh.close(); parentCorner(); speak(`Chào ${S.name || 'bé'}! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.`); },
+      }, v.name)),
+      h('button', { class: 'btn ghost small', onclick: () => speak(`Chào ${S.name || 'bé'}! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.`) }, '🔊 Nghe thử'));
     const nameIn = h('input', { class: 'text-input', value: S.name, maxlength: 16 });
     nameIn.addEventListener('change', () => { S.name = nameIn.value.trim() || S.name; save(); });
     const goalSel = h('div', { class: 'row' }, h('div', { class: 'grow' }, 'Mục tiêu mỗi ngày'),
@@ -823,7 +837,7 @@
         h('div', { class: 'grow' }, `Lớp ${w.r.grade.grade} · ${w.r.lesson.book || ''} · ${w.r.lesson.title}`), h('b', null, U.fmt(w.best) + '/10'),
         h('button', { class: 'btn small', onclick: () => { sh.close(); startLesson(w.r.lesson.id); } }, 'Ôn')))) : h('p', null, 'Chưa có bài nào dưới 7 điểm. 👍'),
       h('h3', null, 'Cài đặt'),
-      toggle('voice', 'Giọng đọc tiếng Việt' + (viVoice ? '' : ' (máy này chưa có giọng tiếng Việt nên app không đọc)')), toggle('autoRead', 'Tự đọc đề bài'), toggle('sound', 'Âm thanh'), goalSel,
+      toggle('voice', 'Giọng đọc tiếng Việt' + (viVoice ? '' : ' (máy này chưa có giọng tiếng Việt nên app không đọc)')), styleRow, toggle('autoRead', 'Tự đọc đề bài'), toggle('sound', 'Âm thanh'), goalSel,
       h('div', { class: 'row' }, h('div', { style: { width: '120px' } }, 'Tên bé'), nameIn),
       resetRow,
       h('div', { class: 'result-actions', style: { marginTop: '14px' } }, h('button', { class: 'btn', onclick: () => { sh.close(); showHome(); } }, 'Xong')));
