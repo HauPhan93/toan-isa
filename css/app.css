@@ -1034,3 +1034,9 @@ body.no-voice .say-btn { display: none; }
 .grade-card > div:not([class]) > .gnum { grid-column: 1; grid-row: 1; justify-self: center; }
 .grade-card > div:not([class]) > .glabel { grid-column: 1; grid-row: 3; }
 .grade-card > div:not([class]) > .gdesc { grid-column: 1 / -1; grid-row: 4; }
+
+/* ---------- Ôn tập & Kiểm tra: Đề thường ⇄ Đề nâng cao, papers built afresh ---------- */
+.exam-mode { max-width: 460px; margin: 0 0 10px; }
+.exam-mode .cm-btn { height: 48px; font-size: 17px; }
+.exam-fresh { font-size: 15px; font-weight: 600; color: var(--ink-2); margin: 0 2px 14px; }
+@media (max-width: 640px) { .exam-mode .cm-btn { height: 44px; font-size: 15px; } .exam-fresh { font-size: 14px; } }

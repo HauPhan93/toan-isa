@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v43';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v44';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
 
   const GRADE_INFO = {
     1: { color: '#F0A500', icon: '🐣', desc: 'Số đến 100 · Cộng, trừ trong phạm vi 10 · Hình, giờ, lịch' },
@@ -28,6 +28,7 @@
     stars: {}, best: {}, plays: {},
     daily: { date: '', count: 0, goal: 20 },
     exams: {},
+    seen: {},      // per grade: questions and kinds of question already met in papers (see rememberPaper)
     totals: { answered: 0, correct: 0, seconds: 0 },
     settings: { voice: true, sound: true, autoRead: false, voiceStyle: 'cute' },
   });
@@ -1214,7 +1215,13 @@
   };
   const termsFor = n => (n >= 4 ? ['giua-hk1', 'cuoi-hk1', 'giua-hk2', 'cuoi-nam'] : ['cuoi-hk1', 'cuoi-nam']);
   const EXAM_DATA = window.EXAMS || [];
-  const examKey = (n, term, no) => `${n}-${term}-${no}`;
+  // Two kinds of paper per kì — Đề thường and Đề nâng cao — each with "Đề số 1…20" to keep the best mark.
+  // A paper is not fixed: every attempt builds a new one on the same ma trận (user request).
+  const PAPERS_PER_MODE = 20;
+  const MODE_NAME = { thuong: 'Đề thường', nc: 'Đề nâng cao' };
+  const examMode = m => (m === 'nc' ? 'nc' : 'thuong');
+  const examKey = (n, term, no, mode) => `${n}-${term}${mode === 'nc' ? '-nc' : ''}-${no}`;
+  const paperName = (no, mode) => (mode === 'nc' ? `Đề nâng cao số ${no}` : `Đề số ${no}`);
   function schoolYear() { const d = new Date(), y = d.getFullYear(); return d.getMonth() >= 7 ? `${y} – ${y + 1}` : `${y - 1} – ${y}`; }
   function strHash(s) { let x = 2166136261; for (const c of s) { x ^= c.charCodeAt(0); x = Math.imul(x, 16777619); } return x >>> 0; }
 
@@ -1267,36 +1274,124 @@
     return null;   // visual answers stay as they are
   }
 
-  // Build "Đề số no" deterministically from a blueprint.
-  function buildPaper(bp, no) {
-    const rng = U.makeRng(strHash(examKey(bp.grade, bp.term, no) + '#paper'));
-    const seen = new Set();
+  const DT_LABEL = 'Đặt tính rồi tính', BT_LABEL = 'Giải bài toán';
+  // The lessons a grade's blueprints use for "Đặt tính rồi tính" / "Giải bài toán": its column-calculation family.
+  const calcFamily = new Map();
+  function calcLessons(n) {
+    if (!calcFamily.has(n)) {
+      const ids = new Set();
+      for (const bp of EXAM_DATA) if (bp.grade === n) for (const part of bp.parts) for (const it of part.items) {
+        if (it.label === DT_LABEL || it.label === BT_LABEL) (it.lesson ? [it.lesson] : it.pick || []).forEach(id => ids.add(id));
+      }
+      calcFamily.set(n, ids);
+    }
+    return calcFamily.get(n);
+  }
+  // The lessons one slot of the ma trận may draw from: the blueprint's own lesson(s) ("base") plus, so that papers
+  // differ while staying on the kì's content, lessons of the same chủ đề inside the kì's scope ("extra").
+  // A slot with its own instruction ("Tính giá trị của biểu thức"…) keeps to its own lessons.
+  function slotPool(bp, it, scope) {
+    const base = (it.lesson ? [it.lesson] : it.pick || []).filter(id => LESSONS.has(id));
+    let extra = [];
+    if (it.label === DT_LABEL || it.label === BT_LABEL) {
+      extra = [...calcLessons(bp.grade)].filter(id => scope.has(id) && LESSONS.has(id) && typeof LESSONS.get(id).lesson.exam === 'function');
+    } else if (!it.label) {
+      const topics = new Set(base.map(id => LESSONS.get(id).topic));
+      extra = [...scope].filter(id => LESSONS.has(id) && topics.has(LESSONS.get(id).topic));
+    }
+    extra = extra.filter(id => !base.includes(id));
+    // "wide": any other lesson the kì covers (for the cuối năm paper: of học kì II), used now and then by an
+    // unlabelled slot so that, over many papers, every lesson of the kì turns up
+    let wide = [];
+    if (!it.label) {
+      const g = gradeOf(bp.grade);
+      const main = bp.term === 'cuoi-nam' && g ? new Set(semLessons(g, 2).map(l => l.id)) : scope;
+      wide = [...main].filter(id => LESSONS.has(id) && !base.includes(id) && !extra.includes(id));
+    }
+    return { base, extra, wide };
+  }
+
+  // What the child has already met, per grade: exact questions (not given again while others exist) and kinds of
+  // question (the more often met, the less often chosen). Filled when a paper is opened (user: "biết bé đã làm
+  // các câu hỏi nào rồi để không bị xào trúng").
+  const SEEN_Q_MAX = 1500, SEEN_KIND_MAX = 900;
+  function seenOf(n) {
+    if (!S.seen || typeof S.seen !== 'object') S.seen = {};
+    const k = String(n);
+    if (!S.seen[k] || !Array.isArray(S.seen[k].q)) S.seen[k] = { q: [], s: {} };
+    return S.seen[k];
+  }
+  const qSig = q => strHash(q.prompt);
+  const kindSig = (id, q) => String(strHash(id + '|' + q.prompt.replace(/\d+(?:[.,]\d+)*/g, '#')));
+  function rememberPaper(n, parts) {
+    const sn = seenOf(n);
+    for (const part of parts) for (const it of part.items) {
+      sn.q.push(qSig(it.q));
+      const k = kindSig(it.lessonId, it.q);
+      sn.s[k] = (sn.s[k] || 0) + 1;
+    }
+    if (sn.q.length > SEEN_Q_MAX) sn.q = sn.q.slice(-SEEN_Q_MAX);
+    const keys = Object.keys(sn.s);
+    if (keys.length > SEEN_KIND_MAX) for (const k of keys) { sn.s[k] = Math.floor(sn.s[k] / 2); if (!sn.s[k]) delete sn.s[k]; }
+    save();
+  }
+
+  // Build one paper from a blueprint. The ma trận stays (parts, points, mức); each slot takes a lesson from its
+  // pool and, among a few candidates, the question the child has met least. opts.seed makes each attempt a new
+  // paper; opts.mode 'nc' (Đề nâng cao) moves every slot except "Đặt tính rồi tính" one mức up.
+  function buildPaper(bp, no, opts) {
+    opts = opts || {};
+    const mode = examMode(opts.mode);
+    const rng = U.makeRng(strHash(String(opts.seed != null ? opts.seed : examKey(bp.grade, bp.term, no, mode) + '#paper')));
+    const g = gradeOf(bp.grade);
+    const scope = new Set(g ? scopeLessons(g, bp.term).map(l => l.id) : []);
+    const sn = opts.memory === false ? { q: [], s: {} } : seenOf(bp.grade);
+    const metQ = new Set(sn.q);
+    const seen = new Set(), used = new Map();
     const parts = [];
-    let num = 0;
     for (const part of bp.parts) {
-      const items = [];
+      const isTN = /TRẮC NGHIỆM/i.test(part.title);
+      let items = [];
       for (const it of part.items) {
-        let made = null;
-        for (let tries = 0; tries < 12 && !made; tries++) {
-          const id = it.lesson || (it.pick && it.pick.length ? U.pick(rng, it.pick) : null);
+        const pool = slotPool(bp, it, scope);
+        const lv = Math.min(3, (it.level || 2) + (mode === 'nc' && it.label !== DT_LABEL ? 1 : 0));
+        let best = null, valid = 0;
+        for (let tries = 0; tries < 16 && valid < 6; tries++) {
+          // mostly the blueprint's own lesson, often a neighbour of the same chủ đề, now and then (trắc nghiệm
+          // only) another lesson of the kì
+          const r = rng();
+          const src = isTN && pool.wide.length && r < 0.18 ? pool.wide
+            : pool.extra.length && (r < 0.58 || !pool.base.length) ? pool.extra
+            : pool.base.length ? pool.base : pool.extra.length ? pool.extra : pool.wide;
+          const fromExtra = src !== pool.base;
+          const id = src.length ? U.pick(rng, src) : null;
           const rec = id && LESSONS.get(id);
           if (!rec) continue;
-          const L = rec.lesson, lv = it.level || 2;
+          const L = rec.lesson;
           const qr = U.makeRng(Math.floor(rng() * 4294967295));
           const i = lv === 1 ? U.rand(qr, 0, 3) : lv === 2 ? U.rand(qr, 4, 6) : U.rand(qr, 7, 9);
           let q;
           try { q = tidyQuestion(typeof L.exam === 'function' ? L.exam(qr, lv) : L.gen(qr, i)); } catch (e) { console.error('exam gen', id, e); continue; }
           if (!q || !q.prompt || !q.answer || seen.has(q.prompt)) continue;
           if (q.answer.kind === 'visual' && !HAS_V) continue;
+          valid++;
           let answer = q.answer;
-          if (it.form === 'choice') { answer = choiceFromAnswer(qr, q) || q.answer; }
-          made = { q, answer, points: it.points || 1, level: lv, label: it.label || '', lessonId: id };
-          seen.add(q.prompt);
+          // a trắc nghiệm slot always offers A B C D, also for a question borrowed from a neighbouring lesson
+          if (it.form === 'choice' || (fromExtra && isTN)) answer = choiceFromAnswer(qr, q) || q.answer;
+          const cost = (metQ.has(qSig(q)) ? 1e6 : 0) + (sn.s[kindSig(id, q)] || 0) * 100 + (used.get(id) || 0) * 40 + rng();
+          if (!best || cost < best.cost) best = { cost, q, answer, id };
+          if (cost < 1) break;   // a kind of question never met, from a lesson not yet in this paper
         }
-        if (made) { made.no = ++num; items.push(made); }
+        if (best) {
+          seen.add(best.q.prompt); used.set(best.id, (used.get(best.id) || 0) + 1);
+          items.push({ q: best.q, answer: best.answer, points: it.points || 1, level: lv, label: it.label || '', lessonId: best.id });
+        }
       }
+      if (isTN) items = U.shuffle(rng, items);   // the order of the trắc nghiệm questions changes too
       parts.push({ title: part.title, note: part.note || '', items });
     }
+    let num = 0;
+    for (const part of parts) for (const it of part.items) it.no = ++num;
     return parts;
   }
   const roundScore = x => Math.floor(x + 0.5);   // Thông tư 27: no decimal marks; 0,5 rounds up
@@ -1311,59 +1406,70 @@
       const terms = h('div', { class: 'exam-terms' });
       for (const term of termsFor(n)) {
         const bp = g ? blueprintFor(n, term) : null;
-        const best = bp ? Math.max(-1, ...Array.from({ length: bp.papers || 6 }, (_, k) => (S.exams[examKey(n, term, k + 1)] || {}).best ?? -1)) : -1;
+        const best = bp ? Math.max(-1, ...['thuong', 'nc'].flatMap(m => Array.from({ length: PAPERS_PER_MODE }, (_, k) => (S.exams[examKey(n, term, k + 1, m)] || {}).best ?? -1))) : -1;
         terms.append(h('button', { class: 'exam-term' + (bp ? '' : ' soon'), onclick: e => { sfx.tap(); if (!bp) return toast(`Đề lớp ${n} đang được soạn…`); peekThen(e.currentTarget.closest('.exam-grade'), () => showExamList(n, term), 'Cố lên nào!'); } },
           h('span', { class: 'et-name' }, TERMS[term].name),
-          h('span', { class: 'et-best' }, bp ? (best >= 0 ? `Cao nhất: ${best} điểm` : `${bp.papers || 6} đề`) : 'Sắp có')));
+          h('span', { class: 'et-best' }, bp ? (best >= 0 ? `Cao nhất: ${best} điểm` : `${PAPERS_PER_MODE * 2} đề`) : 'Sắp có')));
       }
       grid.append(h('section', { class: 'card exam-grade', 'data-peek': `Lớp ${n} nè!`, 'data-say': `Bé ơi, đề lớp ${n} nè!`, style: { '--gc': info.color } },
         h('div', { class: 'topic-head' }, h('div', { class: 'topic-icon' }, info.icon), h('div', null, h('div', { class: 'topic-title' }, 'Lớp ' + n), h('div', { class: 'topic-meta' }, n >= 4 ? 'Giữa kì và cuối kì' : 'Cuối học kì I và cuối năm'))),
         terms));
     }
     wrap.append(h('div', { class: 'exam-intro' }, h('div', { class: 'mini-mascot' }, mascot('happy')),
-      h('div', null, h('b', null, 'Ôn tập & Kiểm tra'), h('div', null, 'Đề kiểm tra định kì môn Toán theo mẫu đề của Bộ GD&ĐT (Thông tư 27): Phần I Trắc nghiệm, Phần II Tự luận, chấm thang điểm 10.'))), grid);
+      h('div', null, h('b', null, 'Ôn tập & Kiểm tra'), h('div', null, 'Đề kiểm tra định kì môn Toán theo mẫu đề của Bộ GD&ĐT (Thông tư 27): Phần I Trắc nghiệm, Phần II Tự luận, chấm thang điểm 10. Có đề thường và đề nâng cao; mỗi lần làm là một đề mới.'))), grid);
     screen(topbar('Ôn tập & Kiểm tra 📝', 'Chọn lớp và kì kiểm tra', homeBtn(), [coinPill(), parentBtn()]), wrap);
     Peek.bind(grid, '.exam-grade');
   }
 
-  function showExamList(n, term) {
+  function showExamList(n, term, mode) {
     stopSpeech();
     const bp = blueprintFor(n, term); if (!bp) return showExamHome();
+    mode = examMode(mode || S.settings.examMode);
     const info = GRADE_INFO[n];
-    const count = bp.papers || 6;
-    const nQ = bp.parts.reduce((s, p) => s + p.items.length, 0);
+    const nQ = bp.parts.reduce((t, part) => t + part.items.length, 0);
     const list = h('div', { class: 'lessons exam-papers' });
-    for (let no = 1; no <= count; no++) {
-      const rec = S.exams[examKey(n, term, no)];
-      list.append(h('button', { class: 'lesson-tile' + (rec ? ' done' : ''), onclick: () => { sfx.tap(); confirmStart(n, term, no); } },
-        h('div', { class: 'lb' }, TERMS[term].name), h('div', { class: 'lt' }, 'Đề số ' + no),
+    for (let no = 1; no <= PAPERS_PER_MODE; no++) {
+      const rec = S.exams[examKey(n, term, no, mode)];
+      list.append(h('button', { class: 'lesson-tile' + (rec ? ' done' : ''), onclick: () => { sfx.tap(); confirmStart(n, term, no, mode); } },
+        h('div', { class: 'lb' }, TERMS[term].name + (mode === 'nc' ? ' · nâng cao' : '')), h('div', { class: 'lt' }, 'Đề số ' + no),
         h('div', { class: 'paper-score' }, rec ? `Điểm cao nhất: ${rec.best}/10` : `${nQ} câu · ${bp.minutes} phút`)));
     }
+    // Đề thường ⇄ Đề nâng cao (user request); the choice is remembered
+    const swap = h('div', { class: 'col-mode exam-mode' }, ...['thuong', 'nc'].map(m => h('button', {
+      class: 'cm-btn' + (m === mode ? ' on' : ''),
+      onclick: () => { if (m === mode) return; sfx.tap(); S.settings.examMode = m; save(); showExamList(n, term, m); },
+    }, (m === 'nc' ? '🚀 ' : '📝 ') + MODE_NAME[m])));
     const sc = h('div', { class: 'scroll' },
       h('section', { class: 'card topic', style: { '--gc': info.color } },
-        h('div', { class: 'topic-head' }, h('div', { class: 'topic-icon' }, '📝'),
-          h('div', null, h('div', { class: 'topic-title' }, `${TERMS[term].name} · Lớp ${n}`),
-            h('div', { class: 'topic-meta' }, `Mỗi đề ${nQ} câu, ${bp.minutes} phút, thang điểm 10` + (bp.auto ? ' · đề tạm, đề chuẩn đang được soạn' : '')))),
+        h('div', { class: 'topic-head' }, h('div', { class: 'topic-icon' }, mode === 'nc' ? '🚀' : '📝'),
+          h('div', null, h('div', { class: 'topic-title' }, `${TERMS[term].name} · Lớp ${n} · ${MODE_NAME[mode]}`),
+            h('div', { class: 'topic-meta' }, `Mỗi đề ${nQ} câu, ${bp.minutes} phút, thang điểm 10` + (mode === 'nc' ? ' · nhiều câu vận dụng hơn' : '') + (bp.auto ? ' · đề tạm, đề chuẩn đang được soạn' : '')))),
+        swap,
+        h('div', { class: 'exam-fresh' }, 'Mỗi lần làm là một đề mới: ISA xáo câu hỏi trong nội dung của kì này và tránh những câu bé đã gặp.'),
         list));
     screen(topbar(`Lớp ${n} · ${TERMS[term].name}`, 'Chọn một đề để làm', backBtn(showExamHome), [coinPill()]), sc);
   }
 
-  function confirmStart(n, term, no) {
+  function confirmStart(n, term, no, mode) {
+    mode = examMode(mode);
     const bp = blueprintFor(n, term);
-    const sh = sheet(h('h2', null, `📝 Đề số ${no}`),
+    const sh = sheet(h('h2', null, `${mode === 'nc' ? '🚀' : '📝'} ${paperName(no, mode)}`),
       h('p', { style: { fontSize: '19px', fontWeight: 600 } }, `${TERMS[term].name} · Lớp ${n} · ${bp.minutes} phút`),
       h('p', null, 'Bé đọc kĩ từng câu, làm xong hết thì bấm "Nộp bài". Đồng hồ sẽ đếm ngược, hết giờ bài tự nộp.'),
       h('div', { class: 'result-actions', style: { marginTop: '14px' } },
         h('button', { class: 'btn ghost small', onclick: () => sh.close() }, 'Để sau'),
-        h('button', { class: 'btn', onclick: () => { sh.close(); startExam(n, term, no); } }, 'Bắt đầu làm bài ✏️')));
+        h('button', { class: 'btn', onclick: () => { sh.close(); startExam(n, term, no, mode); } }, 'Bắt đầu làm bài ✏️')));
   }
 
   /* ---------- the paper ---------- */
   let examTimer = null;
-  function startExam(n, term, no) {
+  function startExam(n, term, no, mode, seed) {
     stopSpeech(); clearInterval(examTimer);
+    mode = examMode(mode);
     const bp = blueprintFor(n, term);
-    const parts = buildPaper(bp, no);
+    // every attempt is a new paper; the questions it shows are remembered so later papers avoid them
+    const parts = buildPaper(bp, no, { mode, seed: seed != null ? seed : `${examKey(n, term, no, mode)}#${Date.now()}#${Math.random()}` });
+    rememberPaper(n, parts);
     const all = parts.flatMap(p => p.items);
     const total = all.reduce((s, it) => s + it.points, 0);
     const t0 = Date.now(), limit = (bp.minutes || 40) * 60000;
@@ -1377,7 +1483,7 @@
       h('div', { class: 'ep-head' },
         h('div', { class: 'ep-school' }, h('div', null, 'TRƯỜNG TIỂU HỌC ISA'), h('div', null, 'Họ và tên: ................'), h('div', null, `Lớp: ${n}`)),
         h('div', { class: 'ep-title' }, h('div', { class: 'ep-t1' }, bp.title || TERMS[term].title), h('div', null, `NĂM HỌC ${schoolYear()}`),
-          h('div', { class: 'ep-t2' }, `Môn: Toán – Lớp ${n}`), h('div', { class: 'ep-t3' }, `Thời gian làm bài: ${bp.minutes} phút · Đề số ${no}`))),
+          h('div', { class: 'ep-t2' }, `Môn: Toán – Lớp ${n}`), h('div', { class: 'ep-t3' }, `Thời gian làm bài: ${bp.minutes} phút · ${paperName(no, mode)}`))),
       h('div', { class: 'ep-boxes' }, scoreBox, commentBox));
 
     const states = [];
@@ -1476,7 +1582,7 @@
       scoreBox.querySelector('.ep-num').textContent = final;
       const cmt = final >= 9 ? 'Hoàn thành tốt, bé làm rất tốt!' : final >= 7 ? 'Bài làm tốt, cố gắng thêm chút nữa nhé.' : final >= 5 ? 'Hoàn thành. Bé xem lại các câu sai nhé.' : 'Bé ôn lại các bài sau rồi làm lại đề nhé.';
       commentBox.querySelector('.ep-cmt').textContent = cmt;
-      const key = examKey(n, term, no);
+      const key = examKey(n, term, no, mode);
       const prev = S.exams[key] || {};
       S.exams[key] = { best: Math.max(prev.best ?? 0, final), last: final, raw, at: Date.now(), tries: (prev.tries || 0) + 1 };
       S.coins += final; S.totals.seconds += Math.round((Date.now() - t0) / 1000);
@@ -1494,9 +1600,9 @@
           h('div', null, auto ? 'Hết giờ, bài đã tự nộp. ' : '', `${cmt} (đúng ${U.fmt(got)}/${U.fmt(total)} điểm` + (raw !== final ? `, làm tròn ${U.fmt(raw)} → ${final}` : '') + `) · +${final} ⭐`),
           weak.length ? h('div', { class: 'es-weak' }, 'Nên ôn lại: ', ...weak.slice(0, 4).map(r => h('button', { class: 'chip', onclick: () => { sfx.tap(); startLesson(r.lesson.id); } }, `${r.lesson.book || ''} ${r.lesson.title}`))) : null,
           h('div', { class: 'result-actions', style: { justifyContent: 'flex-start' } },
-            h('button', { class: 'btn ghost small', onclick: () => { sfx.tap(); startExam(n, term, no); } }, '↻ Làm lại đề này'),
-            no < (bp.papers || 6) ? h('button', { class: 'btn small', onclick: () => { sfx.tap(); confirmStart(n, term, no + 1); } }, `Đề số ${no + 1} ▶`) : null,
-            h('button', { class: 'btn ghost small', onclick: () => { sfx.tap(); showExamList(n, term); } }, 'Danh sách đề'))));
+            h('button', { class: 'btn ghost small', onclick: () => { sfx.tap(); startExam(n, term, no, mode); } }, '↻ Làm đề mới'),
+            no < PAPERS_PER_MODE ? h('button', { class: 'btn small', onclick: () => { sfx.tap(); confirmStart(n, term, no + 1, mode); } }, `Đề số ${no + 1} ▶`) : null,
+            h('button', { class: 'btn ghost small', onclick: () => { sfx.tap(); showExamList(n, term, mode); } }, 'Danh sách đề'))));
       sc.prepend(summary);
       sc.scrollTo({ top: 0, behavior: 'smooth' });
       submitBtn.style.display = 'none';
@@ -1513,14 +1619,14 @@
           h('button', { class: 'btn small', onclick: () => { sh.close(); submit(false); } }, 'Nộp bài')));
     };
     const quit = () => {
-      if (submitted) { clearInterval(examTimer); pad.close(); return showExamList(n, term); }
+      if (submitted) { clearInterval(examTimer); pad.close(); return showExamList(n, term, mode); }
       const sh = sheet(h('h2', null, 'Thoát bài kiểm tra?'), h('p', { style: { fontSize: '19px' } }, 'Bài làm sẽ không được lưu.'),
         h('div', { class: 'result-actions', style: { marginTop: '14px' } },
           h('button', { class: 'btn ghost small', onclick: () => sh.close() }, 'Làm tiếp'),
-          h('button', { class: 'btn small', onclick: () => { sh.close(); clearInterval(examTimer); pad.close(); showExamList(n, term); } }, 'Thoát')));
+          h('button', { class: 'btn small', onclick: () => { sh.close(); clearInterval(examTimer); pad.close(); showExamList(n, term, mode); } }, 'Thoát')));
     };
     const sc = h('div', { class: 'scroll exam-scroll' }, paper);
-    screen(topbar(`Lớp ${n} · ${TERMS[term].name}`, `Đề số ${no}`, backBtn(quit), [clock, submitBtn]), sc);
+    screen(topbar(`Lớp ${n} · ${TERMS[term].name}`, paperName(no, mode), backBtn(quit), [clock, submitBtn]), sc);
     if (window.Scratch) Scratch.attach('exam:' + t0);   // giấy nháp for this sitting
     examTimer = setInterval(() => {
       const left = limit - (Date.now() - t0);
@@ -1588,10 +1694,10 @@
   const hash = new URLSearchParams(location.hash.slice(1));
   if (hash.get('lesson') && LESSONS.has(hash.get('lesson'))) { startLesson(hash.get('lesson')); }
   else if (hash.get('practice') && LESSONS.has(hash.get('practice'))) { showPractice(LESSONS.get(hash.get('practice')), Number(hash.get('q')) || 0); }
-  else if (hash.get('exam')) { const [gn, t1, t2, no] = hash.get('exam').split('-'); startExam(Number(gn), t1 + '-' + t2, Number(no) || 1); }
+  else if (hash.get('exam')) { const [gn, t1, t2, a, b] = hash.get('exam').split('-'); startExam(Number(gn), t1 + '-' + t2, Number(a === 'nc' ? b : a) || 1, a === 'nc' ? 'nc' : 'thuong'); }
   else if (hash.get('exams') != null) { showExamHome(); }
   else if (hash.get('grade') && gradeOf(Number(hash.get('grade')))) { showMap(Number(hash.get('grade')), Number(hash.get('hk')) || 1); }
   else showHome();
 
-  window.ToanISA = { state: () => S, startLesson, showHome, showMap, showExamHome, startExam, buildPaper, blueprintFor };
+  window.ToanISA = { state: () => S, startLesson, showHome, showMap, showExamHome, startExam, buildPaper, blueprintFor, rememberPaper, slotPool, scopeLessons };
 })();
