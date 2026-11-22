@@ -1,5 +1,5 @@
 /* Toán ISA service worker: offline cache. Bump VERSION whenever app files change. */
-const VERSION = 'toanisa-v9';
+const VERSION = 'toanisa-v10';
 const CORE = [
   './', './index.html', './css/app.css', './manifest.webmanifest',
   './js/util.js', './js/visuals.js', './js/scratch.js', './js/core.js',

@@ -285,7 +285,11 @@
       .replace(/(\d)[\s\u202F](?=\d{3}\b)/g, '$1')
       .replace(/×/g, ' nhân ').replace(/(\d)\s*:\s*(\d)/g, '$1 chia $2').replace(/\s:\s/g, ' chia ')
       .replace(/=\s*\?+/g, ' bằng bao nhiêu')
-      .replace(/[−-](?=\s*\d)/g, ' trừ ').replace(/\+/g, ' cộng ').replace(/=/g, ' bằng ')
+      .replace(/ô \?/g, 'ô trống')
+      .replace(/(\d)\s*\?\?\s*(?=\d)/g, '$1, so với ')                      // "2 + 9 ?? 8 + 8" (chọn dấu)
+      .replace(/[−-](?=\s*[\d?])/g, ' trừ ').replace(/\+/g, ' cộng ').replace(/=/g, ' bằng ')
+      // a lone "?" standing for a number: "8 + ? = 17" → "8 cộng mấy bằng 17" (a question mark ending a sentence stays)
+      .replace(/((?:cộng|trừ|nhân|chia|bằng)\s*)\?(?!\?)/g, '$1 mấy ').replace(/(^|\s)\?(?=\s*(?:cộng|trừ|nhân|chia|bằng))/g, '$1mấy')
       .replace(/</g, ' bé hơn ').replace(/>/g, ' lớn hơn ')
       .replace(/\?\?|…|\.\.\./g, ' bao nhiêu ')
       .replace(/km²/g, ' ki-lô-mét vuông').replace(/dm²/g, ' đề-xi-mét vuông').replace(/cm²/g, ' xăng-ti-mét vuông').replace(/mm²/g, ' mi-li-mét vuông').replace(/m²/g, ' mét vuông')
@@ -743,6 +747,16 @@
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
   /* ---------- result ---------- */
+  // Spoken encouragement by score (out of 10), shared by lessons and exams (user request).
+  const CHEERS = {
+    top: ['Bé làm rất tốt! Giỏi quá đi!', 'Bé làm rất tốt! ISA tự hào về bé lắm!', 'Bé làm rất tốt! Đúng là siêu sao Toán!'],
+    good: ['Bé làm tốt lắm! Bé hãy cố gắng thêm chút nữa nhé!', 'Giỏi lắm! Bé hãy cố gắng thêm một chút là được điểm tối đa nhé!'],
+    ok: ['Bé hãy cố gắng nhé! Mình xem lại các câu sai cùng nhau nha.', 'Bé hãy cố gắng nhé! Làm lại một lần nữa là bé tiến bộ ngay.'],
+    low: ['Không sao đâu! Bé cố gắng lên vào lần kế tiếp nhé!', 'Bé cố gắng lên vào lần kế tiếp nhé! ISA luôn ở bên bé.'],
+  };
+  const cheerBand = s => (s >= 9 ? 'top' : s >= 7 ? 'good' : s >= 5 ? 'ok' : 'low');
+  const cheerFor = s => U.pick(Math.random, CHEERS[cheerBand(s)]);
+
   function finishLesson(run) {
     clearInterval(run.timer);
     const L = run.rec.lesson, n = run.rec.grade.grade;
@@ -760,7 +774,7 @@
     const all = lessonList(run.rec.grade);
     const idx = all.indexOf(L);
     const nextL = all[idx + 1];
-    const msg = stars === 3 ? 'Xuất sắc! Con làm đúng gần hết!' : stars === 2 ? 'Giỏi lắm! Thêm chút nữa là được 3 sao!' : stars === 1 ? 'Cố lên! Con làm lại để được nhiều sao hơn nhé!' : 'Không sao đâu! Mình xem lại phần Khám phá rồi thử lại nhé!';
+    const msg = cheerFor(sc * 10 / QUESTIONS_PER_LESSON);
     const bs = h('div', { class: 'big-stars' });
     for (let k = 0; k < 3; k++) bs.append(h('span', { class: k < stars ? '' : 'star-off' }, '⭐'));
     screen(
@@ -776,7 +790,7 @@
             stars === 0 && L.learn && L.learn.length ? h('button', { class: 'btn teal', onclick: () => { sfx.tap(); showLearn(run.rec, 0); } }, '💡 Xem lại') : null,
             nextL ? h('button', { class: 'btn', onclick: () => { sfx.tap(); startLesson(nextL.id); } }, 'Bài tiếp ▶') : null,
             h('button', { class: 'btn ghost', onclick: () => { sfx.tap(); showMap(n, lessonSem(L.id)); } }, '🗺️ Bản đồ')))));
-    speak(msg);
+    setTimeout(() => speak(msg), 600);   // after the result sound
   }
 
   /* ---------- parent corner ---------- */
@@ -875,7 +889,7 @@
     const tn = [1, 1, 1, 2, 2, 3].map((lv, k) => ({ pick: k < 4 ? scope : hk2Only.length ? hk2Only : scope, level: lv, points: 0.5, form: 'choice' }));
     const tl = [[1, 2], [2, 2], [2, 2], [3, 1]].map(([lv, pt]) => ({ pick: hk2Only.length ? hk2Only : scope, level: lv, points: pt, form: 'input' }));
     return {
-      grade: g.grade, term, auto: true, title: TERMS[term].title, minutes: g.grade <= 2 ? 35 : 40, papers: 6,
+      grade: g.grade, term, auto: true, title: TERMS[term].title, minutes: g.grade <= 2 ? 35 : 40, papers: 10,
       parts: [
         { title: 'PHẦN I. TRẮC NGHIỆM', note: 'Khoanh vào chữ đặt trước câu trả lời đúng.', items: tn },
         { title: 'PHẦN II. TỰ LUẬN', note: 'Viết kết quả vào chỗ chấm.', items: tl },
@@ -1123,12 +1137,15 @@
       S.coins += final; S.totals.seconds += Math.round((Date.now() - t0) / 1000);
       save();
       if (final >= 9) { sfx.win(); confetti(110); } else sfx.good();
+      const cheer = cheerFor(final);
+      setTimeout(() => speak(cheer), 600);   // after the result sound
       // weak lessons from this paper → quick links to practise
       const weak = [...new Set(states.filter(st => st.el.classList.contains('wrong')).map(st => st.it.lessonId))].map(id => LESSONS.get(id)).filter(Boolean);
       const summary = h('div', { class: 'card exam-summary' },
         h('div', { class: 'mini-mascot' }, mascot(final >= 7 ? 'cheer' : 'think')),
         h('div', { class: 'es-body' },
           h('div', { class: 'es-score' }, `${final}`, h('small', null, '/10 điểm')),
+          h('div', { class: 'es-cheer' }, cheer),
           h('div', null, auto ? 'Hết giờ, bài đã tự nộp. ' : '', `${cmt} (đúng ${U.fmt(got)}/${U.fmt(total)} điểm` + (raw !== final ? `, làm tròn ${U.fmt(raw)} → ${final}` : '') + `) · +${final} ⭐`),
           weak.length ? h('div', { class: 'es-weak' }, 'Nên ôn lại: ', ...weak.slice(0, 4).map(r => h('button', { class: 'chip', onclick: () => { sfx.tap(); startLesson(r.lesson.id); } }, `${r.lesson.book || ''} ${r.lesson.title}`))) : null,
           h('div', { class: 'result-actions', style: { justifyContent: 'flex-start' } },

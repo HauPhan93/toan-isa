@@ -36,7 +36,7 @@
     ];
     const sum = parts.reduce((s, p) => s + p.items.reduce((t, it) => t + it.points, 0), 0);
     if (Math.abs(sum - 10) > 1e-9 && window.console) console.warn('dethi: points ≠ 10', grade, term, sum);
-    window.EXAMS.push({ grade, term, title: TITLES[term], minutes: grade === 2 ? 35 : 40, papers: 6, parts });
+    window.EXAMS.push({ grade, term, title: TITLES[term], minutes: grade === 2 ? 35 : 40, papers: 10, parts });
   }
   const DT = 'Đặt tính rồi tính';
   const BT = 'Giải bài toán';

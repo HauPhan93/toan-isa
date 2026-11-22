@@ -14,7 +14,7 @@
     term: 'cuoi-hk1',
     title: 'Đề kiểm tra cuối học kì I',
     minutes: 35,
-    papers: 6,
+    papers: 10,
     parts: [{
       title: 'PHẦN I. TRẮC NGHIỆM',
       note: 'Khoanh vào chữ đặt trước câu trả lời đúng.',
@@ -44,7 +44,7 @@
     term: 'cuoi-nam',
     title: 'Đề kiểm tra cuối năm học',
     minutes: 35,
-    papers: 6,
+    papers: 10,
     parts: [{
       title: 'PHẦN I. TRẮC NGHIỆM',
       note: 'Khoanh vào chữ đặt trước câu trả lời đúng.',

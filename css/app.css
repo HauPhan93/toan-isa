@@ -624,3 +624,4 @@ body.no-voice .say-btn { display: none; }
   .exam-pad .keypad > :nth-child(7) { order: 1; }  .exam-pad .keypad > :nth-child(8) { order: 2; }  .exam-pad .keypad > :nth-child(9) { order: 3; }
   .exam-pad .keypad > :nth-child(10) { order: 11; } .exam-pad .keypad > :nth-child(11) { order: 10; } .exam-pad .keypad > :nth-child(12) { order: 12; }
 }
+.es-cheer { font-size: 22px; font-weight: 900; color: var(--ink); margin: 2px 0 4px; }
