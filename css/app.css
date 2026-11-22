@@ -384,7 +384,7 @@ input { font: inherit; }
 
 /* short sums without a picture: write them big in the middle of the board */
 .board.big .qhead { flex: 1; align-items: center; }
-.board.big .qtext { text-align: center; font-size: 76px; letter-spacing: 2px; margin-top: 0; }
+.board.big .qtext { text-align: center; font-size: 76px; letter-spacing: 0; margin-top: 0; }
 .board .qtext .slot { display: inline-block; min-width: 1.6em; padding: 0 .15em; text-align: center; border-bottom: 3px dashed rgba(244, 247, 242, .55); color: var(--chalk-y); line-height: 1.05; }
 .board .qtext .slot.empty { color: rgba(244, 247, 242, .55); }
 .board .qtext .slot.right { color: var(--chalk-g); border-bottom-color: var(--chalk-g); }
@@ -660,3 +660,10 @@ body.no-voice .say-btn { display: none; }
 .board .qvisual { overflow: hidden; }
 .board .qvisual > .viz { max-height: 100%; display: flex; flex-direction: column; justify-content: center; }
 .board .qvisual > .viz > svg { min-height: 0; flex: 0 1 auto; max-height: min(320px, 100%); }
+
+/* ---------- Khám phá: the picture always fits the card, no scrolling (user: bé phải cuộn) ---------- */
+.learn-viz { overflow: hidden; }
+.learn-viz > .viz { max-height: 100%; display: flex; flex-direction: column; justify-content: center; }
+.learn-viz > .viz > svg { min-height: 0; flex: 0 1 auto; }
+/* fitViz measures pictures with their entrance animations off */
+.viz-measure, .viz-measure * { animation: none !important; transition: none !important; }

@@ -838,7 +838,7 @@
     const a = num(p.a, NaN), b = num(p.b, NaN);
     if (!isFinite(a) || !isFinite(b) || a < 0 || b < 0) throw new Error('bad numbers');
     if (op === ':') return divCalc(p, ctx, root, a, b, reveal);
-    const CW = 40, RH = 50, FS = 34;
+    const CW = 31, RH = 50, FS = 34;   // digit columns close together, as written in a notebook
     const resCol = isBoard() ? K.sun : K.teal, carryCol = K.orange;
     const box = (gp, x, y) => rect(gp, x - CW / 2 + 3, y - RH / 2 + 5, CW - 6, RH - 10, 8, tint(K.sky, 0.12), K.sky, 2, { dash: '5 4' });
     const captions = [''];
@@ -961,7 +961,7 @@
       const gp = stg.S(c.stage);
       if (c.kind === 'carry') {
         if (c.row === -1) T(gp, cx(c.c), ry(0) - RH / 2 - 6, c.ch, { size: 17, fill: K.orange, weight: 800 });
-        else T(gp, cx(c.c) + 17, ry(1) + 15, c.ch, { size: 15, fill: K.orange, weight: 800 });
+        else T(gp, cx(c.c) + CW * 0.45, ry(1) + 15, c.ch, { size: 15, fill: K.orange, weight: 800 });
         return;
       }
       T(gp, cx(c.c), ry(c.row), c.ch, { size: FS, weight: 700, fill: c.row >= 2 ? resCol : K.ink });
@@ -1052,7 +1052,7 @@
   }
 
   function divCalc(p, ctx, root, a, b, reveal) {
-    const CW = 38, RH = 46, FS = 32;
+    const CW = 29, RH = 46, FS = 32;
     const resCol = isBoard() ? K.sun : K.teal;
     if (a !== Math.floor(a) || b !== Math.floor(b) || b < 1) {
       const g = svgIn(root, 300, 80);

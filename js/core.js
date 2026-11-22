@@ -84,9 +84,36 @@
   const HAS_V = !!(window.V && typeof V.render === 'function');
   function viz(spec, ctx) {
     if (!spec || !spec.type || !HAS_V) return null;   // no visuals library: show the text only
-    try { return V.render(spec.type, spec.params || {}, ctx || {}); }
+    try { const el = V.render(spec.type, spec.params || {}, ctx || {}); fitViz(el, spec, ctx || {}); return el; }
     catch (e) { console.error('visual failed', spec, e); }
     return null;
+  }
+  // Centre every picture on what it actually shows: once the picture is on screen, its viewBox is fitted to
+  // the drawn content (plus a margin), so a layout drawn in a corner — a short division, a tape, an angle —
+  // sits in the middle of the board. Never zooms in more than 1.6×. Pictures that grow while the child works
+  // (interactive, step-by-step) keep their frame.
+  function fitViz(el, spec, ctx) {
+    const svg = el && el.querySelector(':scope > svg');
+    if (!svg || spec.type === 'mascot' || ctx.interactive || (spec.params && spec.params.reveal === 'steps')) return;
+    let tries = 0;
+    const run = () => {
+      if (!svg.isConnected) { if (tries++ < 120) requestAnimationFrame(run); return; }
+      const g = svg.querySelector(':scope > g'), vb = svg.viewBox.baseVal;
+      if (!g || !vb || !vb.width) return;
+      svg.classList.add('viz-measure');               // measure the final layout, not mid-animation
+      let bb; try { bb = g.getBBox(); } catch (e) { bb = null; }
+      svg.classList.remove('viz-measure');
+      if (!bb || bb.width < 4 || bb.height < 4) return;
+      const pad = Math.max(10, Math.min(vb.width, vb.height) * 0.05);
+      let w = bb.width + 2 * pad, hgt = bb.height + 2 * pad;
+      const cx = bb.x + bb.width / 2, cy = bb.y + bb.height / 2;
+      w = Math.max(w, vb.width / 1.6); hgt = Math.max(hgt, vb.height / 1.6);   // zoom in at most 1.6×
+      // already centred and tight: leave it
+      if (Math.abs(cx - (vb.x + vb.width / 2)) < vb.width * 0.03 && Math.abs(cy - (vb.y + vb.height / 2)) < vb.height * 0.03 && w > vb.width * 0.9 && hgt > vb.height * 0.9) return;
+      svg.setAttribute('viewBox', `${(cx - w / 2).toFixed(1)} ${(cy - hgt / 2).toFixed(1)} ${w.toFixed(1)} ${hgt.toFixed(1)}`);
+      svg.setAttribute('width', Math.round(w)); svg.setAttribute('height', Math.round(hgt));
+    };
+    requestAnimationFrame(run);
   }
   function mascot(mood) {
     if (window.V && V.types && V.types.includes('mascot')) {
@@ -581,9 +608,11 @@
     const blank = slotKinds ? q.prompt.match(/\?\?+|…|\.\.\.|_{2,}|(?<==\s*)\?(?!\?)/g) : null;
     if (blank && blank.length === 1) {
       const at = q.prompt.search(/\?\?+|…|\.\.\.|_{2,}|(?<==\s*)\?(?!\?)/);
+      const after = q.prompt.slice(at + blank[0].length);
       qtext.append(q.prompt.slice(0, at), slot);
-      if (A.kind === 'number' && A.unit) qtext.append(h('span', { class: 'unit' }, A.unit));
-      qtext.append(q.prompt.slice(at + blank[0].length));
+      // the unit is shown after the slot unless the prompt already writes it there ("6 tấn = ?? kg")
+      if (A.kind === 'number' && A.unit && !after.trim().startsWith(A.unit)) qtext.append(h('span', { class: 'unit' }, A.unit));
+      qtext.append(after);
     } else {
       qtext.textContent = q.prompt;
       if (slotKinds) {
@@ -607,7 +636,7 @@
 
     // answer pane
     const feedback = h('div', { class: 'feedback' });
-    const checkBtn = h('button', { class: 'btn', disabled: true }, 'Kiểm tra ✓');
+    const checkBtn = h('button', { class: 'btn', disabled: true }, 'Bé đã xong ✓');
     const nextBtn = h('button', { class: 'btn teal' }, run.i === QUESTIONS_PER_LESSON - 1 ? 'Xem kết quả 🏆' : 'Câu tiếp ▶');
     nextBtn.style.display = 'none';
     const pane = h('div', { class: 'card answer-card' });
@@ -734,7 +763,7 @@
       }
     } else if (A.kind === 'visual') {
       pane.append(h('div', { class: 'answer-label' }, 'Làm trên bảng'),
-        h('div', { style: { fontSize: '18px', fontWeight: 700, color: 'var(--ink-2)' } }, 'Con chạm hoặc kéo trên hình trên bảng, rồi bấm Kiểm tra nhé.'));
+        h('div', { style: { fontSize: '18px', fontWeight: 700, color: 'var(--ink-2)' } }, 'Con chạm hoặc kéo trên hình trên bảng, rồi bấm "Bé đã xong" nhé.'));
       if (visualEl && typeof visualEl.getValue === 'function') {
         // some visuals start with a valid value already (e.g. a clock) — allow checking at once
         checkBtn.disabled = false;
@@ -777,8 +806,8 @@
         settle(pts);
         sfx.good(); if (tries === 1) confetti(40);
         showTick(true);
-        showFeedback('good', tries === 1 ? pick(['Đúng rồi! Giỏi quá!', 'Chính xác! 🎉', 'Tuyệt vời!', 'Siêu quá!']) : 'Đúng rồi! Lần sau con làm ngay từ đầu nhé!', q.explain);
-        speak(tries === 1 ? 'Đúng rồi!' : 'Đúng rồi!');
+        showFeedback('good', tries === 1 ? pick(['Đúng rồi bé ơi! Giỏi quá!', 'Đúng rồi bé ơi! 🎉', 'Đúng rồi bé ơi! Tuyệt vời!', 'Đúng rồi bé ơi! Siêu quá!']) : 'Đúng rồi bé ơi! Lần sau bé làm ngay từ đầu nhé!', q.explain);
+        speak('Đúng rồi bé ơi!');
       } else if (tries === 1) {
         sfx.bad();
         showFeedback('hint', 'Chưa đúng, con thử lại nhé!', q.hint || '', q.hintVisual);
