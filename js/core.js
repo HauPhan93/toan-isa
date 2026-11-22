@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v37';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v38';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
 
   const GRADE_INFO = {
     1: { color: '#F0A500', icon: '🐣', desc: 'Số đến 100 · Cộng, trừ trong phạm vi 10 · Hình, giờ, lịch' },
@@ -14,6 +14,13 @@
     4: { color: '#8A63F0', icon: '🦄', desc: 'Số lớp triệu · Phân số · Góc, đường thẳng' },
     5: { color: '#F2547D', icon: '🌏', desc: 'Số thập phân · Tỉ số phần trăm · Hình khối, vận tốc' },
   };
+
+  // The blank in a prompt: "??", "…", "...", "__", or a lone "?" right after "=". The last form needs a regex
+  // lookbehind, which Safari before 16.4 (iOS 15: iPhone 6s, 7) cannot even parse — a literal would stop the
+  // whole app from loading there, so it is built at run time with a plain fallback.
+  let BLANK_RE, BLANK_RE1;
+  try { BLANK_RE = new RegExp('\\?\\?+|…|\\.\\.\\.|_{2,}|(?<==\\s*)\\?(?!\\?)', 'g'); BLANK_RE1 = new RegExp(BLANK_RE.source); }
+  catch (e) { BLANK_RE = /\?\?+|…|\.\.\.|_{2,}/g; BLANK_RE1 = /\?\?+|…|\.\.\.|_{2,}/; }
 
   /* ------------------------------------------------------------------ state */
   const defaults = () => ({
@@ -366,6 +373,25 @@
       .replace(/\bkg\b/g, ' ki-lô-gam').replace(/\bml\b/g, ' mi-li-lít').replace(/°C/g, ' độ C').replace(/%/g, ' phần trăm')
       .replace(/\n/g, '. ');
   }
+  // The built-in Vietnamese voice of most iPhones and iPads says the word "bé" as "mớ", whatever the wording,
+  // speed or spelling (user tests on an iPad and several iPhones; only one newer iPhone reads it right), and
+  // Safari gives websites no other voice. So on those devices ISA never sends "bé" to the voice:
+  //   · "bé" meaning small (số bé, bé hơn, bé nhất — every use in the lessons) is read as "nhỏ";
+  //   · "bé" as ISA's word for the child (Bé ơi, bé thử lại nhé) is read as the word chosen in Góc phụ huynh.
+  // The text on screen stays "bé".
+  const IS_IOS = /iPhone|iPod|iPad/.test(navigator.userAgent) || IS_IPAD;
+  const KID_WORDS = ['bé', 'con', 'em', 'bạn'];
+  const kidWord = () => (KID_WORDS.includes(S.settings.kidWord) ? S.settings.kidWord : IS_IOS ? 'con' : 'bé');
+  const KID_SMALL = /((?:số|đáy|tích|tổng|hiệu|thương|phần|hình|góc|cạnh|đoạn|từ|đến|hay|vị|mặt|quả|tròn|nhọn|chục|nhiên) )([Bb]é)(?![\p{L}])/giu;
+  const KID_CALL = /(^|[^\p{L}])([Bb]é)(?= (?:ơi|làm|hãy|cố|cứ|đã|còn|muốn|đọc|xem|ôn|chạm|bấm|thử|được|tiến|tên)(?![\p{L}]))/gu;
+  const KID_CALL2 = /((?:bên|[Cc]hào) )([Bb]é)(?![\p{L}])/gu;
+  const KID_REST = /(^|[^\p{L}])([Bb]é)(?![\p{L}])/gu;
+  function kidSpeech(t, word) {
+    const w = word || kidWord();
+    if (w === 'bé') return t;
+    const put = to => (m, a, b) => a + (b[0] === 'B' ? to[0].toUpperCase() + to.slice(1) : to);
+    return t.replace(KID_SMALL, put('nhỏ')).replace(KID_CALL, put(w)).replace(KID_CALL2, put(w)).replace(KID_REST, put('nhỏ'));
+  }
   function speak(text, btn, delay = 0) {
     if (!S.settings.voice || !('speechSynthesis' in window) || !text) return;
     if (!viVoice) pickVoice();
@@ -377,7 +403,7 @@
     speechSynthesis.cancel();
     // NFC: precomposed Vietnamese letters (é = U+00E9, not e + U+0301), which every voice reads correctly
     // no leading comma: on iPhone/iPad it made "Bé" come out as "mớ" (user test on voice-test.html, way 3)
-    const u = new SpeechSynthesisUtterance(speakable(text).trim().normalize('NFC'));
+    const u = new SpeechSynthesisUtterance(kidSpeech(speakable(text)).trim().normalize('NFC'));
     u.lang = 'vi-VN'; if (viVoice) u.voice = viVoice;
     const st = VOICE_STYLES[S.settings.voiceStyle] || VOICE_STYLES.cute;
     // Phone, iPad and old Windows voices garble the first word ("Bé" → "mớ") when slowed down or raised:
@@ -659,9 +685,9 @@
     // The blank in the prompt ("7 + 7 = ??", "45 … 54", "= ?") becomes the chalk answer slot itself.
     const qtext = h('div', { class: 'qtext chalk' + (q.prompt.length > 80 ? ' long' : '') });
     const slotKinds = A.kind === 'number' || A.kind === 'choice' || A.kind === 'text';
-    const blank = slotKinds ? q.prompt.match(/\?\?+|…|\.\.\.|_{2,}|(?<==\s*)\?(?!\?)/g) : null;
+    const blank = slotKinds ? q.prompt.match(BLANK_RE) : null;
     if (blank && blank.length === 1) {
-      const at = q.prompt.search(/\?\?+|…|\.\.\.|_{2,}|(?<==\s*)\?(?!\?)/);
+      const at = q.prompt.search(BLANK_RE1);
       const after = q.prompt.slice(at + blank[0].length);
       qtext.append(q.prompt.slice(0, at), slot);
       // the unit is shown after the slot unless the prompt already writes it there ("6 tấn = ?? kg")
@@ -1009,6 +1035,15 @@
         }, label);
       }),
       vlist.length > 1 ? h('div', { class: 'voice-note', style: { flexBasis: '100%' } }, '⭐ = giọng rõ nhất trên máy này') : null) : null;
+    const kidRow = h('div', { class: 'row voice-row' },
+      h('div', { class: 'grow' }, 'Khi đọc, ISA gọi bé là',
+        h('div', { class: 'voice-note' }, IS_IOS
+          ? 'Giọng đọc của nhiều iPhone, iPad đọc chữ "bé" thành "mớ". Vì vậy trên máy này ISA đọc là "con" (và đọc "bé hơn" là "nhỏ hơn"); chữ trên màn hình vẫn là "bé". Nếu máy đọc đúng chữ "bé", chọn "bé".'
+          : 'Nếu máy đọc sai chữ "bé" (nghe thành "mớ"), chọn một từ khác. Chữ trên màn hình vẫn là "bé".')),
+      ...KID_WORDS.map(w => h('button', {
+        class: 'btn small ' + (kidWord() === w ? '' : 'ghost'),
+        onclick: () => { S.settings.kidWord = w; save(); sh.close(); parentCorner(); speak('Bé ơi, lớp 1 nè! 3 bé hơn 5.'); },
+      }, w)));
     const nameIn = h('input', { class: 'text-input', value: S.name || '', placeholder: 'Tên của bé', maxlength: 16 });
     nameIn.addEventListener('change', () => { S.name = nameIn.value.trim(); S.askedName = true; save(); });
     const goalSel = h('div', { class: 'row' }, h('div', { class: 'grow' }, 'Mục tiêu mỗi ngày'),
@@ -1061,7 +1096,7 @@
         h('div', { class: 'grow' }, `Lớp ${w.r.grade.grade} · ${w.r.lesson.book || ''} · ${w.r.lesson.title}`), h('b', null, U.fmt(w.best) + '/10'),
         h('button', { class: 'btn small', onclick: () => { sh.close(); startLesson(w.r.lesson.id); } }, 'Ôn')))) : h('p', null, 'Chưa có bài nào dưới 7 điểm. 👍'),
       h('h3', null, 'Cài đặt'),
-      toggle('voice', 'Giọng đọc tiếng Việt' + (viVoice ? '' : ' (máy này chưa có giọng tiếng Việt nên app không đọc)')), voiceRow, styleRow, toggle('autoRead', 'Tự đọc đề bài'), toggle('sound', 'Âm thanh'), goalSel,
+      toggle('voice', 'Giọng đọc tiếng Việt' + (viVoice ? '' : ' (máy này chưa có giọng tiếng Việt nên app không đọc)')), voiceRow, kidRow, styleRow, toggle('autoRead', 'Tự đọc đề bài'), toggle('sound', 'Âm thanh'), goalSel,
       h('div', { class: 'row' }, h('div', { style: { width: '120px' } }, 'Tên bé'), nameIn),
       h('h3', null, 'Đặt lại ứng dụng'), resetProgress, resetAll,
       h('div', { class: 'result-actions', style: { marginTop: '14px' } }, h('button', { class: 'btn', onclick: () => { sh.close(); showHome(); } }, 'Xong')),
