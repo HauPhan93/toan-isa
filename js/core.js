@@ -10,7 +10,7 @@
     1: { color: '#F0A500', icon: '🐣', desc: 'Số đến 100 · Cộng, trừ trong phạm vi 10 · Hình, giờ, lịch' },
     2: { color: '#3FB54A', icon: '🌱', desc: 'Số đến 1000 · Phép nhân, phép chia đầu tiên · Đồng hồ, tiền' },
     3: { color: '#3A8EF0', icon: '🚀', desc: 'Số đến 100 000 · Bảng nhân chia · Chu vi, diện tích' },
-    4: { color: '#8A63F0', icon: '🏰', desc: 'Số lớp triệu · Phân số · Góc, đường thẳng' },
+    4: { color: '#8A63F0', icon: '🦄', desc: 'Số lớp triệu · Phân số · Góc, đường thẳng' },
     5: { color: '#F2547D', icon: '🌏', desc: 'Số thập phân · Tỉ số phần trăm · Hình khối, vận tốc' },
   };
 
