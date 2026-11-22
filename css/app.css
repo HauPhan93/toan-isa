@@ -1089,3 +1089,33 @@ body.no-voice .say-btn { display: none; }
   .answer-card > .feedback { scroll-margin-bottom: 92px; }   /* clear of the pinned buttons when scrolled into view */
   .hand-area { height: clamp(140px, 22vh, 230px); }
 }
+
+/* ---------- ✏️ Viết tay on an iPad on its side: the board gives up some width so the answer pane is roomier
+   (user: "thu bảng lại 1 tí để ko bị cấn"). The ⌫ / 🧹 keys stand in a column beside the writing area and
+   "Bé viết: …" gets its own line under it, so the pad no longer wraps into two rows of buttons. ---------- */
+@media (orientation: landscape) and (min-width: 901px) and (min-height: 541px) {
+  .answer-pane:has(> .answer-card.hand-on) { width: 430px; }
+  .hand-on .hand { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; }
+  .hand-on .hand > .hand-note { grid-column: 1 / -1; order: -1; }
+  .hand-on .hand-bar { display: contents; }
+  .hand-on .hand-area { order: 0; }
+  .hand-on .hand-tools { order: 1; flex-direction: column; justify-content: space-between; gap: 6px; margin: 0; }
+  .hand-on .hand-tools .key { width: 58px; height: auto; flex: 1 1 0; min-height: 40px; max-height: 64px; }
+  .hand-on .hand-guess { order: 2; grid-column: 1 / -1; min-height: 40px; }
+}
+
+/* ---------- ✏️ Nháp open: the question and the board stay in sight (user: "khi bật nháp thì vẫn thấy được câu
+   hỏi và bảng"). The answer pane steps aside while the sheet is out and the board takes the free part of the
+   screen: left of the sheet when it slides in from the right, above it when it comes up from the bottom. ---------- */
+@media (orientation: landscape) and (min-width: 901px), (orientation: landscape) and (max-height: 540px) {
+  body.scratch-open .player { padding-right: calc(var(--scr-w) + 14px); }
+  body.scratch-open .stage > .answer-pane { display: none; }
+  body.scratch-open .exam-scroll { padding-right: calc(var(--scr-w) + 14px); }
+}
+@media (orientation: portrait), (max-width: 900px) and (min-height: 541px) {
+  body.scratch-open .player { padding-bottom: calc(var(--scr-h) + 10px); }
+  body.scratch-open .stage > .answer-pane { display: none; }
+  body.scratch-open .stage > .board, body.scratch-open .stage > .qcard { flex: 1 1 auto; min-height: 0; }
+  body.scratch-open .qvisual { min-height: 0; }   /* the picture shrinks so the answer line still shows */
+  body.scratch-open .exam-scroll { padding-bottom: calc(var(--scr-h) + 40px); }
+}

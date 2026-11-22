@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v52';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v53';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
   // English mode (Góc phụ huynh → Ngôn ngữ): tx('Vietnamese', 'English'). The parent corner itself stays Vietnamese.
   const EN = U.EN, tx = U.L;
   const G = n => tx('Lớp ' + n, 'Grade ' + n), HK = k => tx('Học kì ' + k, 'Term ' + k);
@@ -970,6 +970,7 @@
         modeBtns.forEach((b, i) => b.classList.toggle('on', modes[i][0] === m));
         pad.style.display = m === 'hand' ? 'none' : '';
         if (handPad) { handPad.style.display = m === 'hand' ? '' : 'none'; handPad.clear(); }
+        pane.classList.toggle('hand-on', m === 'hand');   // wider answer pane, narrower board (CSS)
         label.textContent = m === 'box' ? tx('Chạm vào ô rồi điền chữ số (bắt đầu từ hàng đơn vị)', 'Tap a box and write a digit (start with the ones)')
           : m === 'hand' ? (bi ? tx('Viết cả số của hàng kết quả (chạm vào hàng khác để viết hàng đó)', 'Write the whole number of the answer row (tap another row to write there)') : isFr ? tx('Viết phân số', 'Write the fraction') : tx('Viết cả số', 'Write the whole number'))
           : isFr ? tx('Viết phân số', 'Write the fraction') : tx('Nhập số', 'Type the number');

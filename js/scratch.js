@@ -5,6 +5,7 @@
 (function () {
   'use strict';
   const CSS = `
+:root { --scr-w: min(560px, 48vw); --scr-h: min(58vh, 640px); }   /* sheet size, also used by app.css to move the board aside */
 .scr-root[hidden] { display: none; }
 .scr-handle {
   position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 46;
@@ -24,7 +25,7 @@
 .scr-tip::after { content: ""; position: absolute; right: -9px; top: 50%; margin-top: -9px; border: 9px solid transparent; border-right: 0; border-left-color: #fff; }
 @keyframes scrTip { 0% { opacity: 0; transform: translate(10px, -50%); } 10%, 80% { opacity: 1; transform: translate(0, -50%); } 100% { opacity: 0; } }
 .scr-panel {
-  position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 48vw); z-index: 47;
+  position: fixed; top: 0; right: 0; bottom: 0; width: var(--scr-w); z-index: 47;
   background: #FFFDF7; box-shadow: -10px 0 30px rgba(0, 40, 50, .28); border-radius: 26px 0 0 26px;
   display: flex; flex-direction: column; transform: translateX(105%); transition: transform .32s cubic-bezier(.3, 1.2, .5, 1);
   padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -64,7 +65,7 @@
   .scr-tip { right: 50%; top: auto; bottom: 62px; transform: translateX(50%); animation-name: scrTipB; }
   .scr-tip::after { right: 50%; top: auto; bottom: -9px; margin: 0 -9px 0 0; border: 9px solid transparent; border-bottom: 0; border-top-color: #fff; }
   @keyframes scrTipB { 0% { opacity: 0; } 10%, 80% { opacity: 1; } 100% { opacity: 0; } }
-  .scr-panel { top: auto; left: 0; width: auto; height: min(66vh, 720px); border-radius: 26px 26px 0 0; transform: translateY(105%); box-shadow: 0 -10px 30px rgba(0, 40, 50, .28); }
+  .scr-panel { top: auto; left: 0; width: auto; height: var(--scr-h); border-radius: 26px 26px 0 0; transform: translateY(105%); box-shadow: 0 -10px 30px rgba(0, 40, 50, .28); }
 }
 @media (prefers-reduced-motion: reduce) { .scr-panel { transition: none; } .scr-tip { animation: none; opacity: 0; } }
 `;
@@ -193,6 +194,7 @@
     panel.classList.remove('dragging');
     panel.style.transform = '';
     panel.classList.toggle('open', v);
+    document.body.classList.toggle('scratch-open', v);   // the app moves the board out from under the sheet (app.css)
     handle.style.visibility = v ? 'hidden' : '';
     if (v) requestAnimationFrame(fit);
   }
