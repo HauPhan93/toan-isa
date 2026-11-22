@@ -30,6 +30,7 @@
   <label for="voice">Giọng</label>
   <select id="voice"></select>
   <div id="status"></div>
+  <p id="uri" style="font-size:13px;margin:6px 2px 0"></p>
   <div id="list"></div>
   <p style="margin-top:18px"><a href="./">← Về Toán ISA</a></p>
 </main>
@@ -45,16 +46,21 @@
     { text: LINE, rate: 0.88, warm: true, what: 'Phát một tiếng im lặng trước, rồi mới đọc' },
     { text: 'Bé ơi. Lớp 1 nè!', rate: 0.88, what: 'Ngắt câu sau "Bé ơi"' },
   ];
-  const sel = document.getElementById('voice'), list = document.getElementById('list'), status = document.getElementById('status');
+  const sel = document.getElementById('voice'), list = document.getElementById('list'), status = document.getElementById('status'), uri = document.getElementById('uri');
+  const showUri = () => { const v = voices[Number(sel.value)]; uri.textContent = v ? 'Mã giọng: ' + (v.voiceURI || '—') : ''; };
+  sel.addEventListener('change', showUri);
   if (!('speechSynthesis' in window)) { list.innerHTML = '<div class="none">Trình duyệt này không đọc được.</div>'; return; }
   let voices = [];
   function load() {
     voices = speechSynthesis.getVoices().filter(v => /^vi/i.test(v.lang));
     const keep = sel.value;
     sel.innerHTML = '';
-    voices.forEach((v, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = v.name; sel.append(o); });
-    const enh = voices.findIndex(v => /Nâng cao|Enhanced|Cao cấp|Premium/i.test(v.name));
+    // iPhone/iPad call both voices "Linh": the system ID (voiceURI) says which one was downloaded
+    const tag = v => { const s = v.name + ' ' + (v.voiceURI || ''); return /Premium|Cao cấp/i.test(s) ? 'Cao cấp' : /Enhanced|Nâng cao/i.test(s) ? 'Nâng cao' : /compact/i.test(s) ? 'thường (có sẵn)' : ''; };
+    voices.forEach((v, i) => { const o = document.createElement('option'); o.value = String(i); const t = tag(v); o.textContent = v.name + (t && !v.name.includes(t) ? ' — ' + t : ''); sel.append(o); });
+    const enh = voices.findIndex(v => /Nâng cao|Cao cấp/.test(tag(v)));
     sel.value = keep && voices[Number(keep)] ? keep : String(enh >= 0 ? enh : 0);
+    showUri();
     status.innerHTML = voices.length ? '' : '<div class="none">Máy này chưa có giọng tiếng Việt (hoặc đang tải danh sách giọng…).</div>';
   }
   function say(w) {
