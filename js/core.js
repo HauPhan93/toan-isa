@@ -739,17 +739,8 @@
     document.body.append(bg);
     return { bg, card, close: () => bg.remove() };
   }
-  function parentGate() {
-    const a = 6 + Math.floor(Math.random() * 7), b = 12 + Math.floor(Math.random() * 8);
-    const input = h('input', { class: 'text-input', inputmode: 'numeric', placeholder: 'Kết quả', autocomplete: 'off' });
-    const sh = sheet(h('h2', null, '👨‍👩‍👧 Góc phụ huynh'), h('p', null, 'Để vào, xin bố mẹ tính:'), h('div', { class: 'gate-q' }, `${a} × ${b} = ?`), input,
-      h('div', { class: 'result-actions', style: { marginTop: '14px' } },
-        h('button', { class: 'btn ghost small', onclick: () => sh.close() }, 'Đóng'),
-        h('button', { class: 'btn small', onclick: () => go() }, 'Vào')));
-    function go() { if (Number(input.value) === a * b) { sh.close(); parentCorner(); } else { input.value = ''; input.placeholder = 'Chưa đúng'; sfx.bad(); } }
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
-    setTimeout(() => input.focus(), 200);
-  }
+  // Parent corner opens straight away (user: no sum to get in); "Xóa tiến độ" inside still asks to confirm.
+  function parentGate() { parentCorner(); }
   function parentCorner() {
     const T = S.totals;
     const toggle = (key, label) => {
