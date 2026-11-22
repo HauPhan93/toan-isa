@@ -314,9 +314,10 @@
     const n = v.name || '', tag = voiceTag(v);
     if (/HoaiMy|Hoài My/i.test(n)) return 0;
     if (/Natural|Online|Neural/i.test(n)) return 1;
-    // iPhone/iPad (user tests): the "nhẹ" Linh (super-compact) says "Bé" clearly; the "chuẩn" one swallowed it
-    if (tag === 'nhẹ') return 2;
-    if (tag === 'chuẩn' || (/Linh/i.test(n) && !tag)) return 3;
+    // iPhone/iPad (user tests): read with no leading comma at normal speed, "Linh chuẩn" (compact) says "Bé"
+    // clearly and sounds more natural than "Linh nhẹ" (super-compact), so it comes first
+    if (tag === 'chuẩn' || (/Linh/i.test(n) && !tag)) return 2;
+    if (tag === 'nhẹ') return 3;
     if (tag === 'Cao cấp') return 4;
     if (tag === 'Nâng cao') return 4;
     if (/Google|Siri/i.test(n)) return 5;
