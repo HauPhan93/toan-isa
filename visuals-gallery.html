@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toán ISA — thư viện hình</title>
+<style>
+  :root { --font: -apple-system, "SF Pro Rounded", "Nunito", "Segoe UI", sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--font); color: #1E3A4C; background: linear-gradient(160deg, #DFF7F4 0%, #E9FBF8 50%, #F4FCFB 100%); min-height: 100vh; }
+  header { padding: 20px 24px 8px; display: flex; align-items: center; gap: 16px; }
+  header h1 { margin: 0; font-size: 26px; color: #0E7F7B; }
+  header p { margin: 2px 0 0; color: #5C7686; font-size: 14px; }
+  nav { padding: 0 24px 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  nav a { font-size: 13px; padding: 4px 10px; border-radius: 12px; background: #fff; color: #12A39E; text-decoration: none; box-shadow: 0 1px 3px rgba(30,58,76,.08); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(440px, 100%), 1fr)); gap: 18px; padding: 12px 24px 40px; }
+  .card { background: #fff; border-radius: 24px; box-shadow: 0 6px 20px rgba(18,163,158,.12); padding: 16px 18px 18px; min-width: 0; }
+  .card h3 { margin: 0 0 2px; font-size: 16px; color: #12A39E; }
+  .card code { display: block; font-size: 11.5px; color: #7C93A1; margin-bottom: 10px; white-space: pre-wrap; word-break: break-all; }
+  .val { margin-top: 8px; font: 600 14px var(--font); color: #F47A2A; min-height: 18px; }
+  h2.sec { margin: 18px 24px 0; font-size: 20px; color: #1E3A4C; }
+  .boardwrap { margin: 12px 24px 40px; padding: 18px; border-radius: 26px; background: linear-gradient(135deg, #B7814A, #8E5B2E); box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+  .board { border-radius: 14px; background: radial-gradient(ellipse at 30% 20%, #3A7060 0%, #2E5E4E 55%, #264F42 100%); padding: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(420px, 100%), 1fr)); gap: 20px; box-shadow: inset 0 0 40px rgba(0,0,0,.35); }
+  .board .cell { min-width: 0; }
+  .board .cell h4 { margin: 0 0 6px; font: 400 18px "Patrick Hand", "Chalkboard SE", var(--font); color: #FFE58A; }
+  .board .val { color: #FFC08A; }
+  .mascots { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<header>
+  <div id="hdrMascot"></div>
+  <div><h1>Thư viện hình — Toán ISA</h1><p id="info">Đang tải…</p></div>
+</header>
+<nav id="nav"></nav>
+<div class="grid" id="grid"></div>
+<h2 class="sec" id="board-sec">Bảng phấn (ctx.theme: 'board')</h2>
+<div class="boardwrap"><div class="board" id="board"></div></div>
+
+<script src="js/util.js"></script>
+<script src="js/visuals.js"></script>
+<script>
+(function () {
+  const S = [
+    ['mascot', { mood: 'happy' }], ['mascot', { mood: 'think' }], ['mascot', { mood: 'cheer' }], ['mascot', { mood: 'oops' }],
+    ['numberLine', { min: 0, max: 20, step: 1, hops: [{ from: 8, to: 11, label: '+3' }, { from: 11, to: 15, label: '+4' }] }],
+    ['numberLine', { min: 0, max: 100, step: 10, marks: [30, 70], unknown: 50 }],
+    ['numberLine', { min: 0, max: 1, step: 0.1, labelEvery: 0.5 }, { interactive: true }],
+    ['objects', { groups: [{ emoji: '🍎', count: 7 }, { emoji: '🍐', count: 5 }], op: '+' }],
+    ['objects', { groups: [{ emoji: '🎈', count: 12 }], crossOut: 4 }],
+    ['columnCalc', { a: 457, b: 286, op: '+', reveal: 'steps' }],
+    ['columnCalc', { a: 705, b: 368, op: '−', reveal: 'all' }],
+    ['columnCalc', { a: 1234, b: 3, op: '×', reveal: 'none' }],
+    ['columnCalc', { a: 245, b: 32, op: '×', reveal: 'all' }],
+    ['columnCalc', { a: 648, b: 3, op: ':', reveal: 'steps' }],
+    ['columnCalc', { a: 7865, b: 25, op: ':', reveal: 'all', short: true }],
+    ['columnCalc', { a: 12.5, b: 3.75, op: '+', reveal: 'all' }],
+    ['blocks', { hundreds: 2, tens: 4, ones: 5 }],
+    ['blocks', { thousands: 1, hundreds: 3, tens: 0, ones: 7, labels: true }],
+    ['array', { rows: 3, cols: 5, emoji: '🌸' }],
+    ['share', { total: 12, groups: 3, emoji: '🍬', plateLabel: 'Đĩa' }],
+    ['share', { total: 14, groups: 4, emoji: '🍪' }],
+    ['clock', { h: 8, m: 30, digital: true }],
+    ['clock', { h: 3, m: 15 }, { interactive: true }],
+    ['calendar', { year: 2026, month: 9, highlight: [2, 15], marks: { 25: '🎂' } }],
+    ['money', { notes: [1000, 2000, 5000, 10000, 20000, 50000] }],
+    ['money', { notes: [100000, 200000, 500000, 500] }],
+    ['placeValue', { number: 352718 }],
+    ['placeValue', { number: 47.256, highlight: 0 }],
+    ['shape', { kind: 'rect', dims: { a: 6, b: 4 }, label: 'ABCD' }],
+    ['shape', { kind: 'triangle', dims: { a: 6, h: 4 }, showHeight: true }],
+    ['shape', { kind: 'circle', dims: { r: 3 } }],
+    ['shape', { kind: 'trapezoid', dims: { a: 8, b: 5, h: 3 }, showHeight: true }],
+    ['shape', { kind: 'polyline', dims: { sides: [3, 4, 2, 5] }, label: 'ABCDE' }],
+    ['shapeSet', { items: ['square', 'triangle', 'circle', 'rect', 'rhombus', 'trapezoid'] }, { interactive: true }],
+    ['ruler', { length: 7, unit: 'cm', object: 'pencil' }],
+    ['ruler', { length: 45, unit: 'mm', object: 'crayon' }],
+    ['ruler', { length: 3, unit: 'dm', object: 'ribbon' }],
+    ['jug', { capacity: 1000, amount: 600, unit: 'ml' }],
+    ['jug', { capacity: 5, amount: 3, unit: 'l' }],
+    ['scale', { left: [{ label: '🍉', kg: 3 }], right: [{ label: '2 kg', kg: 2 }, { label: '1 kg', kg: 1 }] }],
+    ['scale', { left: [{ label: '🍍', kg: 2 }], right: [{ label: '5 kg', kg: 5 }] }],
+    ['thermometer', { value: 32 }],
+    ['thermometer', { value: -4, showValue: true }],
+    ['solid', { kind: 'cube', dims: { a: 3 } }],
+    ['solid', { kind: 'box', dims: { l: 6, w: 3, h: 4 } }],
+    ['solid', { kind: 'cylinder' }],
+    ['solid', { kind: 'sphere' }],
+    ['fraction', { num: 3, den: 4, shape: 'pie' }],
+    ['fraction', { num: 2, den: 5, shape: 'bar', label: true }],
+    ['fraction', { num: 0, den: 6, shape: 'rect' }, { interactive: true }],
+    ['fractionCompare', { a: [2, 3], b: [3, 4] }],
+    ['areaGrid', { w: 5, h: 3, unit: 'cm', showPerimeter: true }],
+    ['angle', { deg: 60, protractor: true, label: 'AOB' }],
+    ['angle', { deg: 90, label: 'O' }],
+    ['angle', { deg: 135 }],
+    ['lines', { kind: 'parallel' }], ['lines', { kind: 'perpendicular' }], ['lines', { kind: 'intersect' }],
+    ['cubes', { l: 4, w: 3, h: 2 }],
+    ['barChart', { title: 'Số sách mỗi lớp', labels: ['3A', '3B', '3C', '3D'], values: [25, 40, 35, 20], unit: 'quyển' }],
+    ['pictograph', { rows: [{ label: 'Mai', count: 6 }, { label: 'Nam', count: 4 }, { label: 'Lan', count: 7 }], emoji: '⭐', each: 2, unit: 'ngôi sao' }],
+    ['pieChart', { labels: ['Bóng đá', 'Cầu lông', 'Bơi', 'Khác'], percents: [40, 25, 20, 15] }],
+    ['dataTable', { headers: ['Lớp', 'Nam', 'Nữ'], rows: [['4A', 18, 17], ['4B', 16, 19], ['4C', 20, 15]] }],
+    ['tape', { bars: [{ label: 'Anh', parts: 1, units: 1.6, value: '?' }, { label: 'Em', parts: 1, value: '?' }], total: 'Tổng: 96', diff: '18' }],
+    ['tape', { bars: [{ label: 'Gà', parts: 3, value: '?' }, { label: 'Vịt', parts: 5, value: '?' }], total: '120 con' }],
+    ['tape', { bars: [{ label: 'Bao gạo', parts: 4, value: '120 kg', shade: 1 }] }],
+    ['average', { values: [3, 7, 5, 1] }],
+    ['average', { values: [120, 135, 141], showMean: true }],
+    ['decimalGrid', { value: 0.37 }],
+    ['decimalGrid', { value: 0.2 }, { interactive: true }],
+    ['percent', { percent: 45, showLabel: true }],
+    ['motion', { speed: 45, unit: 'km/giờ', time: 2, distance: '?', vehicle: 'car' }],
+    ['motion', { speed: 4, unit: 'm/giây', time: 3, distance: 12, vehicle: 'walk' }],
+    ['mapScale', { scale: 1000, mapCm: 5, real: '? m' }],
+    ['chance', { items: [{ color: 'red', count: 3 }, { color: 'blue', count: 2 }, { color: 'yellow', count: 1 }] }],
+    ['roman', { value: 14 }],
+    ['roman', { value: 9, showValue: true }],
+    ['compare', { left: 47, right: 52 }],
+    ['compare', { left: { emoji: '🐟', count: 5 }, right: { emoji: '🐟', count: 5 }, show: true }],
+    ['compare', { left: 381, right: 318, show: true }],
+    ['nonexistentType', {}],
+  ];
+  const BOARD = [
+    ['numberLine', { min: 0, max: 10, step: 1, hops: [{ from: 2, to: 6, label: '+4' }] }],
+    ['columnCalc', { a: 457, b: 286, op: '+', reveal: 'all' }],
+    ['columnCalc', { a: 648, b: 3, op: ':', reveal: 'steps' }],
+    ['objects', { groups: [{ emoji: '🍬', count: 8 }], crossOut: 3 }],
+    ['tape', { bars: [{ label: 'Anh', parts: 1, units: 1.6, value: '?' }, { label: 'Em', parts: 1, value: '?' }], total: 'Tổng: 96', diff: '18' }],
+    ['fraction', { num: 3, den: 8, shape: 'pie' }, { interactive: true }],
+    ['clock', { h: 10, m: 10 }, { interactive: true }],
+    ['blocks', { hundreds: 1, tens: 3, ones: 4 }],
+    ['calendar', { year: 2026, month: 11, highlight: [20] }],
+    ['money', { notes: [10000, 20000, 50000] }],
+    ['shape', { kind: 'rect', dims: { a: 6, b: 4 }, label: 'ABCD' }],
+    ['placeValue', { number: 4725 }],
+    ['barChart', { labels: ['T2', 'T3', 'T4'], values: [12, 18, 9] }],
+    ['dataTable', { headers: ['Tên', 'Điểm'], rows: [['An', 9], ['Bình', 10]] }],
+    ['compare', { left: 47, right: 52, show: true }],
+  ];
+  const grid = document.getElementById('grid'), board = document.getElementById('board'), nav = document.getElementById('nav');
+  const info = document.getElementById('info');
+  if (!window.V) { info.textContent = 'LỖI: window.V chưa được định nghĩa (visuals.js lỗi cú pháp?)'; return; }
+  info.textContent = `${V.types.length} kiểu hình: ${V.types.join(', ')}`;
+  // ?still=1 → render every visual in its final state (simulates prefers-reduced-motion)
+  if (new URLSearchParams(location.search).get('still')) {
+    const mm = window.matchMedia.bind(window);
+    window.matchMedia = q => (/reduced-motion/.test(q) ? { matches: true, addListener() {}, removeListener() {} } : mm(q));
+    const st = document.createElement('style'); st.textContent = '.viz *{animation:none!important;transition:none!important}'; document.head.appendChild(st);
+  }
+  document.getElementById('hdrMascot').appendChild(V.render('mascot', { mood: 'cheer', size: 80 }));
+  const seen = new Set();
+  function card(host, [type, params, ctx], isBoard) {
+    const c = document.createElement('div');
+    c.className = isBoard ? 'cell' : 'card';
+    if (!isBoard && !seen.has(type)) { seen.add(type); c.id = 't-' + type; const a = document.createElement('a'); a.href = '#t-' + type; a.textContent = type; nav.appendChild(a); }
+    const h = document.createElement(isBoard ? 'h4' : 'h3');
+    h.textContent = type + (ctx && ctx.interactive ? ' (chạm được)' : '');
+    c.appendChild(h);
+    if (!isBoard) { const code = document.createElement('code'); code.textContent = JSON.stringify(params); c.appendChild(code); }
+    const val = document.createElement('div'); val.className = 'val';
+    const cx = Object.assign({}, ctx || {}, { onChange: v => { val.textContent = 'onChange → ' + JSON.stringify(v); } });
+    if (isBoard) cx.theme = 'board';
+    let el;
+    try { el = V.render(type, params, cx); } catch (e) { el = document.createElement('pre'); el.textContent = 'THROW: ' + e; el.style.color = 'red'; }
+    c.appendChild(el);
+    if (el.getValue) { val.textContent = 'getValue() → ' + JSON.stringify(el.getValue()); }
+    c.appendChild(val);
+    host.appendChild(c);
+  }
+  // mascots together in one card
+  const mc = document.createElement('div'); mc.className = 'card'; mc.id = 't-mascot';
+  mc.innerHTML = '<h3>mascot</h3><code>{mood: happy | think | cheer | oops}</code>';
+  const row = document.createElement('div'); row.className = 'mascots';
+  ['happy', 'think', 'cheer', 'oops'].forEach(m => row.appendChild(V.render('mascot', { mood: m })));
+  row.appendChild(V.render('mascot', { mood: 'happy', size: 'sm' }));
+  mc.appendChild(row); grid.appendChild(mc);
+  const a = document.createElement('a'); a.href = '#t-mascot'; a.textContent = 'mascot'; nav.appendChild(a); seen.add('mascot');
+  const only = new URLSearchParams(location.search).get('t');
+  const want = only ? new Set(only.split(',')) : null;
+  S.filter(s => s[0] !== 'mascot' && (!want || want.has(s[0]))).forEach(s => card(grid, s, false));
+  BOARD.filter(s => !want || want.has(s[0]) || want.has('board')).forEach(s => card(board, s, true));
+  const b = document.createElement('a'); b.href = '#board-sec'; b.textContent = '▶ bảng phấn'; nav.appendChild(b);
+})();
+</script>
+</body>
+</html>

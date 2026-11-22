@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Content self-test</title>
+<style>
+  body { font: 14px/1.4 -apple-system, Segoe UI, sans-serif; margin: 16px; color: #1E3A4C; }
+  .ok { color: #1a8a3a; } .bad { color: #c0392b; font-weight: 600; } .warn { color: #b9770e; }
+  pre { white-space: pre-wrap; background: #f4f8f8; padding: 8px; border-radius: 8px; }
+  details { margin: 4px 0; }
+</style>
+</head>
+<body>
+<h1>Content self-test</h1>
+<p>Runs every lesson generator for indexes 0..9 over 30 seeds and checks the question shape.
+Add <code>?grade=3</code> to test one grade, <code>?show=g3-c2-b1</code> to print samples of one lesson.</p>
+<div id="out">running…</div>
+<script src="js/util.js"></script>
+<script src="js/visuals.js" onerror="window.__noV=true"></script>
+<script src="js/content/lop1.js" onerror="console.warn('no lop1')"></script>
+<script src="js/content/lop2.js" onerror="console.warn('no lop2')"></script>
+<script src="js/content/lop3.js" onerror="console.warn('no lop3')"></script>
+<script src="js/content/lop4.js" onerror="console.warn('no lop4')"></script>
+<script src="js/content/lop5.js" onerror="console.warn('no lop5')"></script>
+<script>
+(function () {
+  const q = new URLSearchParams(location.search);
+  const onlyGrade = q.get('grade') ? Number(q.get('grade')) : null;
+  const show = q.get('show');
+  const out = document.getElementById('out');
+  const lines = [];
+  const vtypes = (window.V && V.types) ? new Set(V.types) : null;
+  const KINDS = new Set(['choice', 'number', 'fraction', 'text', 'visual']);
+  let total = 0, errors = 0, warns = 0;
+  const ids = new Set();
+  const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+  function checkVisual(v, where, errs) {
+    if (!v) return;
+    if (!v.type) errs.push(where + ': visual without type');
+    else if (vtypes && !vtypes.has(v.type)) errs.push(where + ': visual type not in V.types: ' + v.type);
+  }
+
+  for (const g of (window.CURRICULUM || []).sort((a, b) => a.grade - b.grade)) {
+    if (onlyGrade && g.grade !== onlyGrade) continue;
+    let nLessons = 0;
+    const gLines = [];
+    for (const t of g.topics) {
+      if (ids.has(t.id)) gLines.push(`<div class=bad>duplicate id ${t.id}</div>`); ids.add(t.id);
+      for (const L of t.lessons) {
+        nLessons++;
+        if (ids.has(L.id)) gLines.push(`<div class=bad>duplicate id ${L.id}</div>`); ids.add(L.id);
+        const errs = [], w = [];
+        (L.learn || []).forEach((c, k) => checkVisual(c.visual, 'learn[' + k + ']', errs));
+        if (!L.learn || !L.learn.length) w.push('no learn cards');
+        const prompts = new Set();
+        const samples = [];
+        for (let seed = 1; seed <= 30; seed++) {
+          for (let i = 0; i < 10; i++) {
+            total++;
+            let qn;
+            try { qn = L.gen(U.makeRng(seed * 1000 + i), i); }
+            catch (e) { errs.push(`seed ${seed} i ${i}: throws ${e.message}`); continue; }
+            const where = `seed ${seed} i ${i}`;
+            if (!qn || !qn.prompt) { errs.push(where + ': no prompt'); continue; }
+            prompts.add(qn.prompt);
+            const a = qn.answer;
+            if (!a || !KINDS.has(a.kind)) { errs.push(where + ': bad answer kind'); continue; }
+            if (a.kind === 'choice' || a.kind === 'text') {
+              if (!Array.isArray(a.options) || a.options.length < 2) errs.push(where + ': <2 options');
+              else if (!(a.correct >= 0 && a.correct < a.options.length)) errs.push(where + ': correct index out of range');
+              else if (new Set(a.options).size !== a.options.length) errs.push(where + ': duplicate options ' + a.options.join('|'));
+            }
+            if (a.kind === 'number' && !(typeof a.value === 'number' && isFinite(a.value))) errs.push(where + ': number value invalid');
+            if (a.kind === 'number' && a.value < 0) errs.push(where + ': negative answer');
+            if (a.kind === 'fraction' && !(a.den > 0)) errs.push(where + ': fraction den invalid');
+            if (a.kind === 'visual' && typeof a.check !== 'function') errs.push(where + ': visual answer without check');
+            if (a.kind === 'visual' && !(qn.visual)) errs.push(where + ': visual answer without visual');
+            if (!qn.explain) w.push('missing explain');
+            if (!qn.hint) w.push('missing hint');
+            checkVisual(qn.visual, where, errs);
+            checkVisual(qn.hintVisual, where + ' hint', errs);
+            if (/NaN|undefined|Infinity/.test(JSON.stringify(qn))) errs.push(where + ': NaN/undefined in text: ' + qn.prompt);
+            if (seed <= 2) samples.push(qn);
+          }
+        }
+        if (prompts.size < 4) w.push('low variety: ' + prompts.size + ' distinct prompts');
+        errors += errs.length; warns += new Set(w).size;
+        const uniqErr = [...new Set(errs)].slice(0, 6);
+        const cls = errs.length ? 'bad' : (w.length ? 'warn' : 'ok');
+        let html = `<details${(errs.length || show === L.id) ? ' open' : ''}><summary class=${cls}>${esc(L.id)} · ${esc(L.book || '')} · ${esc(L.title)} — ${errs.length} errors${w.length ? ', ' + [...new Set(w)].join(', ') : ''}</summary>`;
+        if (uniqErr.length) html += '<pre>' + esc(uniqErr.join('\n')) + '</pre>';
+        if (show === L.id) html += '<pre>' + esc(samples.map(s => {
+          const a = s.answer; let ans = a.kind === 'choice' || a.kind === 'text' ? a.options[a.correct] : a.kind === 'number' ? a.value + (a.unit ? ' ' + a.unit : '') : a.kind === 'fraction' ? a.num + '/' + a.den : '(visual)';
+          return `${s.prompt}\n  → ${ans}${s.visual ? '  [' + s.visual.type + ']' : ''}\n  ${s.explain || ''}`;
+        }).join('\n\n')) + '</pre>';
+        gLines.push(html + '</details>');
+      }
+    }
+    lines.push(`<h2>${esc(g.title)} — ${g.topics.length} chủ đề, ${nLessons} bài</h2>` + gLines.join(''));
+  }
+  out.innerHTML = `<p><b>${total}</b> questions generated · <span class=${errors ? 'bad' : 'ok'}>${errors} errors</span> · <span class=warn>${warns} warnings</span>${vtypes ? '' : ' · <span class=warn>visuals.js not loaded: visual types not checked</span>'}</p>` + lines.join('');
+  window.__result = { total, errors, warns };
+})();
+</script>
+</body>
+</html>
