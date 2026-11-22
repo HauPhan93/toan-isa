@@ -1023,10 +1023,14 @@ body.no-voice .say-btn { display: none; }
   .hero p { font-size: 16px; }
 }
 
-/* tall cards: the name and description sit in the middle of the free space between the big number and the
-   Học kì buttons, instead of leaving one empty band above the buttons (user: "dời xuống 1 tí để không bị trống") */
-.grade-card > div:not([class]) { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
-.grade-card > div:not([class]) > .gnum { align-self: flex-start; }
-.grade-card > div:not([class])::before { content: ""; order: 1; flex: 3 1 0; }   /* free space above the name … */
-.grade-card > div:not([class])::after { content: ""; order: 3; flex: 2 1 0; }    /* … and below the description (the card's own gap adds to this one) */
-.grade-card > div:not([class]) > .glabel, .grade-card > div:not([class]) > .gdesc { order: 2; }
+/* card text block: the big number (or ✓) is centred above the card's name (user: "để các icon này về ở giữa"),
+   and in tall cards the name and description share the free space between the number and the Học kì buttons
+   (user: "dời xuống 1 tí để không bị trống"). Column 1 is as wide as the name, so the number centres over it. */
+.grade-card > div:not([class]) {
+  flex: 1 1 auto; min-height: 0; display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 3fr) auto auto minmax(0, 2fr);
+}
+.grade-card > div:not([class]) > .gnum { grid-column: 1; grid-row: 1; justify-self: center; }
+.grade-card > div:not([class]) > .glabel { grid-column: 1; grid-row: 3; }
+.grade-card > div:not([class]) > .gdesc { grid-column: 1 / -1; grid-row: 4; }
