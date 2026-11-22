@@ -353,7 +353,8 @@
     // also gives the voice time to start before the first word.
     const busy = speechSynthesis.speaking || speechSynthesis.pending, gen = ++speechGen;
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(', ' + speakable(text).trim());
+    // NFC: precomposed Vietnamese letters (é = U+00E9, not e + U+0301), which every voice reads correctly
+    const u = new SpeechSynthesisUtterance((', ' + speakable(text).trim()).normalize('NFC'));
     u.lang = 'vi-VN'; if (viVoice) u.voice = viVoice;
     const st = VOICE_STYLES[S.settings.voiceStyle] || VOICE_STYLES.cute;
     // The old Windows voice "Microsoft An" garbles words when its pitch is raised ("Bé" comes out as "mớ"):
