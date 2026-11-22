@@ -1,5 +1,5 @@
 /* Toán ISA service worker: offline cache. Bump VERSION whenever app files change. */
-const VERSION = 'toanisa-v5';
+const VERSION = 'toanisa-v7';
 const CORE = [
   './', './index.html', './css/app.css', './manifest.webmanifest',
   './js/util.js', './js/visuals.js', './js/scratch.js', './js/core.js',
@@ -15,8 +15,11 @@ self.addEventListener('activate', e => {
 // Network first (so updates arrive when online), cache as fallback; fonts are cached on first use.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // app files: always re-check with the server (skips the browser's HTTP cache) so a new version shows on the next open
+  const same = new URL(e.request.url).origin === self.location.origin;
+  const req = same ? new Request(e.request.url, { cache: 'no-cache', credentials: 'same-origin' }) : e.request;
   e.respondWith(
-    fetch(e.request).then(res => {
+    fetch(req).then(res => {
       if (res && (res.ok || res.type === 'opaque')) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); }
       return res;
     }).catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || caches.match('./index.html')))

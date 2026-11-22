@@ -96,7 +96,7 @@
   // ISA jump and say the tap line, then the app moves on. ISA only ever takes the icon's place, so no text is covered.
   const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const Peek = (() => {
-    let cur = null, hideT = null, lastSound = 0;
+    let cur = null, hideT = null, lastSound = 0, sayT = null;
     const iconOf = card => card.querySelector(':scope > .gicon') || card.querySelector('.topic-icon');
     const peekOf = card => card.querySelector(':scope > .peek');
     function place(card, pk) {
@@ -155,8 +155,14 @@
       card.classList.add('peek-on');
       const now = Date.now();
       if (now - lastSound > 180) { lastSound = now; sfx.peek(); }
+      // ISA says the card's line ("Bé ơi, lớp 1 nè!") once the finger rests on it a moment,
+      // so a fast slide across several cards doesn't start and cut off a string of words.
+      clearTimeout(sayT);
+      const line = card.dataset.say;
+      if (line) sayT = setTimeout(() => { if (cur === card && !card.classList.contains('peek-go')) speakOrQueue(line); }, 260);
     }
     function down(card) {
+      clearTimeout(sayT);
       card.classList.remove('peek-on');
       if (cur === card) cur = null;
       const pk = peekOf(card);
@@ -193,8 +199,20 @@
       if (say) pk.querySelector('.peek-say').textContent = say;
     }
     sfx.peek();
-    if (say) speak(say);
-    setTimeout(go, 700);
+    // Move on once ISA has finished the line (at least 0.7 s for the jump, at most 3.5 s in case the
+    // device never reports the end); without a voice, after the 0.7 s jump as before.
+    const t0 = Date.now();
+    let moved = false;
+    const moveOn = () => {
+      if (moved) return; moved = true;
+      setTimeout(go, Math.max(0, 700 - (Date.now() - t0)) + 120);
+    };
+    const u = say ? speak(say) : null;
+    if (u) {
+      keepLineUntil = Date.now() + 4000;
+      u.onend = u.onerror = moveOn;
+      setTimeout(moveOn, 3500);
+    } else setTimeout(go, 700);
   }
 
   // Original ISA rover, used until/unless visuals.js provides the mascot.
@@ -279,8 +297,31 @@
     u.lang = 'vi-VN'; if (viVoice) u.voice = viVoice; u.rate = 0.92;
     if (btn) { btn.classList.add('speaking'); u.onend = u.onerror = () => btn.classList.remove('speaking'); }
     speechSynthesis.speak(u);
+    return u;
   }
-  function stopSpeech() { if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+  // A card tap's line ("Làm đề nào!") keeps playing while the next screen opens; the back button still cuts it.
+  let keepLineUntil = 0;
+  function stopSpeech(force) { if (!force && Date.now() < keepLineUntil) return; keepLineUntil = 0; if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+  // iPad/iPhone Safari stays silent until the first speech is started inside a tap (touchend/click).
+  // Lines asked for before that (ISA on the card under the finger) wait and are spoken on the first tap's touchend.
+  let speechUnlocked = !/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) || !('ontouchend' in document);
+  let queuedLine = null;
+  function speakOrQueue(text) { if (speechUnlocked) speak(text); else queuedLine = text; }
+  function unlockSpeech() {
+    if (speechUnlocked || !('speechSynthesis' in window)) return;
+    speechUnlocked = true;
+    document.removeEventListener('touchend', unlockSpeech, true);
+    document.removeEventListener('click', unlockSpeech, true);
+    if (queuedLine) { speak(queuedLine); queuedLine = null; return; }
+    if (speechSynthesis.speaking) return;
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0; u.lang = 'vi-VN';
+    speechSynthesis.speak(u);
+  }
+  if (!speechUnlocked) {
+    document.addEventListener('touchend', unlockSpeech, true);
+    document.addEventListener('click', unlockSpeech, true);
+  }
 
   /* ------------------------------------------------------------------ confetti */
   function confetti(n = 70) {
@@ -310,7 +351,7 @@
   }
   const coinPill = () => h('div', { class: 'pill' }, h('span', { class: 'e' }, '⭐'), String(S.coins));
   const homeBtn = () => h('button', { class: 'icon-btn', 'aria-label': 'Trang chủ', onclick: () => { sfx.tap(); showHome(); } }, '🏠');
-  const backBtn = fn => h('button', { class: 'icon-btn', 'aria-label': 'Quay lại', onclick: () => { sfx.tap(); stopSpeech(); fn(); } }, '←');
+  const backBtn = fn => h('button', { class: 'icon-btn', 'aria-label': 'Quay lại', onclick: () => { sfx.tap(); stopSpeech(true); fn(); } }, '←');
   const parentBtn = () => h('button', { class: 'icon-btn', 'aria-label': 'Góc phụ huynh', onclick: () => { sfx.tap(); parentGate(); } }, '⚙️');
 
   /* ---------- home ---------- */
@@ -339,7 +380,7 @@
           h('div', { class: 'bar' }, h('i', { style: { width: (ss.total ? ss.done / ss.total * 100 : 0) + '%' } })),
           h('div', { class: 'sem-stat' }, ready ? `${ss.done}/${ss.total} bài · ⭐ ${ss.stars}` : 'Sắp có'));
       };
-      const card = h('div', { class: 'grade-card', 'data-peek': `Lớp ${n} nè!`, 'data-peek-short': `Lớp ${n}!`, style: { '--gc': info.color } },
+      const card = h('div', { class: 'grade-card', 'data-peek': `Lớp ${n} nè!`, 'data-say': `Bé ơi, lớp ${n} nè!`, 'data-peek-short': `Lớp ${n}!`, style: { '--gc': info.color } },
         h('div', { class: 'island' }), h('div', { class: 'gicon' }, info.icon),
         h('div', null, h('div', { class: 'gnum' }, n), h('div', { class: 'glabel' }, 'Lớp ' + n), h('div', { class: 'gdesc' }, info.desc)),
         h('div', { class: 'sem-row' }, semBtn(1), semBtn(2)));
@@ -348,7 +389,7 @@
     // 6th card: Ôn tập & Kiểm tra (bộ đề theo mẫu của Bộ GD&ĐT)
     const nExams = [1, 2, 3, 4, 5].reduce((s, n) => s + (gradeOf(n) ? termsFor(n).length : 0), 0);
     const doneExams = Object.keys(S.exams || {}).length;
-    grades.append(h('button', { class: 'grade-card review-card', 'data-peek': 'Ôn tập nè!', 'data-peek-short': 'Làm đề!', style: { '--gc': '#0E8C88' }, onclick: e => { sfx.tap(); peekThen(e.currentTarget, showExamHome, 'Làm đề nào!'); } },
+    grades.append(h('button', { class: 'grade-card review-card', 'data-peek': 'Ôn tập nè!', 'data-say': 'Bé ơi, ôn tập nè!', 'data-peek-short': 'Làm đề!', style: { '--gc': '#0E8C88' }, onclick: e => { sfx.tap(); peekThen(e.currentTarget, showExamHome, 'Làm đề nào!'); } },
       h('div', { class: 'island' }), h('div', { class: 'gicon' }, '📝'),
       h('div', null, h('div', { class: 'gnum' }, '✓'), h('div', { class: 'glabel' }, 'Ôn tập'),
         h('div', { class: 'gdesc' }, `Kiểm tra giữa kì, cuối kì · Đề theo mẫu Bộ GD&ĐT` + (doneExams ? ` · đã làm ${doneExams} đề` : ''))),
@@ -901,7 +942,7 @@
           h('span', { class: 'et-name' }, TERMS[term].name),
           h('span', { class: 'et-best' }, bp ? (best >= 0 ? `Cao nhất: ${best} điểm` : `${bp.papers || 6} đề`) : 'Sắp có')));
       }
-      grid.append(h('section', { class: 'card exam-grade', 'data-peek': `Lớp ${n} nè!`, style: { '--gc': info.color } },
+      grid.append(h('section', { class: 'card exam-grade', 'data-peek': `Lớp ${n} nè!`, 'data-say': `Bé ơi, đề lớp ${n} nè!`, style: { '--gc': info.color } },
         h('div', { class: 'topic-head' }, h('div', { class: 'topic-icon' }, info.icon), h('div', null, h('div', { class: 'topic-title' }, 'Lớp ' + n), h('div', { class: 'topic-meta' }, n >= 4 ? 'Giữa kì và cuối kì' : 'Cuối học kì I và cuối năm'))),
         terms));
     }
