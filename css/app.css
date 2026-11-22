@@ -1073,3 +1073,19 @@ body.no-voice .say-btn { display: none; }
   .hand-guess { display: none; }
   .hand-bar { left: auto; }
 }
+
+/* ---------- iPad on its side: the "Câu tiếp" button was pushed off the bottom of the screen once the handwriting
+   pad, the "Bé viết: …" row and a two-line feedback were all in the answer card (user's photo, v51).
+   The card now scrolls inside itself and its buttons stay pinned to its bottom edge, as on phones;
+   the writing area is a little shorter so most answers fit without scrolling at all. ---------- */
+@media (orientation: landscape) and (min-width: 901px) and (min-height: 541px) {
+  .answer-card { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding-bottom: 0; }
+  .answer-card > * { flex-shrink: 0; }
+  .answer-card > .actions {
+    position: sticky; bottom: 0; z-index: 2;
+    margin: 0 -18px; padding: 6px 18px 18px;
+    background: #fff; border-radius: 0 0 var(--radius) var(--radius);
+  }
+  .answer-card > .feedback { scroll-margin-bottom: 92px; }   /* clear of the pinned buttons when scrolled into view */
+  .hand-area { height: clamp(140px, 22vh, 230px); }
+}
