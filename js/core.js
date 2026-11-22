@@ -189,7 +189,7 @@
       // so a fast slide across several cards doesn't start and cut off a string of words.
       clearTimeout(sayT);
       const line = card.dataset.say;
-      if (line) sayT = setTimeout(() => { if (cur === card && !card.classList.contains('peek-go')) speakOrQueue(line); }, 260);
+      if (line) sayT = setTimeout(() => { if (cur === card && !card.classList.contains('peek-go')) speakOrQueue(line); }, 380);
     }
     function down(card) {
       clearTimeout(sayT);
@@ -237,7 +237,7 @@
       if (moved) return; moved = true;
       setTimeout(go, Math.max(0, 700 - (Date.now() - t0)) + 120);
     };
-    const u = say ? speak(say) : null;
+    const u = say ? speak(say, null, 220) : null;   // after the chime, so it doesn't cover the first word
     if (u) {
       keepLineUntil = Date.now() + 4000;
       u.onend = u.onerror = moveOn;
@@ -296,7 +296,7 @@
   let viVoice = null;
   // ISA's voice: the device's Vietnamese voice, raised and slowed a little for "Dễ thương" (the default).
   const VOICE_STYLES = {
-    cute: { name: 'Dễ thương', pitch: 1.4, rate: 0.86 },
+    cute: { name: 'Dễ thương', pitch: 1.25, rate: 0.88 },   // higher pitch blurred the first consonant ("Bé" heard as "mớ")
     normal: { name: 'Bình thường', pitch: 1, rate: 0.92 },
   };
   function pickVoice() {
@@ -330,22 +330,28 @@
       .replace(/\bkg\b/g, ' ki-lô-gam').replace(/\bml\b/g, ' mi-li-lít').replace(/°C/g, ' độ C').replace(/%/g, ' phần trăm')
       .replace(/\n/g, '. ');
   }
-  function speak(text, btn) {
+  function speak(text, btn, delay = 0) {
     if (!S.settings.voice || !('speechSynthesis' in window) || !text) return;
     if (!viVoice) pickVoice();
     if (!viVoice) return;
+    // Cutting off a line and starting the next one straight away makes many voices swallow the first
+    // sound ("Bé ơi" heard as "mớ ơi"): after a cut, wait a moment; a short pause in front of the line
+    // also gives the voice time to start before the first word.
+    const busy = speechSynthesis.speaking || speechSynthesis.pending, gen = ++speechGen;
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(speakable(text));
+    const u = new SpeechSynthesisUtterance(', ' + speakable(text).trim());
     u.lang = 'vi-VN'; if (viVoice) u.voice = viVoice;
     const st = VOICE_STYLES[S.settings.voiceStyle] || VOICE_STYLES.cute;
     u.pitch = st.pitch; u.rate = st.rate;
     if (btn) { btn.classList.add('speaking'); u.onend = u.onerror = () => btn.classList.remove('speaking'); }
-    speechSynthesis.speak(u);
+    const wait = Math.max(delay, busy ? 150 : 0);
+    if (wait) setTimeout(() => { if (gen === speechGen) speechSynthesis.speak(u); }, wait); else speechSynthesis.speak(u);
     return u;
   }
   // A card tap's line ("Làm đề nào!") keeps playing while the next screen opens; the back button still cuts it.
   let keepLineUntil = 0;
-  function stopSpeech(force) { if (!force && Date.now() < keepLineUntil) return; keepLineUntil = 0; if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+  let speechGen = 0;   // a line waiting to start is dropped when another line or a stop comes first
+  function stopSpeech(force) { if (!force && Date.now() < keepLineUntil) return; keepLineUntil = 0; speechGen++; if ('speechSynthesis' in window) speechSynthesis.cancel(); }
   // iPad/iPhone Safari stays silent until the first speech is started inside a tap (touchend/click).
   // Lines asked for before that (ISA on the card under the finger) wait and are spoken on the first tap's touchend.
   let speechUnlocked = !/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) || !('ontouchend' in document);
@@ -405,7 +411,7 @@
     const pct = Math.min(1, d.count / d.goal);
     const ring = `<svg class="ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="7"/>
       <circle cx="27" cy="27" r="22" fill="none" stroke="#FFC93C" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(138.2 * pct).toFixed(1)} 200" transform="rotate(-90 27 27)"/></svg>`;
-    const greet = d.count >= d.goal ? 'Hôm nay bé đã xong mục tiêu rồi! 🎉' : 'Hôm nay mình học gì nào?';
+    const greet = d.count >= d.goal ? 'Hôm nay bé đã làm đủ mục tiêu rồi nhé!' : 'Hôm nay bé cố gắng học tốt nhé!';
     const grades = h('div', { class: 'grades' });
     for (const n of [1, 2, 3, 4, 5]) {
       const g = gradeOf(n), info = GRADE_INFO[n];
@@ -444,7 +450,7 @@
         h('div', { class: 'hero' },
           h('div', { class: 'speech' }, `Chào bé! ${greet}`),
           m,
-          h('div', null, h('h1', null, 'Chào bé!'), h('p', null, 'Cùng Rô-bốt ISA học Toán nhé'),
+          h('div', null, h('h1', null, 'Chào bé!'), h('p', null, greet),
             h('div', { class: 'daily', html: ring + `<div>Mục tiêu hôm nay<br><b>${Math.min(d.count, d.goal)}/${d.goal} câu</b></div>` }))),
         grades));
     m.addEventListener('click', () => speak(`Chào bé! ${greet}`));
@@ -725,7 +731,7 @@
         label.textContent = m === 'box' ? 'Chạm vào ô rồi điền chữ số (bắt đầu từ hàng đơn vị)'
           : m === 'hand' ? (bi ? 'Viết từng chữ số, bắt đầu từ hàng đơn vị (chạm ô để chọn chỗ viết)' : isFr ? 'Viết phân số' : 'Viết số')
           : isFr ? 'Viết phân số' : 'Nhập số';
-        if (bi) { bi.enable(toBoxes()); bi.clear(); }
+        if (bi) { bi.enable(toBoxes()); bi.clear(); boardAnswer.classList.toggle('in-boxes', toBoxes()); }
         if (!isFr) { input = ''; setSlot(''); checkBtn.disabled = true; }
         if (commaKey) commaKey.style.visibility = toBoxes() ? 'hidden' : '';
       }
@@ -825,6 +831,8 @@
       const body = h('div', { class: 'fx' }, h('b', null, title), text ? '\n' + text : '');
       if (hv) { const e = viz(hv, { size: 'sm', theme: 'paper' }); if (e) body.append(h('div', { class: 'fviz' }, e)); }
       feedback.append(h('div', { class: 'fe' }, kind === 'good' ? '🎉' : kind === 'hint' ? '💡' : '📝'), body);
+      // phones: the answer card may scroll, so bring the message into view
+      requestAnimationFrame(() => { const c = feedback.parentElement; if (c && c.scrollHeight > c.clientHeight) feedback.scrollIntoView({ block: 'nearest' }); });
     }
 
     screen(

@@ -57,7 +57,7 @@
   box-shadow: inset 0 0 0 2px #EDE3CF;
 }
 .scr-sheet canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
-@media (orientation: portrait), (max-width: 900px) {
+@media (orientation: portrait), (max-width: 900px) and (min-height: 541px) {
   .scr-handle { top: auto; bottom: 0; right: 50%; transform: translateX(50%); width: 150px; min-height: 50px; border-radius: 20px 20px 0 0; flex-direction: row; padding: 0 12px; }
   .scr-handle .scr-tx { writing-mode: horizontal-tb; }
   .scr-handle::before { left: 50%; top: 6px; width: 34px; height: 4px; margin: 0 0 0 -17px; }
@@ -69,7 +69,7 @@
 @media (prefers-reduced-motion: reduce) { .scr-panel { transition: none; } .scr-tip { animation: none; opacity: 0; } }
 `;
   const COLORS = [['#1D4ED8', 'Bút xanh'], ['#E0313B', 'Bút đỏ'], ['#1F2933', 'Bút đen']];
-  const bottomMode = () => matchMedia('(orientation: portrait), (max-width: 900px)').matches;
+  const bottomMode = () => matchMedia('(orientation: portrait), (max-width: 900px) and (min-height: 541px)').matches;
 
   let root, panel, handle, sheet, canvas, ctx;
   let key = null, isOpen = false, tipShown = false;

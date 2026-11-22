@@ -673,3 +673,241 @@ body.no-voice .say-btn { display: none; }
 .btn.danger:active { box-shadow: 0 2px 0 #B23237; }
 .reset-row { flex-wrap: wrap; gap: 8px; }
 .reset-ask { color: #B23237; font-weight: 700; min-width: 220px; }
+
+/* ======================= phones (user: dùng trên điện thoại chưa tối ưu) ======================= */
+@media (max-width: 640px) {
+  /* top bar: smaller buttons; extra controls (Học kì tabs) drop to their own row */
+  .topbar { flex-wrap: wrap; gap: 8px; padding: calc(10px + var(--safe-t)) 14px 8px; }
+  .topbar .title { font-size: 19px; flex: 1 1 0; }
+  .topbar .sub { font-size: 12px; }
+  .icon-btn { width: 44px; height: 44px; border-radius: 14px; font-size: 21px; }
+  .pill { height: 38px; padding: 0 12px; font-size: 16px; }
+  .pill .e { font-size: 17px; }
+  .topbar .btn.small { min-height: 40px; font-size: 15px; padding: 0 14px; }
+  .topbar .sem-tabs { order: 10; flex: 1 1 100%; justify-content: center; }
+  .topbar .sem-tab { flex: 1; height: 40px; }
+  .btn { min-height: 52px; font-size: 19px; padding: 0 20px; }
+  .btn.small { min-height: 44px; font-size: 16px; padding: 0 16px; }
+
+  /* home: one column of compact cards under a short greeting */
+  .home { display: block; padding: 4px 14px calc(18px + var(--safe-b)); overflow-y: auto; }
+  .home .hero { flex-direction: row; gap: 12px; margin-bottom: 12px; text-align: left; }
+  .hero .mascot-wrap { width: 84px; flex: none; }
+  .hero h1 { font-size: 25px; margin: 0; }
+  .hero p { font-size: 15px; }
+  .daily { margin-top: 8px; padding: 6px 12px; gap: 10px; font-size: 14px; border-radius: 16px; }
+  .ring { width: 40px; height: 40px; }
+  .grades { display: grid; grid-template-columns: 1fr; gap: 12px; max-height: none; overflow: visible; padding: 2px; }
+  .grade-card, .grade-card:nth-child(n+4) { grid-column: auto; min-height: 0; padding: 14px 16px 12px; gap: 6px; border-radius: 24px; }
+  .grade-card .gnum { font-size: 38px; }
+  .grade-card .glabel { font-size: 18px; }
+  .grade-card .gdesc { font-size: 13px; padding-right: 64px; }
+  .grade-card .gicon { font-size: 36px; right: 14px; top: 12px; }
+  .grade-card .island { width: 96px; height: 96px; }
+  .sem-btn { min-height: 58px; padding: 7px 10px; }
+  .sem-name { font-size: 16px; }
+  .review-card .gnum { font-size: 34px; }
+  .review-go { min-height: 42px; font-size: 15px; }
+
+  /* lesson map */
+  .scroll { padding: 4px 12px calc(24px + var(--safe-b)); }
+  .topic { padding: 14px 14px 16px; margin-bottom: 14px; }
+  .topic-icon { width: 46px; height: 46px; font-size: 26px; border-radius: 14px; }
+  .topic-title { font-size: 18px; }
+  .lessons { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .lesson-tile { min-height: 96px; padding: 12px 12px 10px; }
+  .lesson-tile .lt { font-size: 15px; }
+
+  /* Khám phá */
+  .player { padding: 0 12px calc(12px + var(--safe-b)); gap: 10px; }
+  .story { padding: 4px 6px; font-size: 15px; gap: 10px; }
+  .story .mini-mascot { width: 48px; }
+  .learn-card { padding: 16px 16px 14px; }
+  .learn-text { font-size: 22px; margin: 10px 0 4px; }
+  .learn-text.long { font-size: 19px; }
+  .learn-nav { gap: 8px; }
+  .learn-nav .btn { white-space: nowrap; min-height: 48px; padding: 0 16px; font-size: 17px; }
+
+  /* luyện tập */
+  .board { border-width: 8px; padding: 10px 14px 16px; border-radius: 18px; }
+  .board-head { font-size: 18px; }
+  .board-head .bc { font-size: 30px; }
+  .board .qtext { font-size: 24px; }
+  .board .qtext.long { font-size: 20px; }
+  .board.big .qtext { font-size: 46px; }
+  .board-answer { font-size: 38px; min-height: 56px; }
+  .board .tick { font-size: 64px; right: 16px; bottom: 18px; }
+  .board .say-btn, .say-btn { width: 42px; height: 42px; font-size: 20px; border-radius: 13px; }
+  .qvisual { min-height: 120px; }
+  .answer-card { padding: 12px; gap: 10px; }
+  .answer-label { font-size: 13px; }
+  .key { height: 50px; font-size: 24px; border-radius: 14px; }
+  .keypad { gap: 7px; }
+  .choice { min-height: 60px; font-size: 22px; border-radius: 16px; }
+  .choice.txt { font-size: 17px; }
+  .choices { gap: 8px; }
+  .choices.sym .choice { font-size: 38px; min-height: 72px; }
+  .feedback { font-size: 16px; padding: 10px 12px; }
+  .feedback .fe { font-size: 24px; }
+  .cm-btn { height: 40px; font-size: 15px; }
+
+  /* kết quả, góc phụ huynh, đề thi */
+  .result { padding: 14px; }
+  .result-card { padding: 22px 18px; }
+  .result-card .mascot-wrap { width: 120px; }
+  .result-card h2 { font-size: 25px; }
+  .result-card p { font-size: 16px; }
+  .big-stars { font-size: 48px; }
+  .sheet-bg { padding: 10px; }
+  .sheet { padding: 18px 16px; max-height: 94vh; }
+  .sheet h2 { font-size: 23px; }
+  .row { font-size: 16px; flex-wrap: wrap; }
+  .stat b { font-size: 23px; }
+  .exam-intro { font-size: 15px; }
+  .exam-intro .mini-mascot { width: 54px; }
+  .exam-grades { grid-template-columns: 1fr; }
+  .exam-summary { flex-direction: column; text-align: center; padding: 14px; }
+}
+
+/* phone on its side (≈ 844 × 390): board on the left, answer pad on the right, compact top bar */
+@media (orientation: landscape) and (max-height: 540px) {
+  .topbar { padding: calc(6px + var(--safe-t)) 14px 4px; gap: 8px; flex-wrap: nowrap; }
+  .topbar .title { font-size: 18px; }
+  .topbar .sub { font-size: 12px; }
+  .icon-btn { width: 40px; height: 40px; border-radius: 13px; font-size: 19px; }
+  .pill { height: 36px; padding: 0 12px; font-size: 15px; }
+  .topbar .btn.small { min-height: 38px; font-size: 15px; padding: 0 14px; }
+  .topbar .sem-tabs { order: 0; flex: none; }
+  .sem-tab { height: 36px; font-size: 14px; padding: 0 10px; }
+  .btn { min-height: 46px; font-size: 17px; padding: 0 18px; }
+  .btn.small { min-height: 40px; font-size: 15px; }
+
+  .home { display: block; overflow-y: auto; padding: 2px 16px calc(14px + var(--safe-b)); }
+  .home .hero { flex-direction: row; justify-content: center; gap: 14px; margin-bottom: 10px; text-align: left; }
+  .hero .mascot-wrap { width: 64px; }
+  .hero h1 { font-size: 22px; margin: 0; }
+  .hero p { font-size: 14px; }
+  .daily { margin-top: 4px; padding: 4px 12px; font-size: 13px; }
+  .ring { width: 34px; height: 34px; }
+  .grade-card .gdesc { font-size: 12px; }
+
+  .player { padding: 0 12px calc(8px + var(--safe-b)); gap: 6px; }
+  .progress-dots i { height: 8px; }
+  .stage { flex-direction: row; gap: 10px; }
+  .answer-pane { width: clamp(280px, 40vw, 360px); }
+  .answer-card { flex: 1; min-height: 0; overflow-y: auto; padding: 10px; gap: 8px; }
+  .answer-label { display: none; }
+  .board { border-width: 7px; padding: 6px 12px 14px; border-radius: 16px; }
+  .board-head { font-size: 15px; }
+  .board-head .bc { font-size: 24px; }
+  .board .qtext { font-size: 20px; margin-top: 4px; }
+  .board .qtext.long { font-size: 17px; }
+  .board.big .qtext { font-size: 40px; }
+  .board-answer { font-size: 30px; min-height: 40px; padding-bottom: 4px; }
+  .board .tick { font-size: 52px; right: 12px; bottom: 14px; }
+  .board-tray { height: 8px; }
+  .qvisual { min-height: 0; margin: 4px 0 2px; }
+  .say-btn, .board .say-btn { width: 38px; height: 38px; font-size: 18px; border-radius: 12px; }
+  .keypad { grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .key { height: 42px; font-size: 21px; border-radius: 12px; }
+  .choice { min-height: 50px; font-size: 20px; }
+  .choice.txt { font-size: 15px; }
+  .choices { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .choices.sym .choice { font-size: 32px; min-height: 56px; }
+  .cm-btn { height: 36px; font-size: 14px; }
+  .hand-area { height: 110px; }
+  .hand-bar { min-height: 40px; }
+  .hand-tools .key { height: 40px; width: 54px; }
+  .feedback { font-size: 15px; padding: 8px 10px; }
+  .actions .btn { min-height: 46px; }
+  body.scratch-on .player { padding-bottom: calc(8px + var(--safe-b)); }
+
+  .story { padding: 2px 4px; font-size: 14px; }
+  .story .mini-mascot { width: 40px; }
+  .learn-card { padding: 10px 16px 10px; }
+  .learn-text { font-size: 20px; margin: 6px 0 2px; }
+  .learn-text.long { font-size: 17px; }
+  .learn-tag { font-size: 13px; padding: 4px 10px; }
+
+  .result { padding: 8px; }
+  .result-card { flex-direction: row; flex-wrap: wrap; justify-content: center; padding: 14px 18px; gap: 8px 16px; }
+  .result-card .mascot-wrap { width: 90px; }
+  .result-card h2 { font-size: 22px; }
+  .big-stars { font-size: 38px; }
+  .sheet { max-height: 96vh; padding: 14px 18px; }
+  .exam-pad { width: min(560px, calc(100% - 24px)); padding: 8px; gap: 6px; }
+  .exam-pad .key { height: 40px; }
+}
+@media (orientation: landscape) and (max-height: 540px) {
+  body.scratch-on .player { padding-right: 60px; }   /* room for the "Nháp" tab on the right edge */
+}
+/* short phones (iPhone SE 375 × 667): give the board the room, keep the pad tight */
+@media (max-width: 640px) and (max-height: 760px) {
+  .answer-label { display: none; }
+  .key { height: 44px; font-size: 22px; }
+  .cm-btn { height: 36px; }
+  .answer-card { gap: 8px; padding: 10px; }
+  .actions .btn, .answer-card .btn { min-height: 48px; }
+  .board .qtext { font-size: 21px; }
+  .board .qtext.long { font-size: 18px; }
+  .board-head { font-size: 16px; }
+  .board-head .bc { font-size: 26px; }
+  .progress-dots i { height: 9px; }
+  .hand-area { height: 110px; }
+  .qvisual { min-height: 0; }
+}
+/* phones: when the child fills the đặt tính boxes, the chalk "??" line under them only repeats the boxes */
+@media (max-width: 640px), (orientation: landscape) and (max-height: 540px) {
+  .board-answer.in-boxes { display: none; }
+}
+@media (orientation: landscape) and (max-height: 540px) {
+  .hand-area { height: 92px; }
+  .hand-note { font-size: 12px; line-height: 1.25; }
+}
+/* phones upright: the board always keeps at least ~half of the space; a tall answer pad shrinks and scrolls inside */
+@media (max-width: 640px) and (orientation: portrait) {
+  .stage > .board, .stage > .qcard { flex: 1 0 48%; }
+  .answer-pane { flex: 0 1 auto; min-height: 0; display: flex; }
+  .answer-card { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+}
+@media (max-width: 640px) and (max-height: 760px) {
+  .hand-area { height: 96px; }
+  .hand-note { font-size: 12px; line-height: 1.25; }
+}
+@media (max-width: 640px) and (orientation: portrait), (orientation: landscape) and (max-height: 540px) {
+  /* "Bé đã xong" / "Câu tiếp" never scroll out of sight */
+  .answer-card { padding: 10px; }
+  .answer-card > .actions { position: sticky; bottom: -10px; margin: 0 -10px -10px; padding: 8px 10px 10px; background: #fff; border-radius: 0 0 var(--radius) var(--radius); z-index: 2; }
+}
+@media (max-width: 640px) {
+  .board-answer .bfrac { font-size: 30px; }
+  .board-answer .bfrac hr { min-width: 44px; margin: 2px 0; }
+  .board-answer .bfrac span { min-width: 44px; }
+}
+@media (max-width: 640px) and (max-height: 760px) and (orientation: portrait) {
+  .stage > .board, .stage > .qcard { flex-basis: 56%; }
+  .board-answer { min-height: 0; padding-bottom: 2px; }
+}
+/* phones upright: the guess / ⌫ bar sits inside the writing area so the whole pad fits without scrolling */
+@media (max-width: 640px) and (orientation: portrait) {
+  .hand { position: relative; gap: 6px; }
+  .hand-note { display: none; }
+  .hand-area { height: 120px; }
+  .hand-bar { position: absolute; left: 6px; right: 6px; bottom: 6px; min-height: 0; pointer-events: none; }
+  .hand-bar > * { pointer-events: auto; }
+  .hand-tools .key { height: 38px; width: 50px; font-size: 18px; }
+  .hand-guess { background: rgba(255, 255, 255, .92); border-radius: 12px; padding: 2px 6px; }
+  .hand-guess:not(.show) { pointer-events: none; }
+}
+@media (max-width: 640px) and (orientation: portrait) {
+  .scr-handle { min-height: 42px !important; width: 124px !important; font-size: 15px !important; }
+  .scr-handle .scr-ic { font-size: 21px !important; }
+  body.scratch-on .player { padding-bottom: calc(48px + var(--safe-b)); }
+  body.scratch-on .exam-pad { bottom: calc(48px + var(--safe-b)); }
+}
+@media (max-width: 640px) and (max-height: 760px) and (orientation: portrait) {
+  .hand-area { height: 92px; }
+}
+@media (max-width: 640px) and (orientation: portrait), (orientation: landscape) and (max-height: 540px) {
+  .answer-card > .feedback { scroll-margin-bottom: 78px; }   /* clear of the pinned buttons when scrolled into view */
+}
