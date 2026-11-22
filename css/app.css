@@ -1137,3 +1137,33 @@ body.no-voice .say-btn { display: none; }
 .board.side .qvisual > .viz > svg { max-height: 100%; }
 /* parts clipped to a shape (the water in a jug) do not count when a picture is fitted to its frame (fitViz) */
 .viz-measure .viz-nobox { display: none; }
+
+/* ---------- Xem lại bài đã làm: the last papers handed in ---------- */
+.exam-intro .log-btn { flex: none; margin-left: auto; background: #fff; color: var(--teal-d, #0E8C88); box-shadow: 0 4px 0 rgba(0, 40, 50, .18); white-space: nowrap; }
+.log-list { max-width: 940px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.log-row { display: flex; align-items: center; gap: 16px; padding: 14px 18px; text-align: left; width: 100%; }
+.log-row:active { transform: translateY(2px); }
+.log-score { flex: none; width: 84px; height: 84px; border-radius: 22px; display: grid; place-items: center; align-content: center;
+  background: #FFF6DB; color: #7A5600; font-size: 34px; font-weight: 900; line-height: 1; }
+.log-score small { font-size: 14px; font-weight: 700; opacity: .75; }
+.log-score.hi { background: #DDF5E6; color: #13693E; }
+.log-score.lo { background: #FDE3E3; color: #8E1F25; }
+.log-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.log-title { font-size: 20px; font-weight: 800; color: var(--ink); }
+.log-meta { font-size: 15px; font-weight: 700; color: var(--ink-2); }
+.log-when { font-size: 14px; font-weight: 600; color: var(--ink-2); opacity: .85; }
+.log-go { flex: none; font-weight: 800; color: var(--teal-d, #0E8C88); font-size: 16px; }
+.log-empty { max-width: 940px; margin: 0 auto; padding: 24px; font-size: 18px; font-weight: 700; color: var(--ink-2); text-align: center; }
+.log-none { margin-top: 6px; font-size: 16px; font-weight: 700; color: #8E1F25; }
+.exam-paper.review .ep-opt { cursor: default; display: flex; align-items: center; }
+.exam-paper.review .ep-slot { display: inline-flex; align-items: center; }
+.exam-paper.only-wrong .ep-item.right { display: none; }
+@media (max-width: 640px) {
+  .exam-intro:has(.log-btn) { flex-wrap: wrap; }
+  .exam-intro .log-btn { margin-left: 0; width: 100%; }
+  .log-row { gap: 12px; padding: 12px; }
+  .log-score { width: 64px; height: 64px; font-size: 26px; border-radius: 18px; }
+  .log-title { font-size: 17px; }
+  .log-meta { font-size: 13px; }
+  .log-go { display: none; }
+}

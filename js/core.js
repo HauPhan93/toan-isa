@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v56';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v57';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
   // English mode (Góc phụ huynh → Ngôn ngữ): tx('Vietnamese', 'English'). The parent corner itself stays Vietnamese.
   const EN = U.EN, tx = U.L;
   const G = n => tx('Lớp ' + n, 'Grade ' + n), HK = k => tx('Học kì ' + k, 'Term ' + k);
@@ -32,6 +32,7 @@
     daily: { date: '', count: 0, goal: 20 },
     exams: {},
     seen: {},      // per grade: questions and kinds of question already met in papers (see rememberPaper)
+    examLog: [],   // the last papers handed in, with the child's answers, for "Xem lại bài đã làm" (newest first)
     totals: { answered: 0, correct: 0, seconds: 0 },
     settings: { voice: true, sound: true, autoRead: false, voiceStyle: 'cute' },
   });
@@ -1296,6 +1297,10 @@
       weak.length ? h('div', null, ...weak.slice(0, 8).map(w => h('div', { class: 'row weak' },
         h('div', { class: 'grow' }, `Lớp ${w.r.grade.grade} · ${w.r.lesson.book || ''} · ${w.r.lesson.title}`), h('b', null, U.fmt(w.best) + '/10'),
         h('button', { class: 'btn small', onclick: () => { sh.close(); startLesson(w.r.lesson.id); } }, 'Ôn')))) : h('p', null, 'Chưa có bài nào dưới 7 điểm. 👍'),
+      h('h3', null, `Bài kiểm tra gần đây (${examLog().length}/${LOG_MAX})`),
+      examLog().length ? h('div', null, ...examLog().map((r, i) => h('div', { class: 'row weak' },
+        h('div', { class: 'grow' }, `${whenText(r.at)} · Lớp ${r.n} · ${termName(r.n, r.term)} · ${r.mode === 'nc' ? 'nâng cao' : 'thường'} · đúng ${rightCount(r)}/${r.items.length} câu`), h('b', null, U.fmt(r.final) + '/10'),
+        h('button', { class: 'btn small', onclick: () => { sh.close(); showExamReview(i, () => showExamLog(showExamHome)); } }, 'Xem')))) : h('p', null, 'Bé chưa nộp bài kiểm tra nào.'),
       h('h3', null, 'Cài đặt'),
       langRow,
       toggle('voice', (EN ? 'Giọng đọc tiếng Anh' : 'Giọng đọc tiếng Việt') + (viVoice ? '' : EN ? ' (máy này chưa có giọng tiếng Anh nên app không đọc)' : ' (máy này chưa có giọng tiếng Việt nên app không đọc)')), voiceRow, kidRow, styleRow, toggle('autoRead', 'Tự đọc đề bài'), toggle('sound', 'Âm thanh'), goalSel,
@@ -1661,7 +1666,8 @@
         terms));
     }
     wrap.append(h('div', { class: 'exam-intro' }, h('div', { class: 'mini-mascot' }, mascot('happy')),
-      h('div', null, h('b', null, tx('Ôn tập & Kiểm tra', 'Review & Tests')), h('div', null, tx('Đề kiểm tra định kì môn Toán theo mẫu đề của Bộ GD&ĐT (Thông tư 27): Phần I Trắc nghiệm, Phần II Tự luận, chấm thang điểm 10. Chọn đề thường hoặc đề nâng cao, rồi bấm vào một kì là có ngay một đề mới.', 'Maths tests in the style of Vietnam\'s Ministry of Education: Part I Multiple choice, Part II Written answers, marked out of 10. Choose a standard or a challenge test, then tap a term to get a new test.')))), grid);
+      h('div', null, h('b', null, tx('Ôn tập & Kiểm tra', 'Review & Tests')), h('div', null, tx('Đề kiểm tra định kì môn Toán theo mẫu đề của Bộ GD&ĐT (Thông tư 27): Phần I Trắc nghiệm, Phần II Tự luận, chấm thang điểm 10. Chọn đề thường hoặc đề nâng cao, rồi bấm vào một kì là có ngay một đề mới.', 'Maths tests in the style of Vietnam\'s Ministry of Education: Part I Multiple choice, Part II Written answers, marked out of 10. Choose a standard or a challenge test, then tap a term to get a new test.'))),
+      h('button', { class: 'btn small log-btn', onclick: () => { sfx.tap(); showExamLog(); } }, tx(`📜 Xem lại bài đã làm (${examLog().length})`, `📜 Past tests (${examLog().length})`))), grid);
     screen(topbar(tx('Ôn tập & Kiểm tra', 'Review & Tests'), tx('Chọn lớp và kì kiểm tra', 'Choose a grade and a test'), homeBtn(), [swap, coinPill(), parentBtn()]), wrap);
     Peek.bind(grid, '.exam-grade');
   }
@@ -1745,7 +1751,7 @@
       const pts = part.items.reduce((s, it) => s + it.points, 0);
       paper.append(h('div', { class: 'ep-part' }, /điểm/i.test(part.title) ? exText(part.title) : `${exText(part.title)} (${marks(pts)})`));
       if (part.note) paper.append(h('div', { class: 'ep-note' }, exText(part.note)));
-      for (const it of part.items) states.push(renderItem(it, paper));
+      for (const it of part.items) { const st = renderItem(it, paper); st.pi = parts.indexOf(part); states.push(st); }
     }
     paper.append(h('div', { class: 'ep-end' }, tx('— HẾT —', '— END —')));
 
@@ -1843,6 +1849,7 @@
       const prev = S.exams[key] || {};
       S.exams[key] = { best: Math.max(prev.best ?? 0, final), last: final, raw, at: Date.now(), tries: (prev.tries || 0) + 1 };
       S.coins += Math.floor(final); S.totals.seconds += Math.round((Date.now() - t0) / 1000);
+      logPaper({ n, term, mode, minutes: bp.minutes, took: Date.now() - t0, auto: !!auto, final, got, total, cmt, parts, states });
       save();
       if (final >= 9) { sfx.win(); confetti(110); } else sfx.good();
       const cheer = cheerFor(final);
@@ -1891,6 +1898,125 @@
       clock.classList.toggle('warn', left < 5 * 60000);
       if (left <= 0) submit(true);
     }, 1000);
+  }
+
+  /* ---------- Xem lại bài đã làm: the last papers handed in (user: "5 bài gần nhất để ba mẹ và bé kiểm tra") ---------- */
+  const LOG_MAX = 5;
+  const examLog = () => (Array.isArray(S.examLog) ? S.examLog : (S.examLog = []));
+  // Keep what is needed to show the paper again: the words, the picture, the right answer, what the child gave
+  // and whether it was right (marked when handed in, so pictures the child worked on need no re-checking).
+  function logPaper(p) {
+    const plainA = A => ({ kind: A.kind, options: A.options, correct: A.correct, value: A.value, unit: A.unit, num: A.num, den: A.den });
+    const resp = st => (st.it.answer.kind === 'choice' || st.it.answer.kind === 'text' ? { sel: st.sel }
+      : st.it.answer.kind === 'number' ? { input: st.input } : st.it.answer.kind === 'fraction' ? { num: st.fr.num, den: st.fr.den } : {});
+    const rec = {
+      at: Date.now(), n: p.n, term: p.term, mode: p.mode, minutes: p.minutes, took: p.took, auto: p.auto,
+      final: p.final, got: p.got, total: p.total, cmt: p.cmt,
+      parts: p.parts.map(pt => ({ title: pt.title, note: pt.note || '' })),
+      items: p.states.map(st => ({
+        p: st.pi, no: st.it.no, points: st.it.points, label: st.it.label || '', lessonId: st.it.lessonId,
+        q: { prompt: st.it.q.prompt, visual: st.it.q.visual || null, explain: st.it.q.explain || '' },
+        a: plainA(st.it.answer), r: resp(st), ok: st.el.classList.contains('right'),
+      })),
+    };
+    S.examLog = [rec].concat(examLog()).slice(0, LOG_MAX);
+    save();
+  }
+  const two = x => String(x).padStart(2, '0');
+  const whenText = t => { const d = new Date(t); return `${two(d.getDate())}/${two(d.getMonth() + 1)}/${d.getFullYear()} · ${two(d.getHours())}:${two(d.getMinutes())}`; };
+  const tookText = ms => { const m = Math.max(1, Math.round(ms / 60000)); return tx(`${m} phút`, `${m} min`); };
+  const logTitle = r => `${G(r.n)} · ${termName(r.n, r.term)}`;
+  const logKind = r => paperName(1, r.mode, r.term);
+  const rightCount = r => r.items.filter(it => it.ok).length;
+
+  // The list: newest first, a tap opens the paper as it was handed in
+  function showExamLog(back) {
+    stopSpeech(); clearInterval(examTimer);
+    back = back || showExamHome;
+    const log = examLog();
+    const sc = h('div', { class: 'scroll' });
+    const list = h('div', { class: 'log-list' });
+    log.forEach((r, i) => list.append(h('button', { class: 'card log-row', onclick: () => { sfx.tap(); showExamReview(i, back); } },
+      h('div', { class: 'log-score' + (r.final >= 9 ? ' hi' : r.final >= 5 ? '' : ' lo') }, U.fmt(r.final), h('small', null, '/10')),
+      h('div', { class: 'log-body' },
+        h('div', { class: 'log-title' }, logTitle(r)),
+        h('div', { class: 'log-meta' }, `${r.mode === 'nc' ? '🚀' : '📝'} ${logKind(r)} · ${tx(`đúng ${rightCount(r)}/${r.items.length} câu`, `${rightCount(r)}/${r.items.length} right`)} · ⏱ ${tookText(r.took)}`),
+        h('div', { class: 'log-when' }, whenText(r.at) + (r.auto ? tx(' · hết giờ, tự nộp', ' · handed in when time ran out') : ''))),
+      h('div', { class: 'log-go' }, tx('Xem lại ›', 'Review ›')))));
+    sc.append(h('div', { class: 'exam-intro' }, h('div', { class: 'mini-mascot' }, mascot('happy')),
+      h('div', null, h('b', null, tx('Bài đã làm gần đây', 'Recent tests')),
+        h('div', null, tx(`ISA giữ lại ${LOG_MAX} bài kiểm tra và phiếu ôn bé nộp gần nhất. Bấm vào một bài để xem lại từng câu: bé chọn gì, đáp án đúng và lời giải.`,
+          `ISA keeps the last ${LOG_MAX} tests and review sheets you handed in. Tap one to see each question again: your answer, the right answer and how to work it out.`)))),
+      log.length ? list : h('div', { class: 'card log-empty' }, tx('Bé chưa nộp bài kiểm tra nào. Làm xong một đề, bài sẽ hiện ở đây. ✏️', 'No tests handed in yet. When you finish one, it shows here. ✏️')));
+    screen(topbar(tx('Xem lại bài đã làm', 'Review past tests'), tx(`${log.length}/${LOG_MAX} bài gần nhất`, `last ${log.length} of ${LOG_MAX}`), backBtn(back), []), sc);
+  }
+
+  // One paper, read-only: the child's answers marked right / wrong, the right answer and the working
+  function showExamReview(i, back) {
+    const r = examLog()[i];
+    if (!r) return showExamLog(back);
+    stopSpeech();
+    const letters = 'ABCDEF';
+    const paper = h('div', { class: 'exam-paper review' },
+      h('div', { class: 'ep-head' },
+        h('div', { class: 'ep-school' }, h('div', null, tx('CƠ SỞ GIÁO DỤC CÔNG NGHỆ ISA', 'ISA TECHNOLOGY EDUCATION CENTRE')), h('div', null, tx(`Họ và tên: ${S.name || '................'}`, `Name: ${S.name || '................'}`)), h('div', null, tx(`Lớp: ${r.n}`, `Grade: ${r.n}`))),
+        h('div', { class: 'ep-title' }, h('div', { class: 'ep-t1' }, isSheet(r.term) ? tx('PHIẾU ÔN TẬP', 'REVIEW SHEET') : TERMS[r.term] ? TERMS[r.term].title : ''), isSheet(r.term) ? h('div', { class: 'ep-t2' }, termName(r.n, r.term)) : null,
+          h('div', { class: 'ep-t2' }, tx(`Môn: Toán – Lớp ${r.n}`, `Subject: Maths – Grade ${r.n}`)),
+          h('div', { class: 'ep-t3' }, tx(`Thời gian làm bài: ${r.minutes} phút`, `Time: ${r.minutes} minutes`) + (r.mode === 'nc' ? tx(' · Nâng cao', ' · Challenge') : '')),
+          h('div', { class: 'ep-t3' }, tx(`Ngày làm: ${whenText(r.at)} · làm trong ${tookText(r.took)}`, `Done: ${whenText(r.at)} · took ${tookText(r.took)}`)))),
+      h('div', { class: 'ep-boxes' },
+        h('div', { class: 'ep-score' }, h('div', { class: 'ep-lbl' }, tx('Điểm', 'Mark')), h('div', { class: 'ep-num' }, U.fmt(r.final))),
+        h('div', { class: 'ep-comment' }, h('div', { class: 'ep-lbl' }, tx('Nhận xét của giáo viên', 'Teacher\'s comment')), h('div', { class: 'ep-cmt' }, r.cmt || ''))));
+    r.parts.forEach((pt, pi) => {
+      const its = r.items.filter(it => it.p === pi);
+      if (!its.length) return;
+      paper.append(h('div', { class: 'ep-part' }, /điểm/i.test(pt.title) ? exText(pt.title) : `${exText(pt.title)} (${marks(its.reduce((s, it) => s + it.points, 0))})`));
+      if (pt.note) paper.append(h('div', { class: 'ep-note' }, exText(pt.note)));
+      for (const it of its) {
+        const A = it.a, q = it.q, lbl = exText(it.label);
+        const box = h('div', { class: 'ep-item ' + (it.ok ? 'right' : 'wrong') },
+          h('div', { class: 'ep-q' }, h('b', null, `${tx('Câu', 'Question')} ${it.no} `), h('span', { class: 'ep-pts' }, `(${marks(it.points)})`), h('b', null, ': '),
+            lbl && !q.prompt.toLowerCase().startsWith(lbl.toLowerCase().replace(/[.:]\s*$/, '')) ? h('span', { class: 'ep-label' }, lbl + '. ') : null, h('span', { class: 'ep-prompt' }, q.prompt)));
+        if (q.visual) { const v = viz(q.visual, { size: 'md', theme: 'paper' }); if (v) box.append(h('div', { class: 'ep-viz' }, v)); }
+        const ans = h('div', { class: 'ep-ans' });
+        if (A.kind === 'choice' || A.kind === 'text') {
+          (A.options || []).forEach((o, k) => ans.append(h('div', { class: 'ep-opt' + (k === it.r.sel ? ' on' : '') + (k === A.correct ? ' correct' : '') + (k === it.r.sel && k !== A.correct ? ' miss' : '') },
+            h('span', { class: 'ep-letter' }, letters[k] + '.'), h('span', null, ' ' + o))));
+          if (it.r.sel == null) ans.append(h('div', { class: 'log-none' }, tx('Bé chưa chọn đáp án.', 'No answer chosen.')));
+        } else if (A.kind === 'number' || A.kind === 'fraction') {
+          const given = A.kind === 'number' ? (it.r.input ? prettyInput(it.r.input) : '') : (it.r.num !== '' && it.r.den !== '' && it.r.num != null ? `${it.r.num}/${it.r.den}` : '');
+          ans.append(h('span', { class: 'ep-say' }, tx('Bé trả lời: ', 'Your answer: ')), h('span', { class: 'ep-slot' + (given ? '' : ' empty') }, given || tx('(bỏ trống)', '(blank)')));
+          if (A.unit) ans.append(h('span', { class: 'ep-unit' }, A.unit));
+        } else ans.append(h('span', { class: 'ep-say' }, tx('Bé làm trực tiếp trên hình.', 'Worked on the picture.')));
+        box.append(ans);
+        const right = A.kind === 'choice' || A.kind === 'text' ? (A.options ? letters[A.correct] + '. ' + A.options[A.correct] : '')
+          : A.kind === 'number' ? U.fmt(A.value) + (A.unit ? ' ' + A.unit : '') : A.kind === 'fraction' ? `${A.num}/${A.den}` : '';
+        box.append(h('div', { class: 'ep-review ' + (it.ok ? 'ok' : 'no') },
+          h('b', null, it.ok ? `✓ ${tx('Đúng', 'Correct')} · +${marks(it.points)}` : tx('✗ Chưa đúng · 0 điểm', '✗ Not correct · 0 marks')),
+          !it.ok && right ? h('div', null, tx('Đáp án: ', 'Answer: ') + right) : null,
+          q.explain ? h('div', { class: 'ep-explain' }, q.explain) : null));
+        paper.append(box);
+      }
+    });
+    paper.append(h('div', { class: 'ep-end' }, tx('— HẾT —', '— END —')));
+    const wrongN = r.items.length - rightCount(r);
+    const weak = [...new Set(r.items.filter(it => !it.ok).map(it => it.lessonId))].map(id => LESSONS.get(id)).filter(Boolean);
+    const onlyWrong = h('button', { class: 'btn ghost small', onclick: () => {
+      sfx.tap(); const on = paper.classList.toggle('only-wrong');
+      onlyWrong.textContent = on ? tx('Xem tất cả các câu', 'Show every question') : tx(`Chỉ xem ${wrongN} câu sai`, `Only the ${wrongN} wrong`);
+    } }, tx(`Chỉ xem ${wrongN} câu sai`, `Only the ${wrongN} wrong`));
+    const summary = h('div', { class: 'card exam-summary' },
+      h('div', { class: 'mini-mascot' }, mascot(r.final >= 7 ? 'cheer' : 'think')),
+      h('div', { class: 'es-body' },
+        h('div', { class: 'es-score' }, U.fmt(r.final), h('small', null, tx('/10 điểm', '/10'))),
+        h('div', null, `${logKind(r)} · ${tx(`đúng ${rightCount(r)}/${r.items.length} câu (${U.fmt(r.got)}/${U.fmt(r.total)} điểm)`, `${rightCount(r)}/${r.items.length} right (${U.fmt(r.got)}/${U.fmt(r.total)} marks)`)} · ⏱ ${tookText(r.took)}`
+          + (r.auto ? tx(' · hết giờ, tự nộp', ' · handed in when time ran out') : '')),
+        weak.length ? h('div', { class: 'es-weak' }, tx('Nên ôn lại: ', 'Review: '), ...weak.slice(0, 4).map(w => h('button', { class: 'chip', onclick: () => { sfx.tap(); startLesson(w.lesson.id); } }, `${w.lesson.book || ''} ${w.lesson.title}`))) : null,
+        h('div', { class: 'result-actions', style: { justifyContent: 'flex-start' } },
+          wrongN ? onlyWrong : null,
+          h('button', { class: 'btn small', onclick: () => { sfx.tap(); startExam(r.n, r.term, 1, r.mode); } }, isSheet(r.term) ? tx('↻ Làm phiếu mới', '↻ New sheet') : tx('↻ Làm đề mới', '↻ New test')))));
+    const sc = h('div', { class: 'scroll exam-scroll' }, summary, paper);
+    screen(topbar(logTitle(r), `${logKind(r)} · ${whenText(r.at)}`, backBtn(() => showExamLog(back)), []), sc);
   }
 
   // Bottom number pad for the exam's "Trả lời: ……" slots.
