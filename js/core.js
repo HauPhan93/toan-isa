@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v38';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v39';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
 
   const GRADE_INFO = {
     1: { color: '#F0A500', icon: '🐣', desc: 'Số đến 100 · Cộng, trừ trong phạm vi 10 · Hình, giờ, lịch' },
@@ -392,17 +392,68 @@
     const put = to => (m, a, b) => a + (b[0] === 'B' ? to[0].toUpperCase() + to.slice(1) : to);
     return t.replace(KID_SMALL, put('nhỏ')).replace(KID_CALL, put(w)).replace(KID_CALL2, put(w)).replace(KID_REST, put('nhỏ'));
   }
-  function speak(text, btn, delay = 0) {
-    if (!S.settings.voice || !('speechSynthesis' in window) || !text) return;
-    if (!viVoice) pickVoice();
-    if (!viVoice) return;
-    // Cutting off a line and starting the next one straight away makes many voices swallow the first
-    // sound ("Bé ơi" heard as "mớ ơi"): after a cut, wait a moment; a short pause in front of the line
-    // also gives the voice time to start before the first word.
-    const busy = speechSynthesis.speaking || speechSynthesis.pending, gen = ++speechGen;
-    speechSynthesis.cancel();
+  // ---- ISA's recorded lines ----
+  // js/isa-voice.js lists the lines that have a recorded clip (made with tools/make_isa_voice.py). Such a line is
+  // played from its file, so it sounds the same — and says "bé" correctly — on every device. Everything else
+  // (questions, hints, the child's name) is still read by the device's own voice.
+  const VOICE_CLIPS = (window.ISA_VOICE && window.ISA_VOICE.clips) || {};
+  const CLIP_DIR = (window.ISA_VOICE && window.ISA_VOICE.dir) || 'audio/isa/';
+  const CLIP_KEYS = Object.keys(VOICE_CLIPS).sort((a, b) => b.length - a.length);   // longest line first
+  const clipEl = CLIP_KEYS.length && typeof Audio !== 'undefined' ? new Audio() : null;
+  // A very short silent sound: played once inside the first tap, it lets iPhone/iPad play the clips later on.
+  const SILENT_WAV = 'data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA';
+  // Clips are fetched as files (the service worker keeps them for offline use) and played from memory:
+  // Safari refuses media that a service worker answers without byte ranges.
+  const clipUrls = new Map();
+  function clipUrl(file) {
+    if (!clipUrls.has(file)) {
+      clipUrls.set(file, fetch(CLIP_DIR + file).then(r => { if (!r.ok) throw new Error('clip ' + r.status); return r.blob(); })
+        .then(b => URL.createObjectURL(b)).catch(e => { clipUrls.delete(file); throw e; }));
+    }
+    return clipUrls.get(file);
+  }
+  if (clipEl) setTimeout(() => new Set(Object.values(VOICE_CLIPS)).forEach(f => clipUrl(f).catch(() => {})), 1500);
+  // Split a line into recorded clips and free text for the device voice: clips at the start, at most one
+  // stretch of free text, clips at the end ("Chưa đúng, bé thử lại nhé." + hint · "Chào Na!" + recorded rest).
+  function clipSegments(text) {
+    if (!clipEl) return null;
+    let rest = String(text).trim();
+    const head = [], tail = [];
+    while (rest) {
+      const k = CLIP_KEYS.find(x => rest === x || rest.startsWith(x + ' '));
+      if (!k) break;
+      head.push({ clip: VOICE_CLIPS[k], text: k });
+      rest = rest.slice(k.length).trim();
+    }
+    while (rest) {
+      const k = CLIP_KEYS.find(x => rest.endsWith(' ' + x));
+      if (!k) break;
+      tail.unshift({ clip: VOICE_CLIPS[k], text: k });
+      rest = rest.slice(0, -k.length).trim();
+    }
+    if (!head.length && !tail.length) return null;
+    return [...head, ...(rest ? [{ text: rest }] : []), ...tail];
+  }
+  function stopClip() { if (clipEl) { clipEl.onended = clipEl.onerror = null; try { clipEl.pause(); } catch (e) { /* ignore */ } } }
+  function playClip(file, done, fail) {
+    let over = false, t = 0;
+    const end = ok => { if (over) return; over = true; clearTimeout(t); clipEl.onended = clipEl.onerror = null; (ok ? done : fail)(); };
+    // never hang on a file that cannot load: after 9 s go on (as played if any sound came out)
+    t = setTimeout(() => end(clipEl.currentTime > 0), 9000);
+    clipUrl(file).then(url => {
+      if (over) return;
+      clipEl.onended = () => end(true);
+      clipEl.onerror = () => end(false);
+      clipEl.src = url;
+      const pr = clipEl.play();
+      if (pr && pr.catch) pr.catch(() => end(false));
+    }, () => end(false));
+  }
+  let speakBtn = null;   // the 🔊 button that shows "speaking"
+  function setSpeakBtn(btn) { if (speakBtn && speakBtn !== btn) speakBtn.classList.remove('speaking'); speakBtn = btn || null; if (btn) btn.classList.add('speaking'); }
+  function makeUtterance(text) {
     // NFC: precomposed Vietnamese letters (é = U+00E9, not e + U+0301), which every voice reads correctly
-    // no leading comma: on iPhone/iPad it made "Bé" come out as "mớ" (user test on voice-test.html, way 3)
+    // no leading comma: on iPhone/iPad it made "Bé" come out as "mớ" (user test, way 3)
     const u = new SpeechSynthesisUtterance(kidSpeech(speakable(text)).trim().normalize('NFC'));
     u.lang = 'vi-VN'; if (viVoice) u.voice = viVoice;
     const st = VOICE_STYLES[S.settings.voiceStyle] || VOICE_STYLES.cute;
@@ -410,27 +461,69 @@
     // they speak at their natural pitch and speed. Edge's natural voices keep the "Dễ thương" style.
     const plain = isPlainVoice(viVoice);
     u.pitch = plain ? 1 : st.pitch; u.rate = plain ? 1 : st.rate;
-    if (btn) { btn.classList.add('speaking'); u.onend = u.onerror = () => btn.classList.remove('speaking'); }
-    const wait = Math.max(delay, busy ? 150 : 0);
-    if (wait) setTimeout(() => { if (gen === speechGen) speechSynthesis.speak(u); }, wait); else speechSynthesis.speak(u);
     return u;
+  }
+  let lastUtter = null;   // kept so the browser cannot drop an utterance before it has finished
+  function canTTS() { if (!('speechSynthesis' in window)) return false; if (!viVoice) pickVoice(); return !!viVoice; }
+  // Read one stretch of free text with the device voice, then go on.
+  function ttsPart(text, cb) {
+    if (!canTTS()) return cb();
+    const u = lastUtter = makeUtterance(text);
+    let over = false;
+    u.onend = u.onerror = () => { if (!over) { over = true; cb(); } };
+    speechSynthesis.speak(u);
+  }
+  function speak(text, btn, delay = 0) {
+    if (!S.settings.voice || !text) return;
+    const segs = clipSegments(text);
+    if (!segs) {
+      // no recorded part: the device voice reads the whole line
+      if (!canTTS()) return;
+      // Cutting off a line and starting the next one straight away makes many voices swallow the first
+      // sound: after a cut, wait a moment before the new line.
+      const busy = speechSynthesis.speaking || speechSynthesis.pending, gen = ++speechGen;
+      speechSynthesis.cancel(); stopClip();
+      const u = lastUtter = makeUtterance(text);
+      setSpeakBtn(btn);
+      if (btn) u.onend = u.onerror = () => btn.classList.remove('speaking');
+      const wait = Math.max(delay, busy ? 150 : 0);
+      if (wait) setTimeout(() => { if (gen === speechGen) speechSynthesis.speak(u); }, wait); else speechSynthesis.speak(u);
+      return u;
+    }
+    // recorded clips, with the device voice for any free text in between
+    const gen = ++speechGen;
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    stopClip();
+    setSpeakBtn(btn);
+    const ctl = { onend: null, onerror: null };   // same hooks as an utterance (peekThen waits on onend)
+    let i = 0;
+    const next = () => {
+      if (gen !== speechGen) return;
+      if (i >= segs.length) { if (btn) btn.classList.remove('speaking'); if (ctl.onend) ctl.onend(); return; }
+      const sg = segs[i++];
+      if (sg.clip) playClip(sg.clip, next, () => { if (gen === speechGen) ttsPart(sg.text, next); });
+      else ttsPart(sg.text, next);
+    };
+    if (delay) setTimeout(next, delay); else next();
+    return ctl;
   }
   // A card tap's line ("Làm đề nào!") keeps playing while the next screen opens; the back button still cuts it.
   let keepLineUntil = 0;
   let speechGen = 0;   // a line waiting to start is dropped when another line or a stop comes first
-  function stopSpeech(force) { if (!force && Date.now() < keepLineUntil) return; keepLineUntil = 0; speechGen++; if ('speechSynthesis' in window) speechSynthesis.cancel(); }
+  function stopSpeech(force) { if (!force && Date.now() < keepLineUntil) return; keepLineUntil = 0; speechGen++; if ('speechSynthesis' in window) speechSynthesis.cancel(); stopClip(); setSpeakBtn(null); }
   // iPad/iPhone Safari stays silent until the first speech is started inside a tap (touchend/click).
   // Lines asked for before that (ISA on the card under the finger) wait and are spoken on the first tap's touchend.
   let speechUnlocked = !/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) || !('ontouchend' in document);
   let queuedLine = null;
   function speakOrQueue(text) { if (speechUnlocked) speak(text); else queuedLine = text; }
   function unlockSpeech() {
-    if (speechUnlocked || !('speechSynthesis' in window)) return;
+    if (speechUnlocked) return;
     speechUnlocked = true;
     document.removeEventListener('touchend', unlockSpeech, true);
     document.removeEventListener('click', unlockSpeech, true);
+    if (clipEl) { try { clipEl.src = SILENT_WAV; const pr = clipEl.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) { /* ignore */ } }
     if (queuedLine) { speak(queuedLine); queuedLine = null; return; }
-    if (speechSynthesis.speaking) return;
+    if (!('speechSynthesis' in window) || speechSynthesis.speaking) return;
     const u = new SpeechSynthesisUtterance(' ');
     u.volume = 0; u.lang = 'vi-VN';
     speechSynthesis.speak(u);
@@ -1100,7 +1193,7 @@
       h('div', { class: 'row' }, h('div', { style: { width: '120px' } }, 'Tên bé'), nameIn),
       h('h3', null, 'Đặt lại ứng dụng'), resetProgress, resetAll,
       h('div', { class: 'result-actions', style: { marginTop: '14px' } }, h('button', { class: 'btn', onclick: () => { sh.close(); showHome(); } }, 'Xong')),
-      h('p', { class: 'app-ver' }, `Toán ISA ${APP_VERSION}` + (viVoice ? ` · giọng: ${viVoice.name}${voiceTag(viVoice) ? ' ' + voiceTag(viVoice) : ''}` : '')));
+      h('p', { class: 'app-ver' }, `Toán ISA ${APP_VERSION}` + (viVoice ? ` · giọng: ${viVoice.name}${voiceTag(viVoice) ? ' ' + voiceTag(viVoice) : ''}` : '') + (CLIP_KEYS.length ? ` · ${CLIP_KEYS.length} câu thu sẵn` : '')));
   }
 
 

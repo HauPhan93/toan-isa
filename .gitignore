@@ -1,2 +1,7 @@
 # Local test page with sample data (not part of the app)
 dev-shell.html
+
+# never commit service keys
+*.key
+*speech-key*
+.env
