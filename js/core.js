@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v40';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v41';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
 
   const GRADE_INFO = {
     1: { color: '#F0A500', icon: '🐣', desc: 'Số đến 100 · Cộng, trừ trong phạm vi 10 · Hình, giờ, lịch' },
@@ -135,7 +135,7 @@
   // While the child slides across the cards ("rà chọn"), the card's icon (🐣 🌱 🚀 …) spins away and the ISA
   // rover pops in on that same spot with a short line; moving on spins ISA away and the icon back. A tap makes
   // ISA jump and say the tap line, then the app moves on. ISA only ever takes the icon's place, so no text is covered.
-  const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // With "Giảm chuyển động" switched on, ISA still comes out — the stylesheet turns the spin into an instant change.
   const Peek = (() => {
     let cur = null, hideT = null, lastSound = 0, sayT = null;
     const iconOf = card => card.querySelector(':scope > .gicon') || card.querySelector('.topic-icon');
@@ -180,7 +180,7 @@
     }
     function up(card) {
       clearTimeout(hideT);
-      if (REDUCED || cur === card) return;
+      if (cur === card) return;
       if (cur) down(cur);
       cur = card;
       let pk = peekOf(card);
@@ -214,8 +214,10 @@
       pk.classList.remove('up'); pk.classList.add('down');
       setTimeout(() => { if (pk.classList.contains('down')) pk.remove(); }, 380);
     }
+    // After a tap, ISA stays out this long (a finger that keeps resting or sliding keeps ISA out anyway).
+    const HOLD_MS = 3200;
+    const hold = () => { clearTimeout(hideT); hideT = setTimeout(() => { if (cur) down(cur); }, HOLD_MS); };
     function bind(container, selector) {
-      if (REDUCED) return;
       const find = (x, y) => { const t = document.elementFromPoint(x, y); const c = t && t.closest(selector); return c && container.contains(c) ? c : null; };
       const track = (x, y) => { const c = find(x, y); if (c) up(c); else if (cur && container.contains(cur)) down(cur); };
       container.addEventListener('pointermove', e => { if (e.pointerType !== 'touch') track(e.clientX, e.clientY); });
@@ -223,14 +225,22 @@
       // touch: touchmove keeps firing while the finger slides (even when the page scrolls)
       container.addEventListener('touchstart', e => { const t = e.touches[0]; track(t.clientX, t.clientY); }, { passive: true });
       container.addEventListener('touchmove', e => { const t = e.touches[0]; track(t.clientX, t.clientY); }, { passive: true });
-      container.addEventListener('touchend', () => { clearTimeout(hideT); hideT = setTimeout(() => { if (cur) down(cur); }, 1500); }, { passive: true });
+      container.addEventListener('touchend', hold, { passive: true });
+      // A plain tap or click on the card (its icon, its text — not a button inside it) also brings ISA out:
+      // some phones and in-app browsers send no touch events, only pointer events and a click.
+      container.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') track(e.clientX, e.clientY); });
+      container.addEventListener('click', e => {
+        const c = find(e.clientX, e.clientY);
+        if (!c || (e.target.closest && e.target.closest('button, a'))) return;
+        up(c);
+        if (e.pointerType !== 'mouse') hold();   // a mouse leaves the card by itself (pointerleave)
+      });
     }
     return { up, down, bind };
   })();
   // Tap: ISA (already out, or popping in now) jumps and says the tap line, then the app moves on.
   function peekThen(card, go, say) {
     if (!card || card.classList.contains('peek-go')) return;
-    if (REDUCED) { go(); return; }
     Peek.up(card);
     const pk = card.querySelector(':scope > .peek');
     card.classList.add('peek-go');
