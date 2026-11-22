@@ -18,6 +18,18 @@
   const sign = (a, b) => (a < b - EPS ? '<' : a > b + EPS ? '>' : '=');
   const lv = i => (i < 3 ? 0 : i < 7 ? 1 : 2);
   const vz = (type, params) => ({ type, params });
+  // Extra question forms mixed into a lesson generator. extra: [[fromI, toI, fn(rng, i)], ...];
+  // the base generator keeps `w` shares (default 2) so its own forms still appear. Keeps base.exam.
+  function more(base, extra, w) {
+    const g = function (rng, i) {
+      const ok = extra.filter(e => i >= e[0] && i <= e[1]);
+      const k = R(rng, 0, ok.length + (w || 2) - 1);
+      return k < ok.length ? ok[k][2](rng, i) : base(rng, i);
+    };
+    if (base.exam) g.exam = base.exam;
+    return g;
+  }
+  const tf = (rng, ok) => U.choices(rng, ok ? 'Đúng' : 'Sai', [ok ? 'Sai' : 'Đúng']);
   function Q(prompt, visual, answer, hint, explain, extra) {
     const q = { prompt, answer, hint, explain };
     if (visual) q.visual = visual;
@@ -223,7 +235,7 @@
           { text: 'Các phân số có mẫu số là 10, 100, 1000, … gọi là phân số thập phân: 3/10, 47/100, 9/1000.', visual: vz('decimalGrid', { value: 0.47 }) },
           { text: 'Một số phân số viết được thành phân số thập phân: 3/5 = (3 × 2)/(5 × 2) = 6/10; 7/25 = 28/100.' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 3;
           if (f === 0) { const good = P(rng, [[R(rng, 1, 9), 10], [R(rng, 1, 99), 100], [R(rng, 1, 999), 1000]]); const bad = [[R(rng, 1, 9), 3], [R(rng, 1, 9), 20], [R(rng, 1, 9), 50], [R(rng, 1, 9), 11]]; return Q('Phân số nào là phân số thập phân?', null, ch(rng, fs(...good), U.sample(rng, bad, 3).map(x => fs(...x))), 'Phân số thập phân có mẫu số là 10, 100, 1000, …', `${fs(...good)} có mẫu số ${good[1]}.`); }
           const [d, to] = P(rng, [[2, 10], [5, 10], [4, 100], [20, 100], [25, 100], [50, 100], [8, 1000], [125, 1000], [250, 1000]]);
@@ -231,7 +243,12 @@
           if (f === 1) return Q(`Viết phân số ${n}/${d} thành phân số thập phân:\n${n}/${d} = ?/${to}`, null, num(n * k), `Nhân cả tử và mẫu với ${k}.`, `${n}/${d} = (${n} × ${k})/(${d} × ${k}) = ${n * k}/${to}.`);
           const m = R(rng, 1, 9) * k; const [sn, sd] = U.simplify(m, to);
           return Q(`Viết phân số ${m}/${to} dưới dạng phân số tối giản.`, null, fracA(sn, sd, true), `Chia cả tử và mẫu cho ${U.gcd(m, to)}.`, `${m}/${to} = ${sn}/${sd}.`);
-        }),
+        }, [
+          [0, 6, rng => { const [D, w] = P(rng, [[10, 'mười'], [100, 'trăm'], [1000, 'nghìn']]), n = R(rng, 1, D === 10 ? 9 : 99); const others = [[10, 'mười'], [100, 'trăm'], [1000, 'nghìn']].filter(x => x[0] !== D).map(x => `${readVN(n)} phần ${x[1]}`); return Q(`Phân số ${n}/${D} đọc là:`, null, ch(rng, `${readVN(n)} phần ${w}`, others.concat([`${readVN(D)} phần ${readVN(n)}`])), 'Đọc tử số trước, rồi đọc "phần", rồi đọc mẫu số.', `${n}/${D} đọc là: ${readVN(n)} phần ${w}.`); }],
+          [0, 9, rng => { const ok = R(rng, 0, 1) === 1, [n, d] = ok ? P(rng, [[R(rng, 1, 9), 10], [R(rng, 1, 99), 100], [R(rng, 1, 999), 1000]]) : P(rng, [[R(rng, 1, 9), 20], [R(rng, 1, 9), 50], [R(rng, 1, 9), 11], [R(rng, 1, 9), 101], [R(rng, 1, 9), 25]]); return Q(`Đúng hay sai?\nPhân số ${n}/${d} là phân số thập phân.`, null, tf(rng, ok), 'Phân số thập phân có mẫu số là 10, 100, 1000, …', ok ? `${n}/${d} có mẫu số ${d} nên là phân số thập phân. Đúng.` : `Mẫu số ${d} không phải 10, 100, 1000, … Sai.`); }],
+          [0, 9, rng => { let v = R(rng, 1, 99); while (v % 2 === 0 || v % 5 === 0) v++; return Q('Viết phân số thập phân chỉ phần đã tô màu của hình vuông (hình vuông được chia thành 100 ô bằng nhau).', vz('decimalGrid', { value: v / 100 }), fracA(v, 100), 'Đếm số ô được tô màu trong 100 ô.', `Đã tô ${v} ô trong 100 ô: ${v}/100.`); }],
+          [3, 9, rng => { const to = P(rng, [10, 100]), m = R(rng, 2, 5), n = R(rng, 1, to - 1) * m; return Q(`Viết phân số ${n}/${to * m} thành phân số thập phân:\n${n}/${to * m} = ?/${to}`, null, num(n / m), `Chia cả tử số và mẫu số cho ${m}.`, `${n}/${to * m} = (${n} : ${m})/(${to * m} : ${m}) = ${n / m}/${to}.`); }],
+        ])),
       lesson(1, 5, 'Ôn tập các phép tính với phân số',
         'Rô-bốt ISA tính phần đường mà đội công nhân đã sửa trong hai ngày.',
         [
@@ -455,12 +472,18 @@
           { text: 'Hình thang có một cặp cạnh đối diện song song (hai đáy). Diện tích hình thang bằng tổng độ dài hai đáy nhân với chiều cao rồi chia cho 2: S = (a + b) × h : 2.', visual: vz('shape', { kind: 'trapezoid', dims: { a: 9, b: 5, h: 4 }, showDims: true, showHeight: true }) },
           { text: 'Hình thang có một cạnh bên vuông góc với hai đáy gọi là hình thang vuông.' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const b = R(rng, 2, lv(i) === 0 ? 10 : 40), a = b + R(rng, 1, 15), h = R(rng, 2, lv(i) === 0 ? 10 : 30), S = rd((a + b) * h / 2), f = i % 3;
           if (f === 0) return Q(`Tính diện tích hình thang có đáy lớn ${a} cm, đáy bé ${b} cm, chiều cao ${h} cm.`, vz('shape', { kind: 'trapezoid', dims: { a, b, h }, showDims: true, showHeight: true }), num(S, 'cm²'), 'S = (đáy lớn + đáy bé) × chiều cao : 2.', `(${a} + ${b}) × ${h} : 2 = ${F(S)} (cm²).`);
           if (f === 1) { const A = a * 10, B = b * 10, H = h * 5; const SS = (A + B) * H / 2; return Q(`Một thửa ruộng hình thang có đáy lớn ${A} m, đáy bé ${B} m, chiều cao ${H} m. Tính diện tích thửa ruộng.`, vz('shape', { kind: 'trapezoid', dims: { a: A, b: B, h: H }, showDims: true, showHeight: true }), num(SS, 'm²'), 'S = (a + b) × h : 2.', `(${A} + ${B}) × ${H} : 2 = ${F(SS)} (m²).`); }
           return Q('Hình thang có mấy cặp cạnh đối diện song song?', vz('shape', { kind: 'trapezoid' }), num(1), 'Hai đáy của hình thang song song với nhau.', 'Hình thang có 1 cặp cạnh đối diện song song (hai đáy).');
-        }),
+        }, [
+          [0, 9, (rng, i) => { const b = R(rng, 2, 10), a = b + R(rng, 1, 8), h = R(rng, 2, 10), S = rd((a + b) * h / 2), cl = P(rng, [S, S, (a + b) * h, rd(a * b / 2)]); return Q(`Đúng hay sai?\nHình thang có đáy lớn ${a} cm, đáy bé ${b} cm, chiều cao ${h} cm thì có diện tích là ${F(cl)} cm².`, vz('shape', { kind: 'trapezoid', dims: { a, b, h }, showDims: true, showHeight: true }), tf(rng, cl === S), 'S = (đáy lớn + đáy bé) × chiều cao : 2.', `(${a} + ${b}) × ${h} : 2 = ${F(S)} (cm²). ${cl === S ? 'Đúng' : 'Sai'}.`); }],
+          [0, 3, () => Q('Hình thang vuông có mấy góc vuông?', null, num(2), 'Hình thang vuông có một cạnh bên vuông góc với hai đáy.', 'Cạnh bên vuông góc với cả hai đáy nên hình thang vuông có 2 góc vuông.')],
+          [3, 9, rng => { const a = dec(R(rng, 30, 90), 1), b = dec(R(rng, 10, 29), 1), h = R(rng, 2, 9), S = rd((a + b) * h / 2); return Q(`Tính diện tích hình thang có đáy lớn ${F(a)} m, đáy bé ${F(b)} m, chiều cao ${h} m.`, vz('shape', { kind: 'trapezoid', dims: { a, b, h, unit: 'm' }, showDims: true, showHeight: true }), num(S, 'm²'), 'S = (a + b) × h : 2.', `(${F(a)} + ${F(b)}) × ${h} : 2 = ${F(rd(a + b))} × ${h} : 2 = ${F(S)} (m²).`); }],
+          [6, 9, rng => { const b = R(rng, 4, 20), a = b + R(rng, 2, 12), h = 2 * R(rng, 2, 10), S = (a + b) * h / 2; return Q(`Một hình thang có diện tích ${S} cm², đáy lớn ${a} cm, đáy bé ${b} cm. Tính chiều cao của hình thang.`, vz('shape', { kind: 'trapezoid', dims: { a, b, h: '?' }, showDims: true, showHeight: true }), num(h, 'cm'), 'Chiều cao = diện tích × 2 : (đáy lớn + đáy bé).', `${S} × 2 : (${a} + ${b}) = ${S * 2} : ${a + b} = ${h} (cm).`); }],
+          [7, 9, rng => { const b = R(rng, 4, 20), a = b + R(rng, 2, 12), h = 2 * R(rng, 2, 10), S = (a + b) * h / 2; return Q(`Một hình thang có diện tích ${S} m², chiều cao ${h} m, đáy lớn ${a} m. Tính đáy bé.`, vz('shape', { kind: 'trapezoid', dims: { a, b: '?', h }, showDims: true, showHeight: true }), num(b, 'm'), 'Tổng hai đáy = diện tích × 2 : chiều cao; rồi trừ đi đáy lớn.', `Tổng hai đáy: ${S} × 2 : ${h} = ${a + b} (m). Đáy bé: ${a + b} ${M} ${a} = ${b} (m).`); }],
+        ])),
       lesson(5, 27, 'Đường tròn. Chu vi và diện tích hình tròn',
         'Rô-bốt ISA đo chiếc mâm tròn ngày Tết để may khăn trải bàn cùng bạn An.',
         [
@@ -502,14 +525,19 @@
           { text: 'Tỉ lệ bản đồ 1 : 1000 nghĩa là 1 cm trên bản đồ ứng với 1000 cm (= 10 m) trên thực tế.', visual: vz('mapScale', { scale: 1000, mapCm: 5 }) },
           { text: 'Độ dài thật = độ dài trên bản đồ × số lần (mẫu số của tỉ lệ). 5 cm × 1000 = 5000 cm = 50 m.' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const sc = P(rng, lv(i) === 0 ? [100, 500, 1000, 2000] : [1000, 5000, 10000, 100000, 500000, 1000000]), cm = R(rng, 2, 15), real = cm * sc, f = i % 3;
           const km = sc >= 100000;
           const val = km ? rd(real / 100000) : rd(real / 100), u = km ? 'km' : 'm';
           if (f === 0 || f === 1) return Q(`Trên bản đồ tỉ lệ 1 : ${F(sc)}, quãng đường đo được ${cm} cm. Quãng đường thật dài bao nhiêu ${km ? 'ki-lô-mét' : 'mét'}?`, vz('mapScale', { scale: sc, mapCm: cm }), num(val, u), `Lấy ${cm} × ${F(sc)} (cm) rồi đổi ra ${u}.`, `${cm} × ${F(sc)} = ${F(real)} (cm) = ${F(val)} ${u}.`);
           const realM = R(rng, 2, 20) * 10, sc2 = P(rng, [500, 1000, 2000]); const mapC = realM * 100 / sc2;
           return Q(`Một sân trường dài ${realM} m. Trên bản đồ tỉ lệ 1 : ${F(sc2)}, chiều dài đó là bao nhiêu xăng-ti-mét?`, null, num(rd(mapC), 'cm'), 'Đổi độ dài thật ra xăng-ti-mét rồi chia cho số lần.', `${realM} m = ${F(realM * 100)} cm; ${F(realM * 100)} : ${F(sc2)} = ${F(rd(mapC))} (cm).`);
-        }),
+        }, [
+          [0, 6, rng => { const sc = P(rng, [100, 200, 500, 1000, 2000, 5000, 10000]); return Q(`Trên bản đồ tỉ lệ 1 : ${F(sc)}, độ dài 1 cm ứng với độ dài thật là bao nhiêu mét?`, vz('mapScale', { scale: sc, mapCm: 1 }), num(sc / 100, 'm'), `1 cm trên bản đồ ứng với ${F(sc)} cm trên thực tế.`, `${F(sc)} cm = ${F(sc / 100)} m.`); }],
+          [0, 9, rng => { const sc = P(rng, [500, 1000, 2000, 5000]), cm = R(rng, 2, 12), real = cm * sc / 100, cl = P(rng, [real, real, real * 10, cm * sc]); return Q(`Đúng hay sai?\nTrên bản đồ tỉ lệ 1 : ${F(sc)}, độ dài ${cm} cm ứng với độ dài thật ${F(cl)} m.`, vz('mapScale', { scale: sc, mapCm: cm }), tf(rng, cl === real), 'Độ dài thật (cm) = độ dài trên bản đồ × số lần; rồi đổi ra mét.', `${cm} × ${F(sc)} = ${F(cm * sc)} (cm) = ${F(real)} m. ${cl === real ? 'Đúng' : 'Sai'}.`); }],
+          [3, 9, rng => { const sc = P(rng, [10000, 20000, 50000, 100000, 500000]), cm = R(rng, 2, 10), km = rd(cm * sc / 100000); const opts = [sc, sc * 10, sc / 10].map(x => `1 : ${F(x)}`); return Q(`Quãng đường thật dài ${F(km)} km được vẽ trên bản đồ dài ${cm} cm. Bản đồ đó có tỉ lệ là:`, vz('mapScale', { scale: sc, mapCm: cm }), ch(rng, opts[0], opts.slice(1).concat([`1 : ${F(cm)}`])), 'Đổi độ dài thật ra xăng-ti-mét rồi chia cho độ dài trên bản đồ.', `${F(km)} km = ${F(cm * sc)} cm; ${F(cm * sc)} : ${cm} = ${F(sc)}. Tỉ lệ 1 : ${F(sc)}.`); }],
+          [6, 9, rng => { const a = R(rng, 3, 9), b = R(rng, 2, a - 1), sc = P(rng, [500, 1000, 2000]), A = a * sc / 100, B = b * sc / 100; return Q(`Trên bản đồ tỉ lệ 1 : ${F(sc)}, một mảnh đất hình chữ nhật có chiều dài ${a} cm, chiều rộng ${b} cm. Tính chu vi thật của mảnh đất (theo mét).`, vz('mapScale', { scale: sc, mapCm: a }), num((A + B) * 2, 'm'), 'Tính chiều dài, chiều rộng thật trước rồi tính chu vi.', `Dài: ${a} × ${F(sc)} = ${F(a * sc)} cm = ${F(A)} m; rộng: ${F(B)} m. Chu vi: (${F(A)} + ${F(B)}) × 2 = ${F((A + B) * 2)} (m).`); }],
+        ])),
       lesson(7, 38, 'Tìm hai số khi biết tổng và tỉ số của hai số đó',
         'Rô-bốt ISA giúp hai bạn chia số sách theo tỉ số để mang tặng thư viện.',
         [
@@ -531,7 +559,7 @@
           { text: 'Hiệu hai số là 24, tỉ số là 3/5. Số bé 3 phần, số lớn 5 phần. Hiệu số phần: 5 − 3 = 2. Một phần: 24 : 2 = 12.', visual: vz('tape', { bars: [{ label: 'Số bé', parts: 3, units: 3, value: '?' }, { label: 'Số lớn', parts: 5, units: 5, value: '?' }], diff: '24' }) },
           { text: 'Số bé: 12 × 3 = 36. Số lớn: 36 + 24 = 60.' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           let m = R(rng, 1, 6), n = R(rng, m + 1, 9); const g = U.gcd(m, n); m /= g; n /= g;
           const u = R(rng, 2, lv(i) === 0 ? 10 : 40), D = (n - m) * u, f = i % 3;
           const tape = (l1, l2, d) => vz('tape', { bars: [{ label: l1, parts: m, units: m, value: '?' }, { label: l2, parts: n, units: n, value: '?' }], diff: d });
@@ -539,32 +567,57 @@
           if (f === 1) return Q(`Hiệu của hai số là ${D}. Số bé bằng ${m}/${n} số lớn. Tìm số bé.`, tape('Số bé', 'Số lớn', String(D)), num(m * u), `Hiệu số phần: ${n} ${M} ${m} = ${n - m}.`, `Một phần: ${D} : ${n - m} = ${u}. Số bé: ${u} × ${m} = ${m * u}.`);
           const k = R(rng, 3, 7), c = R(rng, 5, 10), mom = c * k, d = mom - c;
           return Q(`Mẹ hơn con ${d} tuổi. Tuổi con bằng 1/${k} tuổi mẹ. Tính tuổi con.`, vz('tape', { bars: [{ label: 'Con', parts: 1, units: 1, value: '?' }, { label: 'Mẹ', parts: k, units: k, value: '?' }], diff: d + ' tuổi' }), num(c, 'tuổi'), `Hiệu số phần: ${k} ${M} 1 = ${k - 1}.`, `Tuổi con: ${d} : ${k - 1} = ${c} (tuổi). Tuổi mẹ: ${c} × ${k} = ${mom} (tuổi).`);
-        }),
+        }, [
+          [0, 6, rng => { let m = R(rng, 1, 6), n = R(rng, m + 1, 9); const g = U.gcd(m, n); m /= g; n /= g; const D = (n - m) * R(rng, 2, 20); return Q(`Hiệu của hai số là ${D}, tỉ số của hai số là ${m}/${n}. Hiệu số phần bằng nhau là bao nhiêu?`, vz('tape', { bars: [{ label: 'Số bé', parts: m, units: m, value: '?' }, { label: 'Số lớn', parts: n, units: n, value: '?' }], diff: String(D) }), num(n - m), 'Số bé có ' + m + ' phần, số lớn có ' + n + ' phần.', `Hiệu số phần: ${n} ${M} ${m} = ${n - m}.`); }],
+          [0, 9, (rng, i) => { const k = R(rng, 2, 9), u = R(rng, 3, lv(i) === 0 ? 15 : 60), D = (k - 1) * u, big = R(rng, 0, 1) === 1; return Q(`Hiệu của hai số là ${D}. Số lớn gấp ${k} lần số bé. Tìm số ${big ? 'lớn' : 'bé'}.`, vz('tape', { bars: [{ label: 'Số bé', parts: 1, units: 1, value: '?' }, { label: 'Số lớn', parts: k, units: k, value: '?' }], diff: String(D) }), num(big ? k * u : u), `Số bé 1 phần, số lớn ${k} phần; hiệu số phần: ${k} ${M} 1 = ${k - 1}.`, `Số bé: ${D} : ${k - 1} = ${u}. Số lớn: ${u} × ${k} = ${k * u}.`); }],
+          [3, 9, (rng, i) => {
+            let m = R(rng, 1, 6), n = R(rng, m + 1, 9); const g = U.gcd(m, n); m /= g; n /= g; const u = R(rng, 2, lv(i) === 1 ? 12 : 40), D = (n - m) * u;
+            const [tx, ans, unit, l1, l2] = P(rng, [
+              [`Số học sinh nam ít hơn số học sinh nữ ${D} bạn. Số học sinh nam bằng ${m}/${n} số học sinh nữ. Hỏi có bao nhiêu học sinh nam?`, m * u, '', 'Nam', 'Nữ'],
+              [`Cửa hàng có số gạo tẻ nhiều hơn gạo nếp ${D} kg. Số gạo nếp bằng ${m}/${n} số gạo tẻ. Hỏi cửa hàng có bao nhiêu ki-lô-gam gạo tẻ?`, n * u, 'kg', 'Nếp', 'Tẻ'],
+              [`Một thửa ruộng hình chữ nhật có chiều dài hơn chiều rộng ${D} m, chiều rộng bằng ${m}/${n} chiều dài. Tính chiều dài thửa ruộng.`, n * u, 'm', 'Rộng', 'Dài']]);
+            return Q(tx, vz('tape', { bars: [{ label: l1, parts: m, units: m, value: '?' }, { label: l2, parts: n, units: n, value: '?' }], diff: String(D) }), unit ? num(ans, unit) : num(ans), `Hiệu số phần bằng nhau: ${n} ${M} ${m} = ${n - m}.`, `Một phần: ${D} : ${n - m} = ${u}. Đáp số: ${ans}${unit ? ' ' + unit : ''}.`);
+          }],
+          [3, 9, rng => { let m = R(rng, 1, 6), n = R(rng, m + 1, 9); const g = U.gcd(m, n); m /= g; n /= g; const u = R(rng, 2, 25), D = (n - m) * u; return Q(`Hiệu của hai số là ${D}, tỉ số của hai số là ${m}/${n}. Hai số đó là:`, null, ch(rng, `${m * u} và ${n * u}`, [`${m * (u + 1)} và ${n * (u + 1)}`, `${m * u} và ${m * u + D + u}`, `${u} và ${u + D}`]), 'Tìm giá trị một phần, rồi tìm từng số.', `Một phần: ${D} : ${n - m} = ${u}. Số bé: ${m * u}; số lớn: ${n * u}.`); }],
+          [7, 9, rng => { let m = R(rng, 1, 4), n = R(rng, m + 1, 6); const g = U.gcd(m, n); m /= g; n /= g; const u = R(rng, 2, 10), D = (n - m) * u; return Q(`Một mảnh vườn hình chữ nhật có chiều dài hơn chiều rộng ${D} m, chiều rộng bằng ${m}/${n} chiều dài. Tính diện tích mảnh vườn.`, vz('tape', { bars: [{ label: 'Rộng', parts: m, units: m, value: '?' }, { label: 'Dài', parts: n, units: n, value: '?' }], diff: D + ' m' }), num(m * u * n * u, 'm²'), 'Tìm chiều dài, chiều rộng (bài toán hiệu – tỉ), rồi tính diện tích.', `Một phần: ${D} : ${n - m} = ${u}. Rộng: ${m * u} m; dài: ${n * u} m. Diện tích: ${n * u} × ${m * u} = ${F(m * u * n * u)} (m²).`); }],
+        ])),
       lesson(7, 40, 'Tìm tỉ số phần trăm của hai số',
         'Rô-bốt ISA tính tỉ số phần trăm số cây đã trồng so với kế hoạch của lớp.',
         [
           { text: 'Muốn tìm tỉ số phần trăm của hai số, ta tìm thương của hai số rồi nhân thương đó với 100 và viết thêm kí hiệu %. 18 và 24: 18 : 24 = 0,75 = 75%.', visual: vz('percent', { percent: 75 }) },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const b = P(rng, lv(i) === 0 ? [10, 20, 25, 50] : [20, 25, 40, 50, 80, 200, 400, 500]), a = R(rng, 1, lv(i) === 2 ? b + b / 2 : b);
           const pc = rd(a * 100 / b), f = i % 3;
           if (f === 0) return Q(`Tìm tỉ số phần trăm của ${a} và ${b}.`, pc <= 100 && Number.isInteger(pc) ? vz('percent', { percent: pc }) : null, num(pc, '%'), 'Lấy số thứ nhất chia cho số thứ hai, nhân với 100 rồi viết thêm %.', `${a} : ${b} = ${F(rd(a / b))} = ${F(pc)}%.`);
           if (f === 1) { const tot = P(rng, [20, 25, 40, 50]), girls = R(rng, 1, tot - 1), p2 = rd(girls * 100 / tot); return Q(`Một lớp có ${tot} học sinh, trong đó có ${girls} học sinh nữ. Số học sinh nữ chiếm bao nhiêu phần trăm số học sinh cả lớp?`, Number.isInteger(p2) ? vz('percent', { percent: p2 }) : null, num(p2, '%'), 'Tỉ số phần trăm = số học sinh nữ : số học sinh cả lớp × 100.', `${girls} : ${tot} = ${F(rd(girls / tot))} = ${F(p2)}%.`); }
           const plan = P(rng, [20, 40, 50, 80, 200]), done = R(rng, plan / 2, plan * 1.5), p3 = rd(done * 100 / plan);
           return Q(`Theo kế hoạch, lớp phải trồng ${plan} cây. Lớp đã trồng được ${done} cây. Lớp đã thực hiện được bao nhiêu phần trăm kế hoạch?`, null, num(p3, '%'), 'Tỉ số phần trăm = số cây đã trồng : số cây kế hoạch × 100.', `${done} : ${plan} = ${F(rd(done / plan))} = ${F(p3)}%.`);
-        }),
+        }, [
+          [0, 6, rng => { const p = R(rng, 1, 99); return Q('Phần đã tô màu chiếm bao nhiêu phần trăm hình vuông?', vz('percent', { percent: p }), num(p, '%'), 'Hình vuông có 100 ô bằng nhau; mỗi ô là 1%.', `Có ${p} ô được tô trong 100 ô: ${p}%.`); }],
+          [0, 9, rng => { const [a, b] = P(rng, [[1, 2], [1, 4], [3, 4], [1, 5], [2, 5], [3, 5], [4, 5], [R(rng, 1, 9), 10], [R(rng, 1, 19), 20], [R(rng, 1, 24), 25], [R(rng, 1, 49), 50]]), pc = a * 100 / b; return Q(`Viết phân số ${a}/${b} dưới dạng tỉ số phần trăm.`, vz('percent', { percent: pc }), num(pc, '%'), `Viết ${a}/${b} thành phân số có mẫu số 100.`, `${a}/${b} = ${pc}/100 = ${pc}%.`); }],
+          [3, 9, rng => { const tot = P(rng, [20, 25, 40, 50, 80, 200]), a = R(rng, 1, tot - 1), pc = rd(a * 100 / tot); const [tx] = P(rng, [[`Một vườn cây có ${tot} cây, trong đó có ${a} cây cam. Số cây cam chiếm bao nhiêu phần trăm số cây trong vườn?`], [`Lớp 5A có ${tot} học sinh, trong đó có ${a} bạn thích đá cầu. Số bạn thích đá cầu chiếm bao nhiêu phần trăm số học sinh cả lớp?`], [`Một đội bóng đã thi đấu ${tot} trận, thắng ${a} trận. Số trận thắng chiếm bao nhiêu phần trăm tổng số trận?`]]); return Q(tx, null, num(pc, '%'), 'Tỉ số phần trăm = phần cần tìm : tổng × 100.', `${a} : ${tot} = ${F(rd(a / tot))} = ${F(pc)}%.`); }],
+          [6, 9, rng => { const tot = P(rng, [20, 25, 40, 50]), boys = R(rng, 1, tot - 1), g = tot - boys, pc = rd(g * 100 / tot); return Q(`Một lớp có ${tot} học sinh, trong đó có ${boys} học sinh nam. Số học sinh nữ chiếm bao nhiêu phần trăm số học sinh cả lớp?`, null, num(pc, '%'), 'Bước 1: tìm số học sinh nữ. Bước 2: tìm tỉ số phần trăm.', `Số học sinh nữ: ${tot} ${M} ${boys} = ${g}. ${g} : ${tot} = ${F(rd(g / tot))} = ${F(pc)}%.`); }],
+          [6, 9, rng => { const von = P(rng, [20000, 40000, 50000, 80000, 100000, 200000]), p = P(rng, [5, 10, 15, 20, 25]), lai = von * p / 100; return Q(`Một món hàng được mua vào với giá ${F(von)} đồng và bán ra với giá ${F(von + lai)} đồng. Tiền lãi bằng bao nhiêu phần trăm tiền vốn?`, null, num(p, '%'), 'Tiền lãi = giá bán − tiền vốn; tỉ số phần trăm = tiền lãi : tiền vốn × 100.', `Tiền lãi: ${F(von + lai)} ${M} ${F(von)} = ${F(lai)} (đồng). ${F(lai)} : ${F(von)} = ${F(rd(lai / von))} = ${p}%.`); }],
+        ])),
       lesson(7, 41, 'Tìm giá trị phần trăm của một số',
         'Rô-bốt ISA tính tiền được giảm giá khi mẹ bạn Mai mua quần áo mới.',
         [
           { text: 'Muốn tìm 30% của 120, ta lấy 120 × 30 : 100 = 36.', visual: vz('percent', { percent: 30 }) },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const p = P(rng, [10, 20, 25, 30, 40, 50, 60, 75, 5, 15]), base = 100 / U.gcd(p, 100), N = base * R(rng, 1, lv(i) === 0 ? 5 : 40), v = N * p / 100, f = i % 3;
           if (f === 0) return Q(`Tìm ${p}% của ${F(N)}.`, vz('percent', { percent: p }), num(v), `Lấy ${F(N)} × ${p} : 100.`, `${F(N)} × ${p} : 100 = ${F(v)}.`);
           if (f === 1) { const price = R(rng, 2, 40) * 10000, pp = P(rng, [10, 20, 25, 50]), off = price * pp / 100; return Q(`Một chiếc áo giá ${F(price)} đồng, được giảm giá ${pp}%. Hỏi chiếc áo được giảm bao nhiêu tiền?`, vz('percent', { percent: pp }), num(off, 'đồng'), `Tìm ${pp}% của ${F(price)}.`, `${F(price)} × ${pp} : 100 = ${F(off)} (đồng).`); }
           const tot = P(rng, [20, 25, 40, 50]), pp = P(rng, [20, 40, 60, 80]), girls = tot * pp / 100;
           return Q(`Lớp 5C có ${tot} học sinh, số học sinh nữ chiếm ${pp}%. Hỏi lớp có bao nhiêu học sinh nữ?`, vz('percent', { percent: pp }), num(girls), `Tìm ${pp}% của ${tot}.`, `${tot} × ${pp} : 100 = ${girls} (học sinh).`);
-        }),
+        }, [
+          [0, 9, rng => { const p = P(rng, [10, 20, 25, 50]), N = R(rng, 1, 20) * (100 / U.gcd(p, 100)), v = N * p / 100, cl = P(rng, [v, v, v * 10, N - v]); return Q(`Đúng hay sai?\n${p}% của ${F(N)} là ${F(cl)}.`, vz('percent', { percent: p }), tf(rng, cl === v), `Lấy ${F(N)} × ${p} : 100.`, `${F(N)} × ${p} : 100 = ${F(v)}. ${cl === v ? 'Đúng' : 'Sai'}.`); }],
+          [3, 9, rng => { const p = P(rng, [20, 25, 30, 40, 60, 75]), N = R(rng, 2, 12) * (100 / U.gcd(p, 100)) * 2, v = N * p / 100; const [tx, u] = P(rng, [[`Một trường có ${F(N)} học sinh, số học sinh biết bơi chiếm ${p}%. Hỏi trường có bao nhiêu học sinh biết bơi?`, ''], [`Một cửa hàng có ${F(N)} kg gạo, đã bán được ${p}% số gạo đó. Hỏi cửa hàng đã bán bao nhiêu ki-lô-gam gạo?`, 'kg'], [`Một thửa ruộng thu hoạch được ${F(N)} kg thóc, trong đó ${p}% là thóc nếp. Hỏi thu hoạch được bao nhiêu ki-lô-gam thóc nếp?`, 'kg']]); return Q(tx, vz('percent', { percent: p }), u ? num(v, u) : num(v), `Tìm ${p}% của ${F(N)}.`, `${F(N)} × ${p} : 100 = ${F(v)}${u ? ' (' + u + ')' : ''}.`); }],
+          [3, 9, rng => { const tr = R(rng, 1, 20), N = tr * 1000000, lai = tr * 5000; return Q(`Một người gửi tiết kiệm ${F(N)} đồng với lãi suất 0,5% một tháng. Hỏi sau một tháng người đó nhận được bao nhiêu tiền lãi?`, null, num(lai, 'đồng'), `Tìm 0,5% của ${F(N)}: lấy ${F(N)} × 0,5 : 100.`, `${F(N)} × 0,5 : 100 = ${F(lai)} (đồng).`); }],
+          [6, 9, rng => { const price = R(rng, 4, 40) * 10000, pp = P(rng, [10, 20, 25, 50]), off = price * pp / 100; return Q(`Một đôi giày giá ${F(price)} đồng, nay được giảm giá ${pp}%. Hỏi giá đôi giày sau khi giảm là bao nhiêu tiền?`, vz('percent', { percent: pp }), num(price - off, 'đồng'), `Bước 1: tìm ${pp}% của ${F(price)}. Bước 2: lấy giá cũ trừ số tiền được giảm.`, `Được giảm: ${F(price)} × ${pp} : 100 = ${F(off)} (đồng). Giá mới: ${F(price)} ${M} ${F(off)} = ${F(price - off)} (đồng).`); }],
+          [0, 6, rng => { const p = P(rng, [10, 20, 25, 50]), N = R(rng, 1, 20) * (100 / U.gcd(p, 100)), v = N * p / 100; return Q(`${p}% của ${F(N)} là:`, vz('percent', { percent: p }), ch(rng, v, [v * 10, N - v, rd(v / 10), N * p].filter(x => x > 0)), `Lấy ${F(N)} × ${p} : 100.`, `${F(N)} × ${p} : 100 = ${F(v)}.`); }],
+        ])),
     ],
   };
 
@@ -577,25 +630,36 @@
           { text: 'Hình này gồm 12 khối lập phương nhỏ. Ta nói thể tích của hình bằng 12 khối lập phương nhỏ.', visual: vz('cubes', { l: 3, w: 2, h: 2 }) },
           { text: 'Hình A gồm nhiều khối lập phương hơn hình B (cùng loại) thì thể tích hình A lớn hơn.' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const l = R(rng, 1, 4), w = R(rng, 1, 3), h = R(rng, 1, lv(i) === 0 ? 2 : 4), f = i % 3;
           if (f === 0 || f === 2) return Q('Hình dưới đây gồm bao nhiêu khối lập phương nhỏ?', vz('cubes', { l, w, h }), num(l * w * h), 'Đếm số khối ở một lớp rồi nhân với số lớp.', `${l} × ${w} × ${h} = ${l * w * h} (khối).`);
           const l2 = R(rng, 1, 4), w2 = R(rng, 1, 3), h2 = R(rng, 1, 3);
           return Q(`Hình A gồm ${l * w * h} khối lập phương nhỏ, hình B gồm ${l2 * w2 * h2} khối như thế. So sánh thể tích: hình A … hình B`, vz('cubes', { l, w, h }), cmpAns(l * w * h, l2 * w2 * h2), 'Hình nào gồm nhiều khối hơn thì thể tích lớn hơn.', `${l * w * h} ${sign(l * w * h, l2 * w2 * h2)} ${l2 * w2 * h2}.`);
-        }),
+        }, [
+          [0, 9, rng => { const l = R(rng, 1, 4), w = R(rng, 1, 3), h = R(rng, 1, 3), n = l * w * h, cl = P(rng, [n, n, n + l, n + w * h, Math.max(1, n - 1)]); return Q(`Đúng hay sai?\nHình dưới đây gồm ${cl} khối lập phương nhỏ.`, vz('cubes', { l, w, h }), tf(rng, cl === n), 'Đếm số khối ở một lớp rồi nhân với số lớp (nhớ cả những khối bị che).', `${l} × ${w} × ${h} = ${n} (khối). ${cl === n ? 'Đúng' : 'Sai'}.`); }],
+          [3, 9, rng => { const l = R(rng, 2, 4), w = R(rng, 1, 3), h = R(rng, 1, 3), A = l * w * h; let B = R(rng, 1, 30); if (B === A) B = A + 2; return Q(`Hình A như hình vẽ. Hình B gồm ${B} khối lập phương nhỏ như thế. Hình nào có thể tích lớn hơn và lớn hơn bao nhiêu khối lập phương nhỏ?`, vz('cubes', { l, w, h }), ch(rng, `Hình ${A > B ? 'A' : 'B'}, ${Math.abs(A - B)} khối`, [`Hình ${A > B ? 'B' : 'A'}, ${Math.abs(A - B)} khối`, `Hình ${A > B ? 'A' : 'B'}, ${A + B} khối`, `Hình ${A > B ? 'A' : 'B'}, ${Math.abs(A - B) + 1} khối`]), 'Đếm số khối của hình A rồi so sánh với hình B.', `Hình A gồm ${A} khối. ${Math.max(A, B)} ${M} ${Math.min(A, B)} = ${Math.abs(A - B)}.`); }],
+          [3, 9, rng => { const ns = U.sample(rng, Array.from({ length: 30 }, (_, j) => j + 4), 3), mx = Math.max(...ns), names = ['A', 'B', 'C']; return Q(`Hình A gồm ${ns[0]} khối lập phương nhỏ, hình B gồm ${ns[1]} khối, hình C gồm ${ns[2]} khối (các khối như nhau). Hình nào có thể tích lớn nhất?`, null, ch(rng, `Hình ${names[ns.indexOf(mx)]}`, names.map(x => `Hình ${x}`)), 'Hình nào gồm nhiều khối lập phương nhỏ nhất thì có thể tích lớn nhất.', `Hình ${names[ns.indexOf(mx)]} gồm ${mx} khối, nhiều nhất.`); }],
+          [6, 9, rng => { const l = R(rng, 2, 4), w = R(rng, 1, 3), h = R(rng, 1, 3); return Q('Nếu xếp thêm một lớp khối lập phương nhỏ như lớp trên cùng lên hình dưới đây thì hình mới gồm bao nhiêu khối lập phương nhỏ?', vz('cubes', { l, w, h }), num(l * w * (h + 1)), 'Mỗi lớp có số khối bằng nhau; tính số khối một lớp rồi nhân với số lớp mới.', `Mỗi lớp ${l} × ${w} = ${l * w} khối; ${h + 1} lớp: ${l * w * (h + 1)} (khối).`); }],
+          [7, 9, rng => { let l = R(rng, 1, 3), w = R(rng, 1, 3), h = R(rng, 1, 3); if (l * w * h === 27) h = 2; return Q('Cần xếp thêm ít nhất bao nhiêu khối lập phương nhỏ nữa để hình dưới đây trở thành một hình lập phương có cạnh gồm 3 khối?', vz('cubes', { l, w, h }), num(27 - l * w * h), 'Hình lập phương cạnh 3 khối gồm 3 × 3 × 3 = 27 khối.', `Hình đã có ${l * w * h} khối. 27 ${M} ${l * w * h} = ${27 - l * w * h} (khối).`); }],
+        ])),
       lesson(8, 46, 'Xăng-ti-mét khối. Đề-xi-mét khối',
         'Rô-bốt ISA dùng những khối lập phương cạnh 1 cm xếp thành khối lớn cạnh 1 dm.',
         [
           { text: 'Xăng-ti-mét khối (cm³) là thể tích hình lập phương cạnh 1 cm. Đề-xi-mét khối (dm³) là thể tích hình lập phương cạnh 1 dm.', visual: vz('solid', { kind: 'cube' }) },
           { text: '1 dm³ = 1000 cm³ (10 × 10 × 10 khối nhỏ).' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const a = R(rng, 2, 9), f = i % 3;
           if (f === 0) { const [p, v, u] = P(rng, [[`${a} dm³ = ? cm³`, a * 1000, 'cm³'], [`${a * 1000} cm³ = ? dm³`, a, 'dm³'], [`${F(dec(a * 10 + 5, 1))} dm³ = ? cm³`, (a * 10 + 5) * 100, 'cm³'], [`${a * 100} cm³ = ? dm³`, dec(a, 1), 'dm³']]); return Q(p, null, num(v, u), '1 dm³ = 1000 cm³.', `${p.replace('?', F(v))}.`); }
           if (f === 1) { const l = R(rng, 2, 4), w = R(rng, 1, 3), h = R(rng, 1, 3); return Q('Mỗi khối lập phương nhỏ có thể tích 1 cm³. Thể tích của hình là bao nhiêu xăng-ti-mét khối?', vz('cubes', { l, w, h }), num(l * w * h, 'cm³'), 'Đếm số khối 1 cm³.', `${l * w * h} cm³.`); }
           const x = R(rng, 1, 5), y = x * 1000 + P(rng, [-100, 0, 200]);
           return Q(`So sánh: ${x} dm³ … ${F(y)} cm³`, vz('compare', { left: `${x} dm³`, right: `${F(y)} cm³` }), cmpAns(x * 1000, y), 'Đổi về cùng đơn vị.', `${x} dm³ = ${F(x * 1000)} cm³; ${F(x * 1000)} ${sign(x * 1000, y)} ${F(y)}.`);
-        }),
+        }, [
+          [0, 6, rng => { const n = R(rng, 11, 999), dm = R(rng, 0, 1) === 1, u = dm ? 'đề-xi-mét khối' : 'xăng-ti-mét khối', s = dm ? 'dm³' : 'cm³'; if (R(rng, 0, 1)) return Q(`Số đo ${n} ${s} đọc là:`, null, ch(rng, `${readVN(n)} ${u}`, [`${readVN(n)} ${dm ? 'đề-xi-mét vuông' : 'xăng-ti-mét vuông'}`, `${readVN(n)} ${dm ? 'xăng-ti-mét khối' : 'đề-xi-mét khối'}`, `${readVN(n)} ${dm ? 'đề-xi-mét' : 'xăng-ti-mét'}`]), `${s} đọc là "${u}".`, `${n} ${s} đọc là: ${readVN(n)} ${u}.`); return Q(`"${readVN(n)} ${u}" viết là:`, null, ch(rng, `${n} ${s}`, [`${n} ${dm ? 'dm²' : 'cm²'}`, `${n} ${dm ? 'cm³' : 'dm³'}`, `${n} ${dm ? 'dm' : 'cm'}`]), `${u[0].toUpperCase() + u.slice(1)} viết tắt là ${s}.`, `Viết là ${n} ${s}.`); }],
+          [0, 9, rng => { const [t, u] = P(rng, [['Thể tích một viên phấn khoảng 5', 'cm³'], ['Thể tích một hộp sữa tươi khoảng 1', 'dm³'], ['Thể tích một viên xúc xắc khoảng 8', 'cm³'], ['Thể tích một chiếc thùng giấy khoảng 30', 'dm³'], ['Thể tích một quả trứng gà khoảng 50', 'cm³'], ['Thể tích một chiếc nồi cơm điện khoảng 5', 'dm³']]); return Q(`Chọn đơn vị thích hợp:\n${t} …`, null, ch(rng, u, [u === 'cm³' ? 'dm³' : 'cm³']), 'Hình dung độ lớn: 1 cm³ là khối lập phương cạnh 1 cm, 1 dm³ là khối lập phương cạnh 10 cm.', `${t} ${u}.`); }],
+          [3, 9, rng => { const dm = R(rng, 0, 1) === 1, u = dm ? 'dm³' : 'cm³', a = R(rng, 20, 900), b = R(rng, 5, a - 1), sub = R(rng, 0, 1) === 1; return Q(`${a} ${u} ${sub ? M : '+'} ${b} ${u} = ?`, null, num(sub ? a - b : a + b, u), 'Tính với các số rồi ghi đơn vị.', `${a} ${u} ${sub ? M : '+'} ${b} ${u} = ${sub ? a - b : a + b} ${u}.`); }],
+          [6, 9, rng => { const a = R(rng, 1, 9), b = R(rng, 1, 999); return Q(`${a} dm³ ${b} cm³ = ? cm³`, null, num(a * 1000 + b, 'cm³'), '1 dm³ = 1000 cm³.', `${a} dm³ = ${F(a * 1000)} cm³; ${F(a * 1000)} + ${b} = ${F(a * 1000 + b)} (cm³).`); }],
+        ])),
       lesson(8, 47, 'Mét khối',
         'Rô-bốt ISA tính lượng nước trong bể bơi của nhà văn hóa.',
         [
@@ -621,7 +685,7 @@
           { text: 'Hình khai triển của hình lập phương gồm 6 hình vuông bằng nhau.', visual: vz('solid', { kind: 'cube' }) },
           { text: 'Hình khai triển của hình hộp chữ nhật gồm 6 hình chữ nhật. Hình khai triển của hình trụ gồm 2 hình tròn và 1 hình chữ nhật.', visual: vz('solid', { kind: 'cylinder' }) },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const qs = [
             ['Hình khai triển của hình lập phương gồm mấy hình vuông?', 'cube', null, 6],
             ['Hình khai triển của hình hộp chữ nhật gồm mấy hình chữ nhật?', 'box', null, 6],
@@ -632,59 +696,91 @@
           const [p, k, c, d] = qs[(i + R(rng, 0, 4)) % 5];
           if (c == null) return Q(p, vz('solid', { kind: k }), num(d), 'Đếm số mặt của hình khối.', `Gồm ${d} hình.`);
           return Q(p, vz('solid', { kind: k }), ch(rng, c, d), 'Hình dung mở phẳng các mặt của hình khối.', `Đáp án: ${c}.`);
-        }),
+        }, [
+          [0, 9, rng => { const [st, ok] = P(rng, [['Hình khai triển của hình lập phương gồm 6 hình vuông bằng nhau', true], ['Hình khai triển của hình hộp chữ nhật gồm 6 hình vuông bằng nhau', false], ['Hình khai triển của hình trụ gồm 2 hình tròn và 1 hình chữ nhật', true], ['Hình khai triển của hình trụ gồm 1 hình tròn và 1 hình chữ nhật', false], ['Hình khai triển của hình hộp chữ nhật gồm 6 hình chữ nhật', true], ['Hình khai triển của hình lập phương gồm 4 hình vuông', false], ['Hai đáy của hình trụ là hai hình tròn bằng nhau', true]]); return Q(`Đúng hay sai?\n${st}.`, vz('solid', { kind: /trụ/.test(st) ? 'cylinder' : /lập phương/.test(st) ? 'cube' : 'box' }), tf(rng, ok), 'Hình dung mở phẳng các mặt của hình khối.', `${ok ? 'Đúng' : 'Sai'}.`); }],
+          [0, 9, rng => { const a = R(rng, 2, 20); return Q(`Hình khai triển của hình lập phương cạnh ${a} cm gồm 6 hình vuông. Mỗi hình vuông có cạnh bao nhiêu xăng-ti-mét?`, vz('solid', { kind: 'cube', dims: { a } }), num(a, 'cm'), 'Mỗi mặt của hình lập phương là một hình vuông có cạnh bằng cạnh hình lập phương.', `Mỗi hình vuông có cạnh ${a} cm.`); }],
+          [3, 9, rng => { const [l, w, h] = U.sample(rng, [2, 3, 4, 5, 6, 7, 8, 9, 10], 3).sort((x, y) => y - x), [p, q] = P(rng, [[l, w], [l, h], [w, h]]); return Q(`Hình khai triển của hình hộp chữ nhật có chiều dài ${l} cm, chiều rộng ${w} cm, chiều cao ${h} cm có mấy hình chữ nhật kích thước ${p} cm × ${q} cm?`, vz('solid', { kind: 'box', dims: { l, w, h } }), num(2), 'Các mặt đối diện của hình hộp chữ nhật bằng nhau.', `Có 2 mặt đối diện kích thước ${p} cm × ${q} cm.`); }],
+          [6, 9, rng => { const [l, w, h] = U.sample(rng, [2, 3, 4, 5, 6, 7, 8, 9, 10], 3).sort((x, y) => y - x); return Q(`Hình khai triển của hình hộp chữ nhật dài ${l} cm, rộng ${w} cm, cao ${h} cm gồm mấy cặp hình chữ nhật bằng nhau?`, vz('solid', { kind: 'box', dims: { l, w, h } }), num(3), 'Hình hộp chữ nhật có 3 cặp mặt đối diện bằng nhau.', `Gồm 3 cặp: ${l} × ${w}, ${l} × ${h}, ${w} × ${h} (cm).`); }],
+          [0, 9, rng => { const a = R(rng, 2, 15), cube = R(rng, 0, 1) === 1; if (cube) return Q(`Hình khai triển của hình lập phương cạnh ${a} cm gồm mấy hình vuông cạnh ${a} cm?`, vz('solid', { kind: 'cube', dims: { a } }), num(6), 'Hình lập phương có 6 mặt là các hình vuông bằng nhau.', 'Gồm 6 hình vuông.'); const [l, w, h] = U.sample(rng, [2, 3, 4, 5, 6, 7, 8, 9, 10, 12], 3).sort((x, y) => y - x); return Q(`Hình khai triển của hình hộp chữ nhật dài ${l} cm, rộng ${w} cm, cao ${h} cm gồm tất cả mấy hình chữ nhật?`, vz('solid', { kind: 'box', dims: { l, w, h } }), num(6), 'Hình hộp chữ nhật có 6 mặt là hình chữ nhật.', 'Gồm 6 hình chữ nhật.'); }],
+          [0, 9, rng => { const [l, w, h] = U.sample(rng, [2, 3, 4, 5, 6, 7, 8, 9, 10, 12], 3).sort((x, y) => y - x), big = R(rng, 0, 1) === 1; return Q(`Hình khai triển của hình hộp chữ nhật dài ${l} cm, rộng ${w} cm, cao ${h} cm. Hình chữ nhật ${big ? 'lớn' : 'bé'} nhất trong hình khai triển có kích thước là:`, vz('solid', { kind: 'box', dims: { l, w, h } }), ch(rng, big ? `${l} cm × ${w} cm` : `${w} cm × ${h} cm`, [`${l} cm × ${h} cm`, big ? `${w} cm × ${h} cm` : `${l} cm × ${w} cm`, `${l} cm × ${l} cm`]), 'Các mặt của hình hộp chữ nhật có kích thước: dài × rộng, dài × cao, rộng × cao.', big ? `Mặt lớn nhất: ${l} cm × ${w} cm.` : `Mặt bé nhất: ${w} cm × ${h} cm.`); }],
+        ], 1)),
       lesson(9, 50, 'Diện tích xung quanh và diện tích toàn phần của hình hộp chữ nhật',
         'Rô-bốt ISA tính lượng giấy màu để bọc chiếc hộp quà tặng mẹ.',
         [
           { text: 'Diện tích xung quanh = chu vi mặt đáy × chiều cao: Sxq = (a + b) × 2 × c.', visual: vz('solid', { kind: 'box', dims: { l: 5, w: 3, h: 4 } }) },
           { text: 'Diện tích toàn phần = diện tích xung quanh + diện tích hai đáy: Stp = Sxq + a × b × 2.' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const a = R(rng, 3, lv(i) === 0 ? 10 : 30), b = R(rng, 2, a - 1), c = R(rng, 2, lv(i) === 0 ? 10 : 25), sxq = (a + b) * 2 * c, stp = sxq + a * b * 2, f = i % 3;
           const v = vz('solid', { kind: 'box', dims: { l: a, w: b, h: c } });
           if (f === 0) return Q(`Hình hộp chữ nhật có chiều dài ${a} cm, chiều rộng ${b} cm, chiều cao ${c} cm. Tính diện tích xung quanh.`, v, num(sxq, 'cm²'), 'Sxq = (dài + rộng) × 2 × cao.', `(${a} + ${b}) × 2 × ${c} = ${F(sxq)} (cm²).`);
           if (f === 1) return Q(`Hình hộp chữ nhật có chiều dài ${a} cm, chiều rộng ${b} cm, chiều cao ${c} cm. Tính diện tích toàn phần.`, v, num(stp, 'cm²'), 'Stp = Sxq + 2 × diện tích đáy.', `Sxq = (${a} + ${b}) × 2 × ${c} = ${F(sxq)}; Stp = ${F(sxq)} + ${a} × ${b} × 2 = ${F(stp)} (cm²).`);
           const A = a * 10, B = b * 10, C = c * 10, glass = (A + B) * 2 * C + A * B;
           return Q(`Một bể cá không có nắp dạng hình hộp chữ nhật dài ${A} cm, rộng ${B} cm, cao ${C} cm. Tính diện tích kính dùng làm bể.`, vz('solid', { kind: 'box', dims: { l: A, w: B, h: C } }), num(glass, 'cm²'), 'Bể không nắp: diện tích xung quanh + 1 mặt đáy.', `(${A} + ${B}) × 2 × ${C} + ${A} × ${B} = ${F(glass)} (cm²).`);
-        }),
+        }, [
+          [0, 6, rng => { const a = R(rng, 3, 20), b = R(rng, 2, a - 1), c = R(rng, 2, 15); return Q(`Hình hộp chữ nhật có chiều dài ${a} cm, chiều rộng ${b} cm, chiều cao ${c} cm. Tính diện tích một mặt đáy.`, vz('solid', { kind: 'box', dims: { l: a, w: b, h: c } }), num(a * b, 'cm²'), 'Mặt đáy là hình chữ nhật có chiều dài và chiều rộng của hình hộp.', `${a} × ${b} = ${a * b} (cm²).`); }],
+          [3, 9, rng => { const P2 = R(rng, 5, 40) * 2, c = R(rng, 2, 20); return Q(`Một hình hộp chữ nhật có chu vi mặt đáy ${P2} cm, chiều cao ${c} cm. Tính diện tích xung quanh.`, null, num(P2 * c, 'cm²'), 'Sxq = chu vi mặt đáy × chiều cao.', `${P2} × ${c} = ${F(P2 * c)} (cm²).`); }],
+          [0, 9, rng => { const a = R(rng, 3, 15), b = R(rng, 2, a - 1), c = R(rng, 2, 12), sxq = (a + b) * 2 * c, stp = sxq + 2 * a * b; return Q(`Diện tích xung quanh của hình hộp chữ nhật có chiều dài ${a} cm, chiều rộng ${b} cm, chiều cao ${c} cm là:`, vz('solid', { kind: 'box', dims: { l: a, w: b, h: c } }), ch(rng, `${F(sxq)} cm²`, [`${F(stp)} cm²`, `${F((a + b) * c)} cm²`, `${F(a * b * c)} cm²`]), 'Sxq = (dài + rộng) × 2 × cao.', `(${a} + ${b}) × 2 × ${c} = ${F(sxq)} (cm²).`); }],
+          [6, 9, rng => { const a = dec(R(rng, 12, 30), 1), b = dec(R(rng, 5, 11), 1), c = R(rng, 1, 3), sxq = rd((a + b) * 2 * c); return Q(`Một cái thùng dạng hình hộp chữ nhật dài ${F(a)} m, rộng ${F(b)} m, cao ${c} m. Tính diện tích xung quanh của thùng.`, vz('solid', { kind: 'box', dims: { l: a, w: b, h: c, unit: 'm' } }), num(sxq, 'm²'), 'Sxq = (a + b) × 2 × c.', `(${F(a)} + ${F(b)}) × 2 × ${c} = ${F(sxq)} (m²).`); }],
+          [3, 9, rng => { const a = R(rng, 5, 30), b = R(rng, 3, a - 1), c = R(rng, 2, 20), stp = (a + b) * 2 * c + 2 * a * b; return Q(`Người ta sơn toàn bộ mặt ngoài của một cái hộp có nắp dạng hình hộp chữ nhật dài ${a} cm, rộng ${b} cm, cao ${c} cm. Tính diện tích được sơn.`, vz('solid', { kind: 'box', dims: { l: a, w: b, h: c } }), num(stp, 'cm²'), 'Hộp có nắp: sơn cả 6 mặt, tức là diện tích toàn phần.', `Sxq = (${a} + ${b}) × 2 × ${c} = ${F((a + b) * 2 * c)}; Stp = ${F((a + b) * 2 * c)} + ${a} × ${b} × 2 = ${F(stp)} (cm²).`); }],
+        ])),
       lesson(9, 51, 'Diện tích xung quanh và diện tích toàn phần của hình lập phương',
         'Rô-bốt ISA sơn những khối gỗ lập phương làm đồ chơi cho các em mẫu giáo.',
         [
           { text: 'Hình lập phương cạnh a: Sxq = a × a × 4; Stp = a × a × 6.', visual: vz('solid', { kind: 'cube', dims: { a: 4 } }) },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const a = R(rng, 2, lv(i) === 0 ? 10 : 30), f = i % 3;
           if (f === 0) return Q(`Tính diện tích xung quanh của hình lập phương có cạnh ${a} cm.`, vz('solid', { kind: 'cube', dims: { a } }), num(a * a * 4, 'cm²'), 'Sxq = cạnh × cạnh × 4.', `${a} × ${a} × 4 = ${F(a * a * 4)} (cm²).`);
           if (f === 1) return Q(`Tính diện tích toàn phần của hình lập phương có cạnh ${a} cm.`, vz('solid', { kind: 'cube', dims: { a } }), num(a * a * 6, 'cm²'), 'Stp = cạnh × cạnh × 6.', `${a} × ${a} × 6 = ${F(a * a * 6)} (cm²).`);
           const x = dec(R(rng, 11, 29), 1);
           return Q(`Một hình lập phương có cạnh ${F(x)} m. Tính diện tích toàn phần.`, vz('solid', { kind: 'cube', dims: { a: x, unit: 'm' } }), num(rd(x * x * 6), 'm²'), 'Stp = cạnh × cạnh × 6.', `${F(x)} × ${F(x)} × 6 = ${F(rd(x * x * 6))} (m²).`);
-        }),
+        }, [
+          [0, 6, rng => { const a = R(rng, 2, 15), S = a * a, t = R(rng, 0, 1) === 1; return Q(`Một hình lập phương có diện tích một mặt là ${S} cm². Tính diện tích ${t ? 'toàn phần' : 'xung quanh'} của hình lập phương đó.`, vz('solid', { kind: 'cube' }), num(S * (t ? 6 : 4), 'cm²'), t ? 'Stp = diện tích một mặt × 6.' : 'Sxq = diện tích một mặt × 4.', `${S} × ${t ? 6 : 4} = ${F(S * (t ? 6 : 4))} (cm²).`); }],
+          [3, 9, rng => { const a = R(rng, 3, 30); return Q(`Một cái thùng không có nắp dạng hình lập phương có cạnh ${a} dm. Tính diện tích tôn dùng để làm thùng (không tính mép hàn).`, vz('solid', { kind: 'cube', dims: { a, unit: 'dm' } }), num(a * a * 5, 'dm²'), 'Thùng không nắp gồm 5 mặt.', `${a} × ${a} × 5 = ${F(a * a * 5)} (dm²).`); }],
+          [0, 9, rng => { const a = R(rng, 2, 20), sxq = a * a * 4, stp = a * a * 6, t = R(rng, 0, 1) === 1; return Q(`Diện tích ${t ? 'toàn phần' : 'xung quanh'} của hình lập phương cạnh ${a} cm là:`, vz('solid', { kind: 'cube', dims: { a } }), ch(rng, `${F(t ? stp : sxq)} cm²`, [`${F(t ? sxq : stp)} cm²`, `${F(a * 4)} cm²`, `${F(a * a * a)} cm²`]), t ? 'Stp = cạnh × cạnh × 6.' : 'Sxq = cạnh × cạnh × 4.', `${a} × ${a} × ${t ? 6 : 4} = ${F(t ? stp : sxq)} (cm²).`); }],
+          [6, 9, rng => { const a = R(rng, 2, 10); return Q(`Một hình lập phương có diện tích toàn phần là ${a * a * 6} cm². Tính cạnh của hình lập phương.`, vz('solid', { kind: 'cube' }), num(a, 'cm'), 'Diện tích một mặt = Stp : 6; rồi tìm số nhân với chính nó bằng diện tích một mặt.', `Một mặt: ${a * a * 6} : 6 = ${a * a} (cm²). Vì ${a} × ${a} = ${a * a} nên cạnh là ${a} cm.`); }],
+          [6, 9, rng => { const k = R(rng, 2, 4); return Q(`Nếu cạnh của một hình lập phương gấp lên ${k} lần thì diện tích xung quanh của nó gấp lên mấy lần?`, vz('solid', { kind: 'cube' }), num(k * k), 'Diện tích một mặt = cạnh × cạnh.', `Cạnh gấp ${k} lần thì diện tích mỗi mặt gấp ${k} × ${k} = ${k * k} lần, nên Sxq gấp ${k * k} lần.`); }],
+        ])),
       lesson(9, 52, 'Thể tích của hình hộp chữ nhật',
         'Rô-bốt ISA tính lượng nước cần đổ đầy chiếc bể cá của lớp.',
         [
           { text: 'Thể tích hình hộp chữ nhật = chiều dài × chiều rộng × chiều cao (cùng đơn vị đo): V = a × b × c.', visual: vz('cubes', { l: 4, w: 3, h: 2 }) },
           { text: 'Ví dụ: 4 × 3 × 2 = 24 (cm³).' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 3;
           if (f === 0) { const l = R(rng, 2, 5), w = R(rng, 1, 4), h = R(rng, 1, 4); return Q(`Tính thể tích hình hộp chữ nhật có chiều dài ${l} cm, chiều rộng ${w} cm, chiều cao ${h} cm.`, vz('cubes', { l, w, h }), num(l * w * h, 'cm³'), 'V = dài × rộng × cao.', `${l} × ${w} × ${h} = ${l * w * h} (cm³).`); }
           if (f === 1) { const a = R(rng, 5, 40), b = R(rng, 3, 30), c = R(rng, 2, 20); return Q(`Một hình hộp chữ nhật dài ${a} dm, rộng ${b} dm, cao ${c} dm. Tính thể tích.`, vz('solid', { kind: 'box', dims: { l: a, w: b, h: c, unit: 'dm' } }), num(a * b * c, 'dm³'), 'V = a × b × c.', `${a} × ${b} × ${c} = ${F(a * b * c)} (dm³).`); }
           const a = R(rng, 1, 3), b = R(rng, 4, 9), c = R(rng, 3, 8);
           return Q(`Một bể nước dạng hình hộp chữ nhật dài ${a} m, rộng ${b} dm, cao ${c} dm. Bể chứa được nhiều nhất bao nhiêu lít nước? (1 dm³ = 1 l)`, vz('solid', { kind: 'box', dims: { l: a * 10, w: b, h: c, unit: 'dm' } }), num(a * 10 * b * c, 'l'), `Đổi ${a} m = ${a * 10} dm rồi tính thể tích theo dm³.`, `${a * 10} × ${b} × ${c} = ${F(a * 10 * b * c)} (dm³) = ${F(a * 10 * b * c)} l.`);
-        }),
+        }, [
+          [3, 9, rng => { const a = R(rng, 1, 5), b = R(rng, 2, 9), c = R(rng, 2, 9); return Q(`Một hình hộp chữ nhật có chiều dài ${a} dm, chiều rộng ${b} cm, chiều cao ${c} cm. Tính thể tích hình hộp chữ nhật theo xăng-ti-mét khối.`, vz('solid', { kind: 'box', dims: { l: a * 10, w: b, h: c } }), num(a * 10 * b * c, 'cm³'), `Đổi về cùng đơn vị: ${a} dm = ${a * 10} cm.`, `${a * 10} × ${b} × ${c} = ${F(a * 10 * b * c)} (cm³).`); }],
+          [6, 9, rng => { const a = R(rng, 4, 15), b = R(rng, 2, a - 1), c = R(rng, 2, 12), V = a * b * c; return Q(`Một hình hộp chữ nhật có thể tích ${F(V)} cm³, chiều dài ${a} cm, chiều rộng ${b} cm. Tính chiều cao.`, vz('solid', { kind: 'box', dims: { l: a, w: b, h: '?' } }), num(c, 'cm'), 'Chiều cao = thể tích : (chiều dài × chiều rộng).', `${F(V)} : (${a} × ${b}) = ${F(V)} : ${a * b} = ${c} (cm).`); }],
+          [6, 9, rng => { const a = dec(R(rng, 12, 30), 1), b = dec(R(rng, 5, 10), 1), c = dec(P(rng, [5, 10, 20]), 1), V = rd(a * b * c); return Q(`Tính thể tích hình hộp chữ nhật có chiều dài ${F(a)} m, chiều rộng ${F(b)} m, chiều cao ${F(c)} m.`, vz('solid', { kind: 'box', dims: { l: a, w: b, h: c, unit: 'm' } }), num(V, 'm³'), 'V = a × b × c.', `${F(a)} × ${F(b)} × ${F(c)} = ${F(V)} (m³).`); }],
+          [0, 9, rng => { const a = R(rng, 3, 12), b = R(rng, 2, a - 1), c = R(rng, 2, 10), V = a * b * c; return Q(`Thể tích hình hộp chữ nhật có chiều dài ${a} cm, chiều rộng ${b} cm, chiều cao ${c} cm là:`, vz('solid', { kind: 'box', dims: { l: a, w: b, h: c } }), ch(rng, `${F(V)} cm³`, [`${F((a + b) * 2 * c)} cm³`, `${F(V)} cm²`, `${F(a * b + c)} cm³`]), 'V = dài × rộng × cao; đơn vị là cm³.', `${a} × ${b} × ${c} = ${F(V)} (cm³).`); }],
+          [3, 9, rng => { const a = R(rng, 5, 12), b = R(rng, 3, a - 1), h = R(rng, 2, 6); return Q(`Một bể kính dạng hình hộp chữ nhật dài ${a} dm, rộng ${b} dm. Mực nước trong bể cao ${h} dm. Hỏi trong bể có bao nhiêu lít nước? (1 dm³ = 1 l)`, vz('solid', { kind: 'box', dims: { l: a, w: b, h: h + 2, unit: 'dm' } }), num(a * b * h, 'l'), 'Thể tích nước = dài × rộng × chiều cao mực nước.', `${a} × ${b} × ${h} = ${a * b * h} (dm³) = ${a * b * h} l.`); }],
+        ])),
       lesson(9, 53, 'Thể tích của hình lập phương',
         'Rô-bốt ISA xếp những khối rubik thành một khối lập phương lớn.',
         [
           { text: 'Thể tích hình lập phương = cạnh × cạnh × cạnh: V = a × a × a.', visual: vz('cubes', { l: 3, w: 3, h: 3 }) },
           { text: 'Cạnh 3 cm: V = 3 × 3 × 3 = 27 (cm³).' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 3;
           if (f === 0) { const a = R(rng, 1, 4); return Q(`Tính thể tích hình lập phương có cạnh ${a} cm.`, vz('cubes', { l: a, w: a, h: a }), num(a * a * a, 'cm³'), 'V = cạnh × cạnh × cạnh.', `${a} × ${a} × ${a} = ${a * a * a} (cm³).`); }
           if (f === 1) { const a = R(rng, 5, 30); return Q(`Một khối gỗ hình lập phương có cạnh ${a} cm. Tính thể tích khối gỗ.`, vz('solid', { kind: 'cube', dims: { a } }), num(a * a * a, 'cm³'), 'V = a × a × a.', `${a} × ${a} × ${a} = ${F(a * a * a)} (cm³).`); }
           const x = dec(R(rng, 11, 25), 1);
           return Q(`Tính thể tích hình lập phương có cạnh ${F(x)} m.`, vz('solid', { kind: 'cube', dims: { a: x, unit: 'm' } }), num(rd(x * x * x), 'm³'), 'V = a × a × a.', `${F(x)} × ${F(x)} × ${F(x)} = ${F(rd(x * x * x))} (m³).`);
-        }),
+        }, [
+          [3, 9, rng => { const a = R(rng, 1, 10); return Q(`Một hình lập phương có thể tích ${F(a * a * a)} cm³. Cạnh của hình lập phương dài bao nhiêu xăng-ti-mét?`, vz('solid', { kind: 'cube' }), num(a, 'cm'), 'Tìm số nhân với chính nó 3 lần bằng thể tích.', `${a} × ${a} × ${a} = ${F(a * a * a)} nên cạnh dài ${a} cm.`); }],
+          [6, 9, rng => { const k = R(rng, 2, 4); return Q(`Nếu cạnh của một hình lập phương gấp lên ${k} lần thì thể tích của nó gấp lên mấy lần?`, vz('cubes', { l: k, w: k, h: k }), num(k * k * k), 'V = cạnh × cạnh × cạnh.', `Thể tích gấp ${k} × ${k} × ${k} = ${k * k * k} lần.`); }],
+          [3, 9, rng => { const a = R(rng, 2, 12); return Q(`Một cái thùng dạng hình lập phương có cạnh ${a} dm. Thùng chứa được nhiều nhất bao nhiêu lít nước? (1 dm³ = 1 l)`, vz('solid', { kind: 'cube', dims: { a, unit: 'dm' } }), num(a * a * a, 'l'), 'Tính thể tích theo dm³ rồi đổi: 1 dm³ = 1 l.', `${a} × ${a} × ${a} = ${F(a * a * a)} (dm³) = ${F(a * a * a)} l.`); }],
+          [0, 9, rng => { const a = R(rng, 2, 15), V = a * a * a; return Q(`Thể tích hình lập phương cạnh ${a} cm là:`, vz('solid', { kind: 'cube', dims: { a } }), ch(rng, `${F(V)} cm³`, [`${F(a * a * 6)} cm³`, `${F(a * 3)} cm³`, `${F(a * a)} cm³`]), 'V = cạnh × cạnh × cạnh.', `${a} × ${a} × ${a} = ${F(V)} (cm³).`); }],
+          [6, 9, rng => { const a = R(rng, 3, 9), l = R(rng, 2, 12), w = R(rng, 2, 9), h = R(rng, 2, 9), V1 = a * a * a, V2 = l * w * h; return Q(`Hình lập phương có cạnh ${a} cm. Hình hộp chữ nhật có chiều dài ${l} cm, chiều rộng ${w} cm, chiều cao ${h} cm. Hình nào có thể tích lớn hơn?`, null, ch(rng, V1 > V2 ? 'Hình lập phương' : V1 < V2 ? 'Hình hộp chữ nhật' : 'Hai hình có thể tích bằng nhau', ['Hình lập phương', 'Hình hộp chữ nhật', 'Hai hình có thể tích bằng nhau']), 'Tính thể tích từng hình rồi so sánh.', `Hình lập phương: ${F(V1)} cm³; hình hộp chữ nhật: ${l} × ${w} × ${h} = ${F(V2)} cm³.`); }],
+          [3, 9, rng => { const x = R(rng, 11, 19), d = dec(x, 1); return Q(`Một hình lập phương có cạnh ${F(d)} dm. Tính thể tích hình lập phương đó theo xăng-ti-mét khối.`, vz('solid', { kind: 'cube', dims: { a: d, unit: 'dm' } }), num(x * x * x, 'cm³'), `Đổi ${F(d)} dm = ${x} cm rồi tính.`, `${F(d)} dm = ${x} cm; ${x} × ${x} × ${x} = ${F(x * x * x)} (cm³).`); }],
+        ])),
     ],
   };
 
@@ -700,29 +796,40 @@
           { text: '1 thế kỉ = 100 năm; 1 năm = 12 tháng; 1 năm thường có 365 ngày, năm nhuận có 366 ngày.' },
           { text: '1 tuần = 7 ngày; 1 ngày = 24 giờ; 1 giờ = 60 phút; 1 phút = 60 giây. 1,5 giờ = 90 phút.', visual: vz('clock', { h: 1, m: 30 }) },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const a = R(rng, 2, 9), f = i % 3;
           if (f === 0) { const [p, v, u] = P(rng, [[`${a} năm = ? tháng`, a * 12, 'tháng'], [`${a} ngày = ? giờ`, a * 24, 'giờ'], [`${a} giờ = ? phút`, a * 60, 'phút'], [`${a} phút = ? giây`, a * 60, 'giây'], [`${a} tuần = ? ngày`, a * 7, 'ngày']]); return Q(p, null, num(v, u), 'Nhớ bảng đơn vị đo thời gian.', `${p.replace('?', F(v))}.`); }
           if (f === 1) { const [p, v, u] = P(rng, [[`${F(dec(a * 10 + 5, 1))} giờ = ? phút`, (a * 10 + 5) * 6, 'phút'], ['0,5 ngày = ? giờ', 12, 'giờ'], [`${F(dec(a, 1))} giờ = ? phút`, a * 6, 'phút'], [`${a * 30} phút = ? giờ`, dec(a * 5, 1), 'giờ'], ['1/4 giờ = ? phút', 15, 'phút']]); return Q(p, null, num(v, u), '1 giờ = 60 phút; 1 ngày = 24 giờ.', `${p.replace('?', F(v))}.`); }
           const y = P(rng, [2024, 2025, 2026, 2027, 2028, 2032, 2100, 2000]); const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
           return Q(`Năm ${y} có bao nhiêu ngày?`, vz('calendar', { year: y, month: 2 }), num(leap ? 366 : 365, 'ngày'), 'Năm nhuận (tháng 2 có 29 ngày) có 366 ngày; năm thường có 365 ngày.', `Tháng 2 năm ${y} có ${leap ? 29 : 28} ngày nên năm ${y} có ${leap ? 366 : 365} ngày.`);
-        }),
+        }, [
+          [0, 9, rng => { const ROM = n => { let s = '', x = n; for (const [v, c] of [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']]) while (x >= v) { s += c; x -= v; } return s; }; const y = P(rng, [938, 1010, 1288, 1428, 1789, 1858, 1890, 1945, 1975, 2000, 2026, 2045, R(rng, 1001, 2099)]), c = Math.floor((y - 1) / 100) + 1; return Q(`Năm ${y} thuộc thế kỉ nào?`, null, ch(rng, `Thế kỉ ${ROM(c)}`, [`Thế kỉ ${ROM(c - 1)}`, `Thế kỉ ${ROM(c + 1)}`, `Thế kỉ ${ROM(c >= 20 ? c - 2 : c + 2)}`]), 'Từ năm 1 đến năm 100 là thế kỉ I; từ năm 101 đến năm 200 là thế kỉ II; …; từ năm 2001 đến năm 2100 là thế kỉ XXI.', `Năm ${y} thuộc thế kỉ ${ROM(c)} (thế kỉ thứ ${c}).`); }],
+          [0, 6, rng => { const a = R(rng, 2, 9); const [p, v, u] = P(rng, [[`${a * 12} tháng = ? năm`, a, 'năm'], [`${a * 24} giờ = ? ngày`, a, 'ngày'], [`${a * 60} phút = ? giờ`, a, 'giờ'], [`${a * 60} giây = ? phút`, a, 'phút'], [`${a * 7} ngày = ? tuần`, a, 'tuần'], [`${a} thế kỉ = ? năm`, a * 100, 'năm']]); return Q(p, null, num(v, u), 'Nhớ: 1 năm = 12 tháng; 1 ngày = 24 giờ; 1 giờ = 60 phút; 1 phút = 60 giây; 1 tuần = 7 ngày; 1 thế kỉ = 100 năm.', `${p.replace('?', F(v))}.`); }],
+          [3, 9, rng => { const h = R(rng, 1, 5), m = R(rng, 1, 59), big = R(rng, 0, 1) === 1; if (big) return Q(`${h} giờ ${m} phút = ? phút`, null, num(h * 60 + m, 'phút'), '1 giờ = 60 phút.', `${h} × 60 + ${m} = ${h * 60 + m} (phút).`); const d = R(rng, 1, 4), hh = R(rng, 1, 23); return Q(`${d} ngày ${hh} giờ = ? giờ`, null, num(d * 24 + hh, 'giờ'), '1 ngày = 24 giờ.', `${d} × 24 + ${hh} = ${d * 24 + hh} (giờ).`); }],
+          [3, 9, rng => { const a = R(rng, 1, 4), b = a * 60 + P(rng, [-15, -5, 0, 10, 20]); return Q(`So sánh: ${a} giờ … ${b} phút`, vz('compare', { left: `${a} giờ`, right: `${b} phút` }), cmpAns(a * 60, b), 'Đổi giờ ra phút rồi so sánh.', `${a} giờ = ${a * 60} phút; ${a * 60} ${sign(a * 60, b)} ${b}.`); }],
+          [6, 9, rng => { const t = R(rng, 100, 299), H = Math.floor(t / 60), Mi = t % 60; if (Mi === 0) return Q(`${t} phút = ? giờ`, null, num(H, 'giờ'), '60 phút = 1 giờ.', `${t} : 60 = ${H}.`); return Q(`${t} phút = … giờ … phút`, null, ch(rng, `${H} giờ ${Mi} phút`, [`${H + 1} giờ ${Mi} phút`, `${Math.floor(t / 100)} giờ ${t % 100} phút`, `${H} giờ ${(Mi + 10) % 60 || 5} phút`]), 'Lấy số phút chia cho 60: thương là số giờ, số dư là số phút.', `${t} : 60 = ${H} (dư ${Mi}). Vậy ${t} phút = ${H} giờ ${Mi} phút.`); }],
+        ])),
       lesson(10, 57, 'Cộng, trừ số đo thời gian',
         'Rô-bốt ISA tính thời gian chuyến xe khách từ Hà Nội về quê bạn Việt.',
         [
           { text: 'Cộng: 2 giờ 45 phút + 1 giờ 30 phút = 3 giờ 75 phút = 4 giờ 15 phút (75 phút = 1 giờ 15 phút).' },
           { text: 'Trừ: 5 giờ 20 phút − 2 giờ 45 phút: đổi 5 giờ 20 phút = 4 giờ 80 phút; 4 giờ 80 phút − 2 giờ 45 phút = 2 giờ 35 phút.' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const h1 = R(rng, 1, 9), m1 = R(rng, 1, 11) * 5, h2 = R(rng, 1, 5), m2 = R(rng, 1, 11) * 5, f = i % 3;
           if (f === 0 || f === 2) {
             const t = (h1 + h2) * 60 + m1 + m2, H = Math.floor(t / 60), Mi = t % 60;
-            if (f === 2) return Q(`Một xe khách khởi hành lúc ${hm(h1 + 5, m1)}, đi hết ${hm(h2, m2)}. Hỏi xe đến nơi lúc mấy giờ?`, vz('clock', { h: (h1 + 5) % 12, m: m1 }), ch(rng, hm(H + 5, Mi), [hm(h1 + h2 + 5, m1 + m2), hm(H + 6, Mi), hm(H + 5, (Mi + 15) % 60 || 5)]), 'Cộng giờ với giờ, phút với phút; nếu số phút ≥ 60 thì đổi ra giờ.', `${hm(h1 + 5, m1)} + ${hm(h2, m2)} = ${hm(H + 5, Mi)}.`);
-            return Q(`${hm(h1, m1)} + ${hm(h2, m2)} = ?`, null, ch(rng, hm(H, Mi), [hm(h1 + h2, m1 + m2), hm(H + 1, Mi), hm(H, (Mi + 10) % 60 || 5)]), 'Cộng giờ với giờ, phút với phút; số phút ≥ 60 thì đổi 60 phút = 1 giờ.', `${hm(h1, m1)} + ${hm(h2, m2)} = ${hm(h1 + h2, m1 + m2)}${m1 + m2 >= 60 ? ` = ${hm(H, Mi)}` : ''}.`);
+            if (f === 2) return Q(`Một xe khách khởi hành lúc ${hm(h1 + 5, m1)}, đi hết ${hm(h2, m2)}. Hỏi xe đến nơi lúc mấy giờ?`, vz('clock', { h: (h1 + 5) % 12, m: m1 }), ch(rng, hm(H + 5, Mi), [hm(h1 + h2 + 5, (m1 + m2) % 60 || 5), hm(H + 6, Mi), hm(H + 5, (Mi + 15) % 60 || 5)]), 'Cộng giờ với giờ, phút với phút; nếu số phút ≥ 60 thì đổi ra giờ.', `${hm(h1 + 5, m1)} + ${hm(h2, m2)} = ${hm(H + 5, Mi)}.`);
+            return Q(`${hm(h1, m1)} + ${hm(h2, m2)} = ?`, null, ch(rng, hm(H, Mi), [hm(h1 + h2, (m1 + m2) % 60 || 5), hm(H + 1, Mi), hm(H, (Mi + 10) % 60 || 5)]), 'Cộng giờ với giờ, phút với phút; số phút ≥ 60 thì đổi 60 phút = 1 giờ.', `${hm(h1, m1)} + ${hm(h2, m2)} = ${hm(h1 + h2, m1 + m2)}${m1 + m2 >= 60 ? ` = ${hm(H, Mi)}` : ''}.`);
           }
           const A = (h1 + 5) * 60 + m1, B = h2 * 60 + m2, t = A - B, H = Math.floor(t / 60), Mi = t % 60;
           return Q(`${hm(h1 + 5, m1)} ${M} ${hm(h2, m2)} = ?`, null, ch(rng, hm(H, Mi), [hm(H + 1, Mi), hm(H, Math.abs(m1 - m2) === Mi ? (Mi + 5) % 60 : Math.abs(m1 - m2)), hm(Math.max(H - 1, 0) || H + 2, Mi)]), 'Trừ giờ với giờ, phút với phút; số phút không đủ trừ thì đổi 1 giờ = 60 phút.', `${hm(h1 + 5, m1)} ${M} ${hm(h2, m2)} = ${hm(H, Mi)}.`);
-        }),
+        }, [
+          [0, 6, rng => { const m1 = R(rng, 1, 9), s1 = R(rng, 5, 55), m2 = R(rng, 1, 9), s2 = R(rng, 5, 55), t = (m1 + m2) * 60 + s1 + s2, Mm = Math.floor(t / 60), S = t % 60, fm = (m, s) => (s ? `${m} phút ${s} giây` : `${m} phút`); return Q(`${m1} phút ${s1} giây + ${m2} phút ${s2} giây = ?`, null, ch(rng, fm(Mm, S), [fm(m1 + m2, S), fm(Mm + 1, S), fm(Mm, (S + 10) % 60 || 5)]), 'Cộng phút với phút, giây với giây; nếu số giây ≥ 60 thì đổi 60 giây = 1 phút.', `${m1} phút ${s1} giây + ${m2} phút ${s2} giây = ${m1 + m2} phút ${s1 + s2} giây${s1 + s2 >= 60 ? ` = ${fm(Mm, S)}` : ''}.`); }],
+          [3, 9, rng => { const y1 = R(rng, 2, 9), mo1 = R(rng, 1, 11), y2 = R(rng, 1, 5), mo2 = R(rng, 1, 11), sub = R(rng, 0, 1) === 1, fy = (y, m) => (m ? `${y} năm ${m} tháng` : `${y} năm`); const A = y1 * 12 + mo1 + (sub ? 72 : 0), B = y2 * 12 + mo2, t = sub ? A - B : A + B, Y = Math.floor(t / 12), Mo = t % 12; const left = fy(Math.floor(A / 12), A % 12); return Q(`${left} ${sub ? M : '+'} ${fy(y2, mo2)} = ?`, null, ch(rng, fy(Y, Mo), [fy(Y + 1, Mo), fy(Y, (Mo + 2) % 12 || 1), fy(Math.max(1, Y - 1), Mo)]), sub ? 'Trừ năm với năm, tháng với tháng; nếu không đủ tháng để trừ thì đổi 1 năm = 12 tháng.' : 'Cộng năm với năm, tháng với tháng; nếu số tháng ≥ 12 thì đổi 12 tháng = 1 năm.', `${left} ${sub ? M : '+'} ${fy(y2, mo2)} = ${fy(Y, Mo)}.`); }],
+          [3, 9, rng => { const h = R(rng, 1, 2), m = R(rng, 0, 11) * 5, sub = R(rng, 5, 11) * 5, tot = h * 60 + m; if (sub >= tot) return Q(`${hm(h, m)} + ${sub} phút = ? phút`, null, num(tot + sub, 'phút'), 'Đổi giờ ra phút rồi cộng.', `${hm(h, m)} = ${tot} phút; ${tot} + ${sub} = ${tot + sub} (phút).`); return Q(`${hm(h, m)} ${M} ${sub} phút = ? phút`, null, num(tot - sub, 'phút'), 'Đổi giờ ra phút rồi trừ.', `${hm(h, m)} = ${tot} phút; ${tot} ${M} ${sub} = ${tot - sub} (phút).`); }],
+          [6, 9, rng => { const h1 = R(rng, 6, 10), m1 = R(rng, 0, 11) * 5, d = R(rng, 40, 200) , end = h1 * 60 + m1 + d - (d % 5), H = Math.floor(end / 60), Mi = end % 60, dur = end - h1 * 60 - m1, dh = Math.floor(dur / 60), dm = dur % 60; return Q(`Một chuyến tàu khởi hành lúc ${hm(h1, m1)} và đến nơi lúc ${hm(H, Mi)} cùng ngày. Hỏi chuyến tàu đi hết bao nhiêu thời gian?`, null, ch(rng, hm(dh, dm), [hm(dh + 1, dm), hm(dh, (dm + 10) % 60 || 5), hm(H - h1, Math.abs(Mi - m1) || 15)].filter(x => x)), 'Lấy thời điểm đến trừ thời điểm khởi hành.', `${hm(H, Mi)} ${M} ${hm(h1, m1)} = ${hm(dh, dm)}.`); }],
+        ])),
       lesson(10, 58, 'Nhân, chia số đo thời gian với một số',
         'Rô-bốt ISA tính thời gian bạn Lan cần để làm xong mấy bài tập thủ công.',
         [
@@ -800,13 +907,19 @@
       lesson(11, 65, 'Tỉ số của số lần lặp lại của một sự kiện so với tổng số lần thực hiện',
         'Rô-bốt ISA tung xúc xắc nhiều lần và ghi lại kết quả cùng bạn Phúc.',
         [{ text: 'Tung đồng xu 20 lần, mặt sấp xuất hiện 9 lần. Tỉ số của số lần xuất hiện mặt sấp và tổng số lần tung là 9/20.', visual: vz('dataTable', { headers: ['Mặt', 'Sấp', 'Ngửa'], rows: [['Số lần', 9, 11]] }) }],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 3;
           if (f === 0) { const n = P(rng, [10, 20, 25, 30, 40, 50]), a = R(rng, 1, n - 1); return Q(`Tung một đồng xu ${n} lần, mặt ngửa xuất hiện ${a} lần. Viết tỉ số của số lần xuất hiện mặt ngửa và tổng số lần tung.`, vz('dataTable', { headers: ['Mặt', 'Sấp', 'Ngửa'], rows: [['Số lần', n - a, a]] }), fracA(a, n), 'Tỉ số = số lần xuất hiện : tổng số lần thực hiện.', `${a} : ${n} = ${a}/${n}.`); }
           if (f === 1) { const n = P(rng, [12, 18, 20, 24, 30]), a = R(rng, 1, Math.floor(n / 3)); return Q(`Gieo một con xúc xắc ${n} lần, mặt 6 chấm xuất hiện ${a} lần. Tỉ số của số lần xuất hiện mặt 6 chấm và tổng số lần gieo là:`, null, ch(rng, fs(a, n), [fs(n, a), fs(a, 6), fs(n - a, n)]), 'Tỉ số = số lần xuất hiện / tổng số lần gieo.', `${a}/${n}.`); }
           const n = P(rng, [20, 25, 50]), a = R(rng, 1, n - 1), pc = rd(a * 100 / n);
           return Q(`Lấy bóng từ hộp rồi trả lại, làm ${n} lần, có ${a} lần lấy được bóng đỏ. Số lần lấy được bóng đỏ chiếm bao nhiêu phần trăm tổng số lần?`, vz('chance', { items: [{ color: '#E84A4A', count: 3 }, { color: '#4DA3FF', count: 2 }] }), num(pc, '%'), 'Tìm tỉ số rồi đổi ra tỉ số phần trăm.', `${a} : ${n} = ${F(rd(a / n))} = ${F(pc)}%.`);
-        }),
+        }, [
+          [0, 9, rng => { const n = P(rng, [20, 24, 30, 36, 40]), c = Array(6).fill(1); for (let k = 6; k < n; k++) c[R(rng, 0, 5)]++; const f = R(rng, 1, 6); return Q(`Gieo một con xúc xắc ${n} lần, kết quả ghi ở bảng. Viết tỉ số của số lần xuất hiện mặt ${f} chấm và tổng số lần gieo.`, vz('dataTable', { headers: ['Mặt', '1 chấm', '2 chấm', '3 chấm', '4 chấm', '5 chấm', '6 chấm'], rows: [['Số lần', ...c]] }), fracA(c[f - 1], n), 'Tỉ số = số lần xuất hiện mặt đó : tổng số lần gieo.', `Mặt ${f} chấm xuất hiện ${c[f - 1]} lần: ${c[f - 1]}/${n}.`); }],
+          [3, 9, rng => { const n = P(rng, [10, 20, 25, 30, 40, 50]), a = R(rng, 1, n - 1); return Q(`Tung một đồng xu ${n} lần, mặt sấp xuất hiện ${a} lần. Viết tỉ số của số lần xuất hiện mặt ngửa và tổng số lần tung.`, null, fracA(n - a, n), 'Bước 1: tìm số lần xuất hiện mặt ngửa. Bước 2: viết tỉ số.', `Mặt ngửa: ${n} ${M} ${a} = ${n - a} (lần). Tỉ số: ${n - a}/${n}.`); }],
+          [0, 9, rng => { const n = P(rng, [10, 12, 15, 20, 25]), a = R(rng, 1, n - 1), x = nm(rng); return Q(`${x} ném bóng vào rổ ${n} lần, có ${a} lần bóng vào rổ. Viết tỉ số của số lần ném bóng vào rổ và tổng số lần ném.`, null, fracA(a, n), 'Tỉ số = số lần ném vào rổ : tổng số lần ném.', `${a} : ${n} = ${a}/${n}.`); }],
+          [3, 9, rng => { const n = P(rng, [10, 20, 30, 40]), a = R(rng, 1, n - 1), ok = R(rng, 0, 1) === 1, cl = ok ? fs(a, n) : P(rng, [fs(n, a), fs(a, n - a), fs(n - a, n)]); return Q(`Đúng hay sai?\nTung đồng xu ${n} lần, mặt ngửa xuất hiện ${a} lần. Tỉ số của số lần xuất hiện mặt ngửa và tổng số lần tung là ${cl}.`, null, tf(rng, ok || cl === fs(a, n)), 'Tỉ số = số lần xuất hiện : tổng số lần thực hiện.', `Tỉ số là ${a}/${n}. ${ok || cl === fs(a, n) ? 'Đúng' : 'Sai'}.`); }],
+          [6, 9, rng => { const n = P(rng, [20, 25, 40, 50]), a = R(rng, 1, n - 1); return Q(`Trong hộp có bóng xanh và bóng đỏ. Lấy một quả bóng rồi trả lại, làm ${n} lần, có ${a} lần lấy được bóng xanh. Viết tỉ số của số lần lấy được bóng đỏ và tổng số lần lấy.`, vz('chance', { items: [{ color: '#4DA3FF', count: 3 }, { color: '#E84A4A', count: 3 }] }), fracA(n - a, n), 'Mỗi lần lấy được bóng xanh hoặc bóng đỏ; tìm số lần lấy được bóng đỏ trước.', `Bóng đỏ: ${n} ${M} ${a} = ${n - a} (lần). Tỉ số: ${n - a}/${n}.`); }],
+        ])),
     ],
   };
 

@@ -16,6 +16,18 @@
   const sign = (a, b) => (a < b - 1e-12 ? '<' : a > b + 1e-12 ? '>' : '=');
   const lv = i => (i < 3 ? 0 : i < 7 ? 1 : 2);
   const vz = (type, params) => ({ type, params });
+  // Extra question forms mixed into a lesson generator. extra: [[fromI, toI, fn(rng, i)], ...];
+  // the base generator keeps `w` shares (default 2) so its own forms still appear. Keeps base.exam.
+  function more(base, extra, w) {
+    const g = function (rng, i) {
+      const ok = extra.filter(e => i >= e[0] && i <= e[1]);
+      const k = R(rng, 0, ok.length + (w || 2) - 1);
+      return k < ok.length ? ok[k][2](rng, i) : base(rng, i);
+    };
+    if (base.exam) g.exam = base.exam;
+    return g;
+  }
+  const tf = (rng, ok) => U.choices(rng, ok ? 'Đúng' : 'Sai', [ok ? 'Sai' : 'Đúng']);
   function Q(prompt, visual, answer, hint, explain, extra) {
     const q = { prompt, answer, hint, explain };
     if (visual) q.visual = visual;
@@ -44,6 +56,8 @@
   const units = (x, max) => Math.max(1, Math.round(x * 12 / Math.max(1, max)));
   const opRes = (a, op, b) => (op === '+' ? a + b : op === M ? a - b : op === '×' ? a * b : a / b);
   const fs = (n, d) => `${n}/${d}`;
+  // fraction multiple choice; distractors equal in value to the answer are dropped
+  const fch = (rng, c, ds) => U.choices(rng, fs(c[0], c[1]), ds.filter(([p, q]) => q > 0 && p * c[1] !== q * c[0]).map(([p, q]) => fs(p, q)));
 
   const DIG = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
   function read3(n, full) {
@@ -254,13 +268,19 @@
           { text: 'Đơn vị đo góc là độ, kí hiệu °. Dùng thước đo góc: đặt tâm thước trùng đỉnh góc, một cạnh trùng vạch 0.', visual: vz('angle', { deg: 60, protractor: true }) },
           { text: 'Góc vuông có số đo 90°.', visual: vz('angle', { deg: 90, protractor: true }) },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 3;
           if (f === 0) { const d = R(rng, 1, 17) * 10; return Q('Góc dưới đây có số đo bao nhiêu độ?', vz('angle', { deg: d, protractor: true }), num(d, '°'), 'Đọc số trên thước đo góc tại cạnh thứ hai, tính từ vạch 0.', `Góc có số đo ${d}°.`); }
           if (f === 1) { const a = R(rng, 2, 8) * 10, b = R(rng, 1, 17 - a / 10) * 10; return Q(`Góc thứ nhất ${a}°, góc thứ hai ${b}°. Góc nào lớn hơn, lớn hơn bao nhiêu độ?`, vz('angle', { deg: Math.max(a, b), protractor: true }), a === b ? ch(rng, 'Hai góc bằng nhau', ['Góc thứ nhất, 10°', 'Góc thứ hai, 10°']) : ch(rng, `${a > b ? 'Góc thứ nhất' : 'Góc thứ hai'}, ${Math.abs(a - b)}°`, [`${a > b ? 'Góc thứ hai' : 'Góc thứ nhất'}, ${Math.abs(a - b)}°`, `${a > b ? 'Góc thứ nhất' : 'Góc thứ hai'}, ${a + b}°`]), 'So sánh hai số đo rồi trừ.', a === b ? 'Hai góc bằng nhau.' : `${Math.max(a, b)}° ${M} ${Math.min(a, b)}° = ${Math.abs(a - b)}°.`); }
           const d = R(rng, 1, 8) * 10;
           return Q(`Một góc vuông được chia thành hai góc, một góc ${d}°. Góc còn lại bao nhiêu độ?`, vz('angle', { deg: 90, protractor: true }), num(90 - d, '°'), 'Góc vuông có số đo 90°.', `90° ${M} ${d}° = ${90 - d}°.`);
-        }),
+        }, [
+          [0, 6, rng => { const d = R(rng, 1, 35) * 5; return Q('Dùng thước đo góc, đọc số đo của góc dưới đây.', vz('angle', { deg: d, protractor: true }), num(d, '°'), 'Đặt tâm thước trùng đỉnh góc, một cạnh trùng vạch 0; đọc số ở cạnh còn lại.', `Góc có số đo ${d}°.`); }],
+          [0, 9, rng => { const d = R(rng, 1, 17) * 10; return Q(`So sánh: góc ${d}° … góc vuông`, vz('angle', { deg: d }), cmpAns(d, 90), 'Góc vuông có số đo 90°.', `${d}° ${sign(d, 90)} 90°.`); }],
+          [0, 9, rng => { const d = R(rng, 2, 16) * 10, cl = P(rng, [d, d, d + 10, d - 10, 180 - d]); return Q(`Đúng hay sai?\nGóc dưới đây có số đo ${cl}°.`, vz('angle', { deg: d, protractor: true }), tf(rng, cl === d), 'Đọc số đo trên thước bắt đầu từ vạch 0 trùng với một cạnh của góc.', `Góc có số đo ${d}°. ${cl === d ? 'Đúng' : 'Sai'}.`); }],
+          [3, 9, rng => { const d = R(rng, 1, 35) * 5; return Q(`Một góc bẹt được chia thành hai góc, một góc có số đo ${d}°. Góc còn lại có số đo bao nhiêu độ?`, vz('angle', { deg: 180, protractor: true }), num(180 - d, '°'), 'Góc bẹt có số đo 180°.', `180° ${M} ${d}° = ${180 - d}°.`); }],
+          [6, 9, rng => { const a = R(rng, 2, 12) * 10, b = R(rng, 1, 18 - a / 10) * 10; return Q(`Ghép góc ${a}° và góc ${b}° chung đỉnh, chung một cạnh (hai góc không chồng lên nhau) thì được một góc có số đo bao nhiêu độ?`, vz('angle', { deg: a + b, protractor: true }), num(a + b, '°'), 'Cộng số đo hai góc.', `${a}° + ${b}° = ${a + b}°.`); }],
+        ])),
       lesson(2, 8, 'Góc nhọn, góc tù, góc bẹt',
         'Rô-bốt ISA quan sát hai kim đồng hồ tạo thành những góc khác nhau.',
         [
@@ -268,13 +288,19 @@
           { text: 'Góc tù lớn hơn góc vuông nhưng bé hơn góc bẹt.', visual: vz('angle', { deg: 130 }) },
           { text: 'Góc bẹt bằng hai góc vuông (180°).', visual: vz('angle', { deg: 180 }) },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 3;
           if (f === 0) { const d = P(rng, [30, 45, 60, 75, 90, 110, 120, 135, 150, 180]); return Q('Góc dưới đây là góc gì?', vz('angle', { deg: d }), ch(rng, angleKind(d), ['Góc nhọn', 'Góc vuông', 'Góc tù', 'Góc bẹt']), 'So sánh góc với góc vuông (dùng ê ke).', `Góc ${d}° là ${angleKind(d).toLowerCase()}.`); }
           if (f === 1) { const d = R(rng, 1, 17) * 10; return Q(`Góc có số đo ${d}° là góc gì?`, null, ch(rng, angleKind(d), ['Góc nhọn', 'Góc vuông', 'Góc tù', 'Góc bẹt']), 'Nhọn < 90° = vuông < tù < 180° = bẹt.', `${d}° là ${angleKind(d).toLowerCase()}.`); }
           const [h, d, k] = P(rng, [[3, 90, 'Góc vuông'], [6, 180, 'Góc bẹt'], [2, 60, 'Góc nhọn'], [4, 120, 'Góc tù'], [1, 30, 'Góc nhọn'], [5, 150, 'Góc tù']]);
           return Q(`Lúc ${h} giờ đúng, kim giờ và kim phút tạo thành góc gì?`, vz('clock', { h, m: 0 }), ch(rng, k, ['Góc nhọn', 'Góc vuông', 'Góc tù', 'Góc bẹt']), 'Mỗi khoảng giữa hai số liền nhau trên mặt đồng hồ là 30°.', `${h} × 30° = ${d}°: ${k.toLowerCase()}.`);
-        }),
+        }, [
+          [0, 9, rng => { const d = R(rng, 1, 18) * 10, k = angleKind(d), cl = P(rng, [k, k, ...['Góc nhọn', 'Góc vuông', 'Góc tù', 'Góc bẹt'].filter(x => x !== k)]); return Q(`Đúng hay sai?\nGóc có số đo ${d}° là ${cl.toLowerCase()}.`, null, tf(rng, cl === k), 'Góc nhọn bé hơn 90°, góc vuông bằng 90°, góc tù lớn hơn 90° và bé hơn 180°, góc bẹt bằng 180°.', `${d}° là ${k.toLowerCase()}. ${cl === k ? 'Đúng' : 'Sai'}.`); }],
+          [0, 6, rng => { const O = P(rng, ['O', 'M', 'I', 'K', 'E']), [A, B] = U.sample(rng, ['A', 'B', 'C', 'D', 'P', 'Q', 'N', 'H'], 2), d = P(rng, [35, 50, 70, 90, 100, 125, 145, 160, 180]); return Q(`Góc đỉnh ${O}, cạnh ${O}${A}, ${O}${B} dưới đây là góc gì?`, vz('angle', { deg: d, label: A + O + B }), ch(rng, angleKind(d), ['Góc nhọn', 'Góc vuông', 'Góc tù', 'Góc bẹt']), 'Dùng ê ke so sánh góc với góc vuông.', `Góc đỉnh ${O} là ${angleKind(d).toLowerCase()}.`); }],
+          [3, 9, rng => { const want = P(rng, ['Góc nhọn', 'Góc tù']), pool = { 'Góc nhọn': [20, 35, 45, 60, 75, 85], 'Góc tù': [95, 110, 120, 135, 150, 170] }; const good = P(rng, pool[want]), other = want === 'Góc nhọn' ? 'Góc tù' : 'Góc nhọn'; const bad = [90, 180, P(rng, pool[other])]; return Q(`Góc có số đo nào dưới đây là ${want.toLowerCase()}?`, null, ch(rng, `${good}°`, bad.map(x => `${x}°`)), 'Góc nhọn < 90° (góc vuông) < góc tù < 180° (góc bẹt).', `${good}° là ${want.toLowerCase()}.`); }],
+          [3, 9, rng => { const d = R(rng, 1, 17) * 10, ref = P(rng, [['góc vuông', 90], ['góc bẹt', 180]]); return Q(`So sánh: góc ${d}° … ${ref[0]}`, vz('angle', { deg: d }), cmpAns(d, ref[1]), `${ref[0][0].toUpperCase() + ref[0].slice(1)} có số đo ${ref[1]}°.`, `${d}° ${sign(d, ref[1])} ${ref[1]}°.`); }],
+          [6, 9, rng => { const a = R(rng, 2, 12) * 10, b = R(rng, 1, 18 - a / 10) * 10, k = angleKind(a + b); return Q(`Ghép góc ${a}° và góc ${b}° chung đỉnh, chung một cạnh (hai góc không chồng lên nhau) được một góc mới. Góc mới là góc gì?`, null, ch(rng, k, ['Góc nhọn', 'Góc vuông', 'Góc tù', 'Góc bẹt']), 'Cộng số đo hai góc rồi so sánh với 90° và 180°.', `${a}° + ${b}° = ${a + b}°: ${k.toLowerCase()}.`); }],
+        ])),
     ],
   };
 
@@ -457,24 +483,36 @@
           { text: 'Hai đường thẳng vuông góc tạo thành 4 góc vuông có chung đỉnh.', visual: vz('lines', { kind: 'perpendicular' }) },
           { text: 'Hình chữ nhật có các cặp cạnh liền nhau vuông góc với nhau.', visual: vz('shape', { kind: 'rect', label: 'ABCD' }) },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 3;
           if (f === 0) { const k = P(rng, ['perpendicular', 'parallel', 'intersect']); const N = { perpendicular: 'Vuông góc', parallel: 'Song song', intersect: 'Cắt nhau nhưng không vuông góc' }; return Q('Hai đường thẳng dưới đây có quan hệ gì?', vz('lines', { kind: k }), ch(rng, N[k], Object.values(N)), 'Dùng ê ke kiểm tra góc tạo bởi hai đường thẳng.', `Hai đường thẳng ${N[k].toLowerCase()}.`); }
           if (f === 1) { const k = P(rng, ['rect', 'square']); return Q(`${k === 'rect' ? 'Hình chữ nhật' : 'Hình vuông'} ABCD có bao nhiêu cặp cạnh vuông góc với nhau?`, vz('shape', { kind: k, label: 'ABCD' }), num(4), 'Mỗi góc vuông ứng với một cặp cạnh vuông góc.', 'Có 4 cặp: AB và BC, BC và CD, CD và DA, DA và AB.'); }
           return Q('Hai đường thẳng vuông góc với nhau tạo thành mấy góc vuông?', vz('lines', { kind: 'perpendicular' }), num(4), 'Đếm các góc quanh điểm cắt.', 'Tạo thành 4 góc vuông chung đỉnh.');
-        }),
+        }, [
+          [0, 9, rng => { const L = P(rng, ['ABCD', 'MNPQ', 'EGHK']), k = R(rng, 0, 3), side = j => L[(j + 4) % 4] + L[(j + 5) % 4], s = side(k), adj = `${side(k - 1)} và ${side(k + 1)}`; return Q(`Hình chữ nhật ${L} có cạnh ${s} vuông góc với những cạnh nào?`, vz('shape', { kind: 'rect', label: L }), ch(rng, adj, [`${side(k + 2)} và ${side(k + 1)}`, `${side(k - 1)} và ${side(k + 2)}`, `${L[k]}${L[(k + 2) % 4]} và ${side(k + 2)}`]), 'Hai cạnh liền nhau của hình chữ nhật vuông góc với nhau.', `Cạnh ${s} vuông góc với ${adj}.`); }],
+          [0, 9, rng => { const [a, b, c, d, o] = U.sample(rng, ['A', 'B', 'C', 'D', 'M', 'N', 'P', 'Q', 'O', 'I', 'K', 'H'], 5); return Q(`Hai đường thẳng ${a}${b} và ${c}${d} vuông góc với nhau tại điểm nào?`, vz('lines', { kind: 'perpendicular', labels: [a, b, c, d, o] }), ch(rng, `Điểm ${o}`, [`Điểm ${a}`, `Điểm ${c}`, `Điểm ${d}`]), 'Tìm điểm cắt nhau của hai đường thẳng.', `${a}${b} vuông góc với ${c}${d} tại điểm ${o}.`); }],
+          [0, 9, rng => { const [st, ok] = P(rng, [['Hai đường thẳng vuông góc tạo thành 4 góc vuông', true], ['Hai đường thẳng vuông góc tạo thành 2 góc vuông', false], ['Hai cạnh liền nhau của hình chữ nhật vuông góc với nhau', true], ['Hai cạnh đối diện của hình chữ nhật vuông góc với nhau', false], ['Có thể dùng ê ke để kiểm tra hai đường thẳng có vuông góc hay không', true], ['Lúc 6 giờ đúng, kim giờ và kim phút vuông góc với nhau', false], ['Lúc 3 giờ đúng, kim giờ và kim phút vuông góc với nhau', true]]); return Q(`Đúng hay sai?\n${st}.`, null, tf(rng, ok), 'Hai đường thẳng vuông góc tạo thành 4 góc vuông chung đỉnh.', `${ok ? 'Đúng' : 'Sai'}.`); }],
+          [3, 9, rng => { const h = P(rng, [3, 9]), bad = U.sample(rng, [12, 6, 1, 2, 4, 5, 7, 8, 10, 11], 3); return Q('Lúc mấy giờ đúng thì kim giờ và kim phút vuông góc với nhau?', vz('clock', { h: 12, m: 0 }), ch(rng, `${h} giờ`, bad.map(x => `${x} giờ`)), 'Hai kim vuông góc khi chúng tạo thành góc vuông.', `Lúc ${h} giờ, hai kim tạo thành góc vuông nên vuông góc với nhau.`); }],
+          [3, 9, rng => { const [k, n, nmK] = P(rng, [['rtriangle', 1, 'Hình tam giác'], ['triangle', 0, 'Hình tam giác'], ['quad', 0, 'Hình tứ giác'], ['square', 4, 'Hình vuông']]); return Q(`${nmK} dưới đây có mấy cặp cạnh vuông góc với nhau?`, vz('shape', { kind: k }), num(n), 'Dùng ê ke kiểm tra từng góc của hình.', `${nmK} này có ${n} cặp cạnh vuông góc.`); }],
+        ], 1)),
       lesson(6, 29, 'Hai đường thẳng song song',
         'Rô-bốt ISA đi dọc hai thanh ray đường tàu song song cùng bạn Minh.',
         [
           { text: 'Hai đường thẳng song song không bao giờ cắt nhau.', visual: vz('lines', { kind: 'parallel' }) },
           { text: 'Hình chữ nhật ABCD có AB song song với DC, AD song song với BC.', visual: vz('shape', { kind: 'rect', label: 'ABCD' }) },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 3;
           if (f === 0) { const k = P(rng, ['parallel', 'perpendicular', 'intersect']); return Q('Hai đường thẳng dưới đây có song song với nhau không?', vz('lines', { kind: k }), ch(rng, k === 'parallel' ? 'Có, song song' : 'Không song song', [k === 'parallel' ? 'Không song song' : 'Có, song song']), 'Hai đường thẳng song song không cắt nhau dù kéo dài mãi.', k === 'parallel' ? 'Hai đường thẳng song song.' : 'Hai đường thẳng cắt nhau nên không song song.'); }
           if (f === 1) { const [k, n, nmK] = P(rng, [['rect', 2, 'Hình chữ nhật'], ['square', 2, 'Hình vuông'], ['trapezoid', 1, 'Hình thang'], ['parallelogram', 2, 'Hình bình hành']]); return Q(`${nmK} dưới đây có bao nhiêu cặp cạnh song song?`, vz('shape', { kind: k }), num(n), 'Tìm các cặp cạnh đối diện không cắt nhau.', `${nmK} có ${n} cặp cạnh song song.`); }
           return Q('Chạm chọn các hình có hai cặp cạnh song song.', vz('shapeSet', { items: ['rect', 'triangle', 'square', 'circle', 'parallelogram'] }), { kind: 'visual', check: v => Array.isArray(v) && v.length === 3 && [0, 2, 4].every(j => v.includes(j)) }, 'Hình chữ nhật, hình vuông, hình bình hành đều có hai cặp cạnh đối diện song song.', 'Hình chữ nhật, hình vuông và hình bình hành.');
-        }),
+        }, [
+          [0, 9, rng => { const L = P(rng, ['ABCD', 'MNPQ', 'EGHK']), k = R(rng, 0, 3), side = j => L[(j + 4) % 4] + L[(j + 5) % 4], s = side(k), op = L[(k + 3) % 4] + L[(k + 2) % 4]; return Q(`Trong hình chữ nhật ${L}, cạnh ${s} song song với cạnh nào?`, vz('shape', { kind: 'rect', label: L }), ch(rng, op, [side(k + 1), side(k + 3), L[k] + L[(k + 2) % 4]]), 'Các cạnh đối diện của hình chữ nhật song song với nhau.', `Cạnh ${s} song song với cạnh ${op}.`); }],
+          [0, 9, rng => { const [a, b, c, d] = U.sample(rng, ['A', 'B', 'C', 'D', 'M', 'N', 'P', 'Q', 'E', 'G', 'H', 'K'], 4); return Q(`Đường thẳng ${a}${b} song song với đường thẳng nào?`, vz('lines', { kind: 'parallel', labels: [a, b, c, d] }), ch(rng, `${c}${d}`, [`${a}${c}`, `${b}${d}`, `${a}${d}`]), 'Hai đường thẳng song song không cắt nhau dù kéo dài về hai phía.', `${a}${b} song song với ${c}${d}.`); }],
+          [0, 9, rng => { const [st, ok] = P(rng, [['Hai đường thẳng song song thì không bao giờ cắt nhau', true], ['Hai đường thẳng song song cắt nhau tại một điểm', false], ['Hình chữ nhật có hai cặp cạnh song song', true], ['Hình vuông có một cặp cạnh song song', false], ['Hai cạnh đối diện của hình chữ nhật song song với nhau', true], ['Hai cạnh liền nhau của hình vuông song song với nhau', false]]); return Q(`Đúng hay sai?\n${st}.`, null, tf(rng, ok), 'Hai đường thẳng song song không cắt nhau; các cạnh đối diện của hình chữ nhật song song.', `${ok ? 'Đúng' : 'Sai'}.`); }],
+          [3, 9, rng => { const good = P(rng, ['Hai thanh ray của đường tàu', 'Các dòng kẻ ngang trong vở', 'Hai mép đối diện của quyển sách']), bad = U.sample(rng, ['Hai kim đồng hồ lúc 3 giờ', 'Hai cạnh góc vuông của ê ke', 'Hai nan quạt giấy', 'Hai cạnh liền nhau của mặt bàn'], 3); return Q('Hình ảnh nào gợi nên hai đường thẳng song song?', null, ch(rng, good, bad), 'Hai đường thẳng song song không cắt nhau.', `${good} gợi nên hai đường thẳng song song.`); }],
+          [6, 9, rng => { const L = P(rng, ['ABCD', 'MNPQ']), k = R(rng, 0, 3), side = j => L[(j + 4) % 4] + L[(j + 5) % 4], s1 = side(k), s2 = side(k - 1), ans = side(k + 1); return Q(`Hình chữ nhật ${L}: cạnh nào vừa vuông góc với cạnh ${s1}, vừa song song với cạnh ${s2}?`, vz('shape', { kind: 'rect', label: L }), ch(rng, ans, [side(k + 2), s1, s2]), `Cạnh cần tìm là cạnh đối diện với ${s2}.`, `Cạnh ${ans} vuông góc với ${s1} và song song với ${s2}.`); }],
+        ], 1)),
       lesson(6, 31, 'Hình bình hành, hình thoi',
         'Rô-bốt ISA cùng bạn Ngọc xếp những chiếc diều hình thoi bay trên đê.',
         [
@@ -509,13 +547,19 @@
           { text: 'Giao hoán: a × b = b × a.', visual: vz('array', { rows: 3, cols: 5 }) },
           { text: 'Kết hợp: (a × b) × c = a × (b × c). Tính nhanh: 25 × 7 × 4 = 7 × (25 × 4) = 7 × 100 = 700.' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 3;
           if (f === 0) { const a = R(rng, 12, 999), b = R(rng, 2, 9); return Q(`Số thích hợp ở ô ?:\n${a} × ${b} = ${b} × ?`, null, num(a), 'Đổi chỗ các thừa số thì tích không thay đổi.', `${a} × ${b} = ${b} × ${a}.`); }
           const [x, y] = P(rng, [[25, 4], [5, 2], [50, 2], [125, 8], [20, 5], [250, 4]]); const z = R(rng, 3, 99);
           if (f === 1) { const terms = U.shuffle(rng, [x, y, z]); return Q(`Tính bằng cách thuận tiện:\n${terms.join(' × ')}`, null, num(x * y * z), `Nhóm ${x} với ${y} được ${x * y}.`, `${terms.join(' × ')} = ${z} × (${x} × ${y}) = ${z} × ${x * y} = ${F(x * y * z)}.`); }
           return Q(`Số thích hợp ở ô ?:\n(${z} × ${x}) × ${y} = ${z} × (${x} × ?)`, null, num(y), 'Tính chất kết hợp của phép nhân.', `(${z} × ${x}) × ${y} = ${z} × (${x} × ${y}).`);
-        }),
+        }, [
+          [0, 6, rng => { const a = R(rng, 12, 99), b = R(rng, 2, 9); return Q(`Số thích hợp ở ô ?:\n${a} × ? = ${b} × ${a}`, null, num(b), 'Đổi chỗ các thừa số thì tích không thay đổi.', `${a} × ${b} = ${b} × ${a}.`); }],
+          [0, 9, rng => { const a = R(rng, 2, 9), b = R(rng, 11, 50), c = R(rng, 2, 9); const [st, ok] = P(rng, [[`${a} × ${b} = ${b} × ${a}`, true], [`(${a} × ${b}) × ${c} = ${a} × (${b} × ${c})`, true], [`(${a} × ${b}) × ${c} = ${a} × (${b} + ${c})`, false], [`${a} × ${b} × ${c} = ${c} × ${b} × ${a}`, true], [`${a} × ${b} = ${a} + ${b}`, false]]); return Q(`Đúng hay sai?\n${st}`, null, tf(rng, ok), 'Giao hoán: a × b = b × a. Kết hợp: (a × b) × c = a × (b × c).', `${ok ? 'Đúng' : 'Sai'}.`); }],
+          [3, 9, rng => { const a = R(rng, 2, 9), b = R(rng, 11, 40), c = R(rng, 2, 9); return Q(`Biểu thức nào có giá trị bằng ${a} × ${b} × ${c}?`, null, ch(rng, `${b} × (${a} × ${c})`, [`${a} × (${b} + ${c})`, `(${a} + ${b}) × ${c}`, `${a} × ${b} + ${c}`]), 'Đổi chỗ hoặc nhóm các thừa số thì tích không đổi.', `${a} × ${b} × ${c} = ${b} × (${a} × ${c}) = ${F(a * b * c)}.`); }],
+          [3, 9, rng => { const [a, it, b, box] = P(rng, [[R(rng, 6, 12), 'cái bánh', R(rng, 4, 10), ['hộp', 'thùng']], [R(rng, 10, 25), 'quyển vở', R(rng, 4, 8), ['tập', 'thùng']], [R(rng, 6, 12), 'chai sữa', R(rng, 4, 8), ['lốc', 'thùng']]]), c = R(rng, 2, 5); return Q(`Mỗi ${box[0]} có ${a} ${it}, mỗi ${box[1]} có ${b} ${box[0]}. Hỏi ${c} ${box[1]} như thế có bao nhiêu ${it}?`, null, num(a * b * c), `Tính số ${it} trong 1 ${box[1]} rồi nhân với ${c}.`, `${a} × ${b} × ${c} = ${a * b} × ${c} = ${F(a * b * c)} (${it}).`); }],
+          [6, 9, rng => { const a = R(rng, 2, 9), b = R(rng, 11, 40), c = R(rng, 2, 9), d = P(rng, [c, c, c + 1, c - 1]); return Q(`So sánh: ${a} × ${b} × ${c} … ${c} × ${a} × ${d}`, vz('compare', { left: `${a} × ${b} × ${c}`, right: `${c} × ${a} × ${d}` }), cmpAns(a * b * c, c * a * d), 'Đổi chỗ các thừa số để so sánh nhanh.', `${a} × ${b} × ${c} = ${F(a * b * c)}; ${c} × ${a} × ${d} = ${F(c * a * d)}.`); }],
+        ])),
       lesson(8, 41, 'Nhân, chia với 10, 100, 1000, …',
         'Rô-bốt ISA xếp những bó đũa, mỗi bó 10 đôi, để bán ở chợ phiên.',
         [
@@ -536,13 +580,19 @@
           { text: 'a × (b + c) = a × b + a × c. Ví dụ: 4 × (3 + 2) = 4 × 3 + 4 × 2 = 20.', visual: vz('array', { rows: 4, cols: 5 }) },
           { text: 'Tính nhanh: 36 × 7 + 36 × 3 = 36 × (7 + 3) = 36 × 10 = 360.' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 3;
           if (f === 0) { const a = R(rng, 12, 99), b = R(rng, 1, 9), c = 10 - b; return Q(`Tính bằng cách thuận tiện:\n${a} × ${b} + ${a} × ${c}`, null, num(a * 10), `Đặt ${a} làm thừa số chung.`, `${a} × ${b} + ${a} × ${c} = ${a} × (${b} + ${c}) = ${a} × 10 = ${a * 10}.`); }
           if (f === 1) { const a = R(rng, 12, 99), k = P(rng, [11, 101, 21, 12]); const [t, o] = k === 11 ? [10, 1] : k === 101 ? [100, 1] : k === 21 ? [20, 1] : [10, 2]; return Q(`Tính: ${a} × ${k}`, null, num(a * k), `${k} = ${t} + ${o}.`, `${a} × ${k} = ${a} × ${t} + ${a} × ${o} = ${a * t} + ${a * o} = ${F(a * k)}.`); }
           const a = R(rng, 2, 9), b = R(rng, 10, 50), c = R(rng, 10, 50);
           return Q(`Số thích hợp ở ô ?:\n${a} × (${b} + ${c}) = ${a} × ${b} + ${a} × ?`, null, num(c), 'Nhân một số với một tổng: nhân số đó với từng số hạng rồi cộng.', `${a} × (${b} + ${c}) = ${a} × ${b} + ${a} × ${c}.`);
-        }),
+        }, [
+          [0, 6, rng => { const a = R(rng, 2, 9), b = R(rng, 10, 60), c = R(rng, 2, 40); return Q(`Tính bằng hai cách:\n${a} × (${b} + ${c})`, null, num(a * (b + c)), `Cách 1: tính tổng trong ngoặc trước. Cách 2: ${a} × ${b} + ${a} × ${c}.`, `${a} × (${b} + ${c}) = ${a} × ${b + c} = ${a * (b + c)}; hoặc ${a * b} + ${a * c} = ${a * (b + c)}.`); }],
+          [0, 9, rng => { const a = R(rng, 2, 9), b = R(rng, 10, 50), c = R(rng, 2, 9), w = R(rng, 0, 1); const st = w ? `${a} × (${b} + ${c}) = ${a} × ${b} + ${c}` : `${a} × (${b} + ${c}) = ${a} × ${b} + ${a} × ${c}`; return Q(`Đúng hay sai?\n${st}`, null, tf(rng, !w), 'Nhân một số với một tổng: nhân số đó với từng số hạng rồi cộng các kết quả.', `${a} × (${b} + ${c}) = ${a} × ${b} + ${a} × ${c}. ${w ? 'Sai' : 'Đúng'}.`); }],
+          [3, 9, rng => { const a = R(rng, 2, 9), b = R(rng, 10, 50), c = R(rng, 2, 30); return Q(`Biểu thức ${a} × ${b} + ${a} × ${c} bằng biểu thức nào?`, null, ch(rng, `${a} × (${b} + ${c})`, [`${a} × ${b} + ${c}`, `(${a} + ${b}) × ${c}`, `${a} + ${b} × ${c}`]), 'Đưa thừa số chung ra ngoài ngoặc.', `${a} × ${b} + ${a} × ${c} = ${a} × (${b} + ${c}) = ${a * (b + c)}.`); }],
+          [3, 9, rng => { const a = P(rng, [12, 20, 24, 30]), b = R(rng, 3, 15), c = R(rng, 3, 15), [x, y, z] = P(rng, [['thùng nước cam', 'thùng nước táo', 'chai'], ['hộp bút đỏ', 'hộp bút xanh', 'cái bút'], ['khay bánh dẻo', 'khay bánh nướng', 'cái bánh']]); return Q(`Cửa hàng có ${b} ${x} và ${c} ${y}, mỗi ${x.split(' ')[0]} có ${a} ${z}. Hỏi cửa hàng có tất cả bao nhiêu ${z}?`, null, num(a * (b + c)), `Có thể tính: ${a} × (${b} + ${c}).`, `${a} × (${b} + ${c}) = ${a} × ${b + c} = ${a * (b + c)} (${z}).`); }],
+          [6, 9, rng => { const a = R(rng, 12, 99), b = R(rng, 11, 89), c = 100 - b; return Q(`Tính bằng cách thuận tiện:\n${a} × ${b} + ${a} × ${c}`, null, num(a * 100), `Đặt ${a} làm thừa số chung: ${b} + ${c} = 100.`, `${a} × ${b} + ${a} × ${c} = ${a} × (${b} + ${c}) = ${a} × 100 = ${F(a * 100)}.`); }],
+        ])),
       lesson(8, 43, 'Nhân với số có hai chữ số',
         'Rô-bốt ISA tính số học sinh của toàn trường khi mỗi lớp có số bạn như nhau.',
         [{ text: '36 × 23: 36 × 3 = 108 (tích riêng thứ nhất); 36 × 2 = 72 (tích riêng thứ hai, viết lùi sang trái một cột). Cộng: 108 + 720 = 828.', visual: vz('columnCalc', { a: 36, b: 23, op: '×', reveal: 'all' }) }],
@@ -668,55 +718,108 @@
           { text: 'Nhân cả tử số và mẫu số với cùng một số tự nhiên khác 0 thì được phân số bằng phân số đã cho: 1/2 = 2/4.', visual: vz('fractionCompare', { a: [1, 2], b: [2, 4] }) },
           { text: 'Chia cả tử số và mẫu số cho cùng một số tự nhiên khác 0 (nếu chia hết) thì được phân số bằng phân số đã cho: 6/9 = 2/3.' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const d = R(rng, 2, 9), n = R(rng, 1, d - 1), k = R(rng, 2, lv(i) === 0 ? 3 : 6), f = i % 3;
           if (f === 0) return Q(`Số thích hợp ở ô ?:\n${n}/${d} = ?/${d * k}`, vz('fractionCompare', { a: [n, d], b: [n * k, d * k] }), num(n * k), `Mẫu số được nhân với ${k}, tử số cũng nhân với ${k}.`, `${n}/${d} = (${n} × ${k})/(${d} × ${k}) = ${n * k}/${d * k}.`);
           if (f === 1) return Q(`Số thích hợp ở ô ?:\n${n * k}/${d * k} = ${n}/?`, null, num(d), `Tử số được chia cho ${k}, mẫu số cũng chia cho ${k}.`, `${n * k}/${d * k} = (${n * k} : ${k})/(${d * k} : ${k}) = ${n}/${d}.`);
           return Q(`Phân số nào bằng phân số ${n}/${d}?`, null, ch(rng, fs(n * k, d * k), [fs(n + k, d + k), fs(n * k, d + k), fs(n * k + 1, d * k)]), 'Nhân (hoặc chia) cả tử và mẫu với cùng một số.', `${n}/${d} = ${n * k}/${d * k}.`);
-        }),
+        }, [
+          [0, 9, (rng, i) => { const d = R(rng, 2, 9), n = R(rng, 1, d - 1), k = R(rng, 2, lv(i) === 0 ? 3 : 6);  const [p1, q1] = R(rng, 0, 1) ? [n * k, d * k] : P(rng, [[n + k, d + k], [n * k, d + k], [n + 1, d * k]]), ok = p1 * d === q1 * n, rhs = fs(p1, q1); return Q(`Đúng hay sai?\n${n}/${d} = ${rhs}`, null, tf(rng, ok), 'Chỉ khi nhân (hoặc chia) cả tử số và mẫu số với cùng một số khác 0 mới được phân số bằng nó.', ok ? `${n}/${d} = (${n} × ${k})/(${d} × ${k}) = ${rhs}. Đúng.` : `Sai: ${n}/${d} = ${fs(n * k, d * k)}, không bằng ${rhs}.`); }],
+          [0, 6, (rng, i) => { const d = R(rng, 2, 9), n = R(rng, 1, d - 1), k = R(rng, 2, lv(i) === 0 ? 3 : 6); return Q(`Số thích hợp ở ô ?:\n${n * k}/${d * k} = ?/${d}`, null, num(n), `${d * k} : ${k} = ${d}, nên tử số cũng chia cho ${k}.`, `${n * k}/${d * k} = (${n * k} : ${k})/(${d * k} : ${k}) = ${n}/${d}.`); }],
+          [3, 9, rng => { const d = R(rng, 2, 9), n = R(rng, 1, d - 1), k = R(rng, 2, 9); return Q(`Ta có ${n}/${d} = ${n * k}/${d * k}. Đã nhân cả tử số và mẫu số của ${n}/${d} với số nào?`, vz('fractionCompare', { a: [n, d], b: [n * k, d * k] }), num(k), `Lấy ${d * k} : ${d}.`, `${d * k} : ${d} = ${k}; ${n} × ${k} = ${n * k}.`); }],
+          [6, 9, rng => { const d = R(rng, 2, 9), n = R(rng, 1, d - 1), ks = U.sample(rng, [2, 3, 4, 5], 3); return Q(`Phân số nào KHÔNG bằng phân số ${n}/${d}?`, null, ch(rng, fs(n + 1, d + 1), ks.map(k => fs(n * k, d * k))), 'Các phân số bằng nhau có được khi nhân cả tử và mẫu với cùng một số.', `${ks.map(k => fs(n * k, d * k)).join(', ')} đều bằng ${n}/${d}; ${fs(n + 1, d + 1)} thì không.`); }],
+        ])),
       lesson(10, 56, 'Rút gọn phân số',
         'Rô-bốt ISA rút gọn phân số để bạn Hùng dễ so sánh phần bánh của mình.',
         [
           { text: 'Rút gọn 12/18: chia cả tử và mẫu cho 6 được 2/3. Phân số 2/3 không rút gọn được nữa: đó là phân số tối giản.', visual: vz('fractionCompare', { a: [12, 18], b: [2, 3] }) },
           { text: 'Mẹo: thử chia cả tử và mẫu cho 2, 3, 5, … cho đến khi không chia được nữa.' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const d = R(rng, 2, 9), n = R(rng, 1, d - 1), [sn, sd] = U.simplify(n, d), k = R(rng, 2, lv(i) === 0 ? 3 : 8), f = i % 3;
           const N = sn * k, D = sd * k;
           if (f === 0 || f === 2) return Q(`Rút gọn phân số ${N}/${D} thành phân số tối giản.`, vz('fractionCompare', { a: [N, D], b: [sn, sd] }), fracA(sn, sd, true), `Chia cả tử và mẫu cho ${U.gcd(N, D)}.`, `${N}/${D} = (${N} : ${U.gcd(N, D)})/(${D} : ${U.gcd(N, D)}) = ${sn}/${sd}.`);
           const opts = [[sn, sd], [N, D], [sn * 2, sd * 2], [sn + 1, sd + 2]];
           return Q('Phân số nào là phân số tối giản?', null, ch(rng, fs(sn, sd), opts.slice(1).filter(([a, b]) => U.gcd(a, b) > 1).map(([a, b]) => fs(a, b)).concat([fs(2, 4), fs(3, 6), fs(4, 10)])), 'Phân số tối giản: tử và mẫu không cùng chia hết cho số nào lớn hơn 1.', `${sn}/${sd} là phân số tối giản.`);
-        }),
+        }, [
+          [0, 6, (rng, i) => { const d = R(rng, 2, 9), n = R(rng, 1, d - 1), [sn, sd] = U.simplify(n, d), k = R(rng, 2, lv(i) === 0 ? 4 : 8); return Q(`Số thích hợp ở ô ?:\n${sn * k}/${sd * k} = ?/${sd}`, null, num(sn), `Mẫu số ${sd * k} chia cho ${k} được ${sd}, tử số cũng chia cho ${k}.`, `${sn * k}/${sd * k} = ${sn}/${sd}.`); }],
+          [3, 9, rng => { const d = R(rng, 2, 9), n = R(rng, 1, d - 1), [sn, sd] = U.simplify(n, d), k = R(rng, 2, 9); return Q(`Rút gọn ${sn * k}/${sd * k} được phân số tối giản ${sn}/${sd}. Ta đã chia cả tử số và mẫu số cho số nào?`, vz('fractionCompare', { a: [sn * k, sd * k], b: [sn, sd] }), num(k), `Lấy ${sd * k} : ${sd}.`, `${sd * k} : ${sd} = ${k} và ${sn * k} : ${sn} = ${k}.`); }],
+          [0, 9, rng => { const d = R(rng, 2, 9), n = R(rng, 1, d - 1), [sn, sd] = U.simplify(n, d), k = R(rng, 2, 6), ok = R(rng, 0, 1) === 1; const cl = ok ? fs(sn, sd) : P(rng, [fs(sn * k - 1, sd * k - 1), fs(sn + 1, sd), fs(sn, sd + 1)]); return Q(`Đúng hay sai?\nRút gọn phân số ${sn * k}/${sd * k} được phân số tối giản ${cl}.`, null, tf(rng, ok), `Chia cả tử số và mẫu số cho cùng một số.`, `${sn * k}/${sd * k} = ${sn}/${sd}. ${ok ? 'Đúng' : 'Sai'}.`); }],
+          [6, 9, rng => { const D = P(rng, [20, 24, 30, 32, 36, 40]), N = 2 * R(rng, 1, D / 2 - 1), [sn, sd] = U.simplify(N, D); return Q(`Lớp 4A có ${D} học sinh, trong đó có ${N} học sinh nữ. Số học sinh nữ bằng mấy phần số học sinh cả lớp? (Viết phân số tối giản.)`, null, fracA(sn, sd, true), `Viết phân số ${N}/${D} rồi rút gọn.`, `${N}/${D} = ${sn}/${sd}.`); }],
+        ])),
       lesson(10, 57, 'Quy đồng mẫu số các phân số',
         'Rô-bốt ISA giúp hai bạn đổi phần bánh về cùng kiểu cắt để dễ so sánh.',
         [
           { text: 'Quy đồng mẫu số 2/3 và 5/6: vì 6 : 3 = 2 nên 2/3 = (2 × 2)/(3 × 2) = 4/6; giữ nguyên 5/6.', visual: vz('fractionCompare', { a: [4, 6], b: [5, 6] }) },
           { text: 'Mẫu số chung là mẫu số chia hết cho mẫu số kia.' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const [d1, d2] = fracPair(rng), k = d2 / d1, n1 = R(rng, 1, d1 - 1), n2 = R(rng, 1, d2 - 1), f = i % 3;
           if (f === 0) return Q(`Quy đồng mẫu số hai phân số ${n1}/${d1} và ${n2}/${d2}. Mẫu số chung là bao nhiêu?`, null, num(d2), `${d2} chia hết cho ${d1}.`, `Mẫu số chung là ${d2}.`);
           if (f === 1) return Q(`Quy đồng mẫu số ${n1}/${d1} và ${n2}/${d2}:\n${n1}/${d1} = ?/${d2}`, vz('fractionCompare', { a: [n1 * k, d2], b: [n2, d2] }), num(n1 * k), `${d2} : ${d1} = ${k}, nhân cả tử và mẫu của ${n1}/${d1} với ${k}.`, `${n1}/${d1} = ${n1 * k}/${d2}; giữ nguyên ${n2}/${d2}.`);
           return Q(`Quy đồng mẫu số hai phân số ${n1}/${d1} và ${n2}/${d2}, ta được:`, null, ch(rng, `${n1 * k}/${d2} và ${n2}/${d2}`, [`${n1}/${d2} và ${n2}/${d2}`, `${n1 * k}/${d2} và ${n2 * k}/${d2}`, `${n1 + k}/${d2} và ${n2}/${d2}`]), `Nhân cả tử và mẫu của ${n1}/${d1} với ${k}.`, `${n1}/${d1} = ${n1 * k}/${d2}; ${n2}/${d2} giữ nguyên.`);
-        }),
+        }, [
+          [0, 6, rng => { const [d1, d2] = fracPair(rng), k = d2 / d1, n1 = R(rng, 1, d1 - 1), n2 = R(rng, 1, d2 - 1); return Q(`Quy đồng mẫu số ${n1}/${d1} và ${n2}/${d2} với mẫu số chung ${d2}. Ta nhân cả tử số và mẫu số của ${n1}/${d1} với số nào?`, null, num(k), `Lấy ${d2} : ${d1}.`, `${d2} : ${d1} = ${k}; ${n1}/${d1} = ${n1 * k}/${d2}.`); }],
+          [0, 9, rng => { const [d1, d2] = fracPair(rng), k = d2 / d1, n1 = R(rng, 1, d1 - 1), n2 = R(rng, 1, d2 - 1), t = R(rng, 0, 1) ? n1 * k : P(rng, [n1, n1 + k, n1 * k + 1]), ok = t === n1 * k; return Q(`Đúng hay sai?\nQuy đồng mẫu số ${n1}/${d1} và ${n2}/${d2} được ${t}/${d2} và ${n2}/${d2}.`, null, tf(rng, ok), `Nhân cả tử và mẫu của ${n1}/${d1} với ${d2} : ${d1} = ${k}.`, `${n1}/${d1} = ${n1 * k}/${d2}. ${ok ? 'Đúng' : 'Sai'}.`); }],
+          [3, 9, rng => { const [d1, d2] = fracPair(rng), n1 = R(rng, 1, d1 - 1), n2 = R(rng, 1, d2 - 1); return Q(`Có thể chọn số nào làm mẫu số chung để quy đồng mẫu số hai phân số ${n1}/${d1} và ${n2}/${d2}?`, null, ch(rng, d2, [d1 + d2, d2 + 1, d2 - 1].filter(x => x % d1 !== 0 || x % d2 !== 0)), `Chọn số chia hết cho cả ${d1} và ${d2}.`, `${d2} chia hết cho ${d1} và ${d2} nên chọn mẫu số chung là ${d2}.`); }],
+          [6, 9, rng => { const [d1, d2] = fracPair(rng), k = d2 / d1, n1 = R(rng, 1, d1 - 1), n2 = R(rng, 1, d2 - 1), C = d2 * 2; return Q(`Quy đồng mẫu số hai phân số ${n1}/${d1} và ${n2}/${d2} với mẫu số chung là ${C}:\n${n1}/${d1} = ?/${C}`, null, num(n1 * k * 2), `${C} : ${d1} = ${k * 2}, nhân cả tử và mẫu của ${n1}/${d1} với ${k * 2}.`, `${n1}/${d1} = ${n1 * k * 2}/${C}; ${n2}/${d2} = ${n2 * 2}/${C}.`); }],
+        ])),
       lesson(10, 58, 'So sánh phân số',
         'Rô-bốt ISA so sánh hai miếng bánh để xem bạn nào được phần nhiều hơn.',
         [
           { text: 'Cùng mẫu số: phân số nào có tử số lớn hơn thì lớn hơn. 3/7 < 5/7.', visual: vz('fractionCompare', { a: [3, 7], b: [5, 7] }) },
           { text: 'Khác mẫu số: quy đồng mẫu số rồi so sánh. 2/3 và 5/6: 2/3 = 4/6 < 5/6.', visual: vz('fractionCompare', { a: [2, 3], b: [5, 6] }) },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 3;
           if (f === 0) { const d = R(rng, 3, 12), a = R(rng, 1, d), b = R(rng, 1, d); return Q(`So sánh: ${a}/${d} … ${b}/${d}`, vz('fractionCompare', { a: [a, d], b: [b, d] }), cmpAns(a, b), 'Cùng mẫu số: so sánh tử số.', `${a} ${sign(a, b)} ${b} nên ${a}/${d} ${sign(a, b)} ${b}/${d}.`); }
           if (f === 1) { const [d1, d2] = fracPair(rng), k = d2 / d1, n1 = R(rng, 1, d1 - 1), n2 = R(rng, 1, d2 - 1); const sw = R(rng, 0, 1); const A = sw ? [n2, d2] : [n1, d1], B = sw ? [n1, d1] : [n2, d2]; return Q(`So sánh: ${A[0]}/${A[1]} … ${B[0]}/${B[1]}`, vz('fractionCompare', { a: A, b: B }), cmpAns(A[0] / A[1], B[0] / B[1]), 'Quy đồng mẫu số rồi so sánh tử số.', `${n1}/${d1} = ${n1 * k}/${d2}. So sánh ${A[0] * (d2 / A[1])}/${d2} và ${B[0] * (d2 / B[1])}/${d2}: ${A[0]}/${A[1]} ${sign(A[0] / A[1], B[0] / B[1])} ${B[0]}/${B[1]}.`); }
           const n = R(rng, 1, 5), d1 = R(rng, n + 1, 8); let d2 = R(rng, n + 1, 9); if (d2 === d1) d2 = d1 + 1;
           return Q(`So sánh hai phân số cùng tử số: ${n}/${d1} … ${n}/${d2}`, vz('fractionCompare', { a: [n, d1], b: [n, d2] }), cmpAns(n / d1, n / d2), 'Cùng tử số: phân số nào có mẫu số bé hơn thì lớn hơn (mỗi phần to hơn).', `Mẫu số ${d1} ${sign(d1, d2)} ${d2} nên ${n}/${d1} ${sign(n / d1, n / d2)} ${n}/${d2}.`);
-        }),
+        }, [
+          [0, 6, rng => { const d = R(rng, 5, 12), ns = U.sample(rng, Array.from({ length: d - 1 }, (_, j) => j + 1), 4), big = R(rng, 0, 1) === 1, t = big ? Math.max(...ns) : Math.min(...ns); return Q(`Phân số nào ${big ? 'lớn nhất' : 'bé nhất'}?`, null, ch(rng, fs(t, d), ns.filter(x => x !== t).map(x => fs(x, d))), 'Các phân số cùng mẫu số: so sánh tử số.', `${fs(t, d)} có tử số ${big ? 'lớn nhất' : 'bé nhất'}.`); }],
+          [0, 9, rng => { const d = R(rng, 2, 9), n = P(rng, [R(rng, 1, d - 1), d, R(rng, d + 1, 2 * d)]); return Q(`So sánh: ${n}/${d} … 1`, vz('fractionCompare', { a: [Math.min(n, d), d], b: [d, d] }), cmpAns(n / d, 1), 'So sánh tử số với mẫu số.', `Tử số ${n} ${sign(n, d)} mẫu số ${d} nên ${n}/${d} ${sign(n, d)} 1.`); }],
+          [3, 9, rng => { const d = R(rng, 6, 12), ns = U.sample(rng, Array.from({ length: d - 1 }, (_, j) => j + 1), 3), asc = ns.slice().sort((x, y) => x - y), s = a => a.map(x => fs(x, d)).join('; '); return Q(`Sắp xếp các phân số ${s(ns)} theo thứ tự từ bé đến lớn:`, null, ch(rng, s(asc), [s(asc.slice().reverse()), s([asc[1], asc[0], asc[2]]), s([asc[0], asc[2], asc[1]])]), 'Cùng mẫu số: phân số nào có tử số bé hơn thì bé hơn.', `${s(asc)}.`); }],
+          [3, 9, rng => { const [x, y] = two(rng), [d1, d2] = fracPair(rng), n1 = R(rng, 1, d1 - 1), n2 = R(rng, 1, d2 - 1), A = n1 / d1, B = n2 / d2, k = d2 / d1; return Q(`${x} ăn ${n1}/${d1} cái bánh, ${y} ăn ${n2}/${d2} cái bánh như thế. Bạn nào ăn nhiều bánh hơn?`, vz('fractionCompare', { a: [n1, d1], b: [n2, d2] }), ch(rng, A > B ? `Bạn ${x}` : A < B ? `Bạn ${y}` : 'Hai bạn ăn bằng nhau', [`Bạn ${x}`, `Bạn ${y}`, 'Hai bạn ăn bằng nhau']), 'Quy đồng mẫu số rồi so sánh.', `${n1}/${d1} = ${n1 * k}/${d2}; ${n1 * k}/${d2} ${sign(A, B)} ${n2}/${d2}.`); }],
+          [6, 9, rng => { const [d1, d2] = fracPair(rng), n1 = R(rng, 1, d1 - 1), n2 = R(rng, 1, d2 - 1), A = n1 / d1, B = n2 / d2, k = d2 / d1, cl = P(rng, ['<', '>']); const ok = cl === sign(A, B); return Q(`Đúng hay sai?\n${n1}/${d1} ${cl} ${n2}/${d2}`, null, tf(rng, ok), 'Quy đồng mẫu số rồi so sánh tử số.', `${n1}/${d1} = ${n1 * k}/${d2}, nên ${n1}/${d1} ${sign(A, B)} ${n2}/${d2}. ${ok ? 'Đúng' : 'Sai'}.`); }],
+        ])),
     ],
   };
 
   // ============ CHỦ ĐỀ 11. PHÉP CỘNG, PHÉP TRỪ PHÂN SỐ ============
   function addSubGen(op) {
+    const add = op === '+';
+    // two fractions a/c, b/d (same or multiple denominators); for − the first is strictly bigger
+    const pair = (rng, same) => {
+      for (let g = 0; g < 40; g++) {
+        let a, b, c, d;
+        if (same) { d = R(rng, 3, 12); c = d; a = R(rng, 1, d - 1); b = R(rng, 1, d - 1); }
+        else { const [d1, d2] = fracPair(rng); [c, d] = R(rng, 0, 1) ? [d2, d1] : [d1, d2]; a = R(rng, 1, c - 1); b = R(rng, 1, d - 1); }
+        if (!add && a * d < b * c) [a, b, c, d] = [b, a, d, c];
+        if (!add && a * d === b * c) continue;
+        const L = U.lcm(c, d), A = a * (L / c), B = b * (L / d), Rn = add ? A + B : A - B, [sn, sd] = U.simplify(Rn, L);
+        return { a, b, c, d, L, A, B, Rn, sn, sd };
+      }
+      return { a: 3, b: 1, c: 4, d: 4, L: 4, A: 3, B: 1, Rn: add ? 4 : 2, sn: add ? 1 : 1, sd: add ? 1 : 2 };
+    };
+    const how = t => (t.c === t.d ? `${t.a}/${t.c} ${op} ${t.b}/${t.d} = ${t.Rn}/${t.L}` : `${t.a}/${t.c} ${op} ${t.b}/${t.d} = ${t.A}/${t.L} ${op} ${t.B}/${t.L} = ${t.Rn}/${t.L}`) + (t.sn !== t.Rn ? ` = ${t.sn}/${t.sd}` : '');
+    return more(addSubBase(op), [
+      [0, 9, (rng, i) => { const t = pair(rng, i < 5), ok = R(rng, 0, 1) === 1, wrong = t.c === t.d && add ? fs(t.a + t.b, t.c + t.d) : fs(t.Rn + 1, t.L); return Q(`Đúng hay sai?\n${t.a}/${t.c} ${op} ${t.b}/${t.d} = ${ok ? fs(t.Rn, t.L) : wrong}`, null, tf(rng, ok), t.c === t.d ? `Cùng mẫu số: ${add ? 'cộng' : 'trừ'} tử số, giữ nguyên mẫu số.` : 'Quy đồng mẫu số trước rồi tính.', `${how(t)}. ${ok ? 'Đúng' : 'Sai'}.`); }],
+      [0, 6, (rng, i) => { const t = pair(rng, false); return Q(`Chọn kết quả đúng:\n${t.a}/${t.c} ${op} ${t.b}/${t.d} = ?`, vz('fractionCompare', { a: [t.a, t.c], b: [t.b, t.d] }), fch(rng, [t.Rn, t.L], [[add ? t.a + t.b : Math.abs(t.a - t.b), t.c + t.d], [add ? t.a + t.b : Math.abs(t.a - t.b), t.L], [t.Rn, t.L * 2]]), 'Quy đồng mẫu số rồi tính.', how(t) + '.'); }],
+      [3, 9, (rng, i) => {
+        const t = pair(rng, i < 6), x = nm(rng);
+        const pool = add
+          ? [[`Mẹ mua ${t.a}/${t.c} kg nho và ${t.b}/${t.d} kg táo. Hỏi mẹ mua tất cả bao nhiêu ki-lô-gam hoa quả?`, 'kg'], [`Can thứ nhất có ${t.a}/${t.c} l dầu, can thứ hai có ${t.b}/${t.d} l dầu. Hỏi cả hai can có bao nhiêu lít dầu?`, 'l']].concat(t.Rn <= t.L ? [[`Giờ thứ nhất vòi nước chảy được ${t.a}/${t.c} bể, giờ thứ hai chảy được ${t.b}/${t.d} bể. Hỏi sau hai giờ vòi nước chảy được bao nhiêu phần của bể?`, 'bể'], [`Buổi sáng ${x} tô màu được ${t.a}/${t.c} bức tranh, buổi chiều tô thêm ${t.b}/${t.d} bức tranh. Hỏi ${x} đã tô màu được bao nhiêu phần bức tranh?`, 'bức tranh']] : [])
+          : [[`Một bình có ${t.a}/${t.c} l nước, ${x} rót ra ${t.b}/${t.d} l. Hỏi trong bình còn lại bao nhiêu lít nước?`, 'l'], [`Một cuộn dây dài ${t.a}/${t.c} m, người ta cắt đi ${t.b}/${t.d} m. Hỏi cuộn dây còn lại dài bao nhiêu mét?`, 'm'], [`Một hộp bánh nặng ${t.a}/${t.c} kg, cả nhà đã ăn hết ${t.b}/${t.d} kg. Hỏi hộp bánh còn lại bao nhiêu ki-lô-gam?`, 'kg']];
+        const [tx, u] = P(rng, pool);
+        return Q(tx, vz('fractionCompare', { a: [t.a, t.c], b: [t.b, t.d] }), fracA(t.sn, t.sd), t.c === t.d ? `Cùng mẫu số: ${add ? 'cộng' : 'trừ'} tử số, giữ nguyên mẫu số.` : 'Quy đồng mẫu số trước rồi tính.', `${how(t)} (${u}).`);
+      }],
+      [3, 9, (rng, i) => { const t = pair(rng, i < 6), ref = add ? 1 : 0.5, rs = add ? '1' : '1/2', v = t.Rn / t.L; return Q(`So sánh: ${t.a}/${t.c} ${op} ${t.b}/${t.d} … ${rs}`, null, cmpAns(v, ref), 'Tính kết quả trước rồi so sánh.', `${how(t)}; ${fs(t.sn, t.sd)} ${sign(v, ref)} ${rs}.`); }],
+      [6, 9, rng => { const t = pair(rng, R(rng, 0, 1) === 1); if (add) return Q(`Tìm phân số thích hợp ở ô ?:\n? + ${t.b}/${t.d} = ${t.sn}/${t.sd}`, null, fracA(...U.simplify(t.a, t.c)), 'Số hạng chưa biết = tổng − số hạng đã biết.', `? = ${t.sn}/${t.sd} ${M} ${t.b}/${t.d} = ${t.a}/${t.c}.`); if (R(rng, 0, 1)) return Q(`Tìm phân số thích hợp ở ô ?:\n? ${M} ${t.b}/${t.d} = ${t.sn}/${t.sd}`, null, fracA(...U.simplify(t.a, t.c)), 'Số bị trừ = hiệu + số trừ.', `? = ${t.sn}/${t.sd} + ${t.b}/${t.d} = ${t.a}/${t.c}.`); return Q(`Tìm phân số thích hợp ở ô ?:\n${t.a}/${t.c} ${M} ? = ${t.sn}/${t.sd}`, null, fracA(...U.simplify(t.b, t.d)), 'Số trừ = số bị trừ − hiệu.', `? = ${t.a}/${t.c} ${M} ${t.sn}/${t.sd} = ${t.b}/${t.d}.`); }],
+      [7, 9, rng => { const c = R(rng, 2, 9), a = R(rng, 1, c - 1), n = R(rng, 1, 4), top = add ? n * c + a : n * c - a, [sn, sd] = U.simplify(top, c); return Q(`Tính: ${n} ${op} ${a}/${c}`, null, fracA(sn, sd), `Viết ${n} thành phân số có mẫu số ${c}: ${n} = ${n * c}/${c}.`, `${n} ${op} ${a}/${c} = ${n * c}/${c} ${op} ${a}/${c} = ${top}/${c}${sn !== top ? ` = ${sn}/${sd}` : ''}.`); }],
+    ]);
+  }
+  function addSubBase(op) {
     return function (rng, i) {
       const f = i % 4;
       let a, b, c, d;
@@ -766,20 +869,26 @@
           { text: 'Muốn nhân hai phân số, ta lấy tử số nhân tử số, mẫu số nhân mẫu số. 2/3 × 4/5 = 8/15.', visual: vz('fraction', { num: 8, den: 15, shape: 'rect' }) },
           { text: 'Nhân phân số với số tự nhiên: 2/7 × 3 = 6/7 (nhân tử số với số tự nhiên).' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 3;
           if (f === 1) { const d = R(rng, 3, 12), n = R(rng, 1, d - 1), k = R(rng, 2, 5); const [sn, sd] = U.simplify(n * k, d); return Q(`Tính: ${n}/${d} × ${k}`, null, fracA(sn, sd), 'Nhân tử số với số tự nhiên, giữ nguyên mẫu số.', `${n}/${d} × ${k} = ${n * k}/${d}${sn !== n * k ? ` = ${sn}/${sd}` : ''}.`); }
           const b = R(rng, 2, 9), a = R(rng, 1, b - 1), d = R(rng, 2, 9), c = R(rng, 1, d - 1), [sn, sd] = U.simplify(a * c, b * d);
           if (f === 2) return Q(`Một hình chữ nhật có chiều dài ${a}/${b} m, chiều rộng ${c}/${d} m. Tính diện tích hình chữ nhật (m²).`, vz('shape', { kind: 'rect' }), fracA(sn, sd), 'Diện tích = dài × rộng.', `${a}/${b} × ${c}/${d} = ${a * c}/${b * d}${sn !== a * c ? ` = ${sn}/${sd}` : ''} (m²).`);
           return Q(`Tính: ${a}/${b} × ${c}/${d}`, null, fracA(sn, sd), 'Tử nhân tử, mẫu nhân mẫu.', `${a}/${b} × ${c}/${d} = (${a} × ${c})/(${b} × ${d}) = ${a * c}/${b * d}${sn !== a * c ? ` = ${sn}/${sd}` : ''}.`);
-        }),
+        }, [
+          [0, 6, rng => { const b = R(rng, 2, 9), a = R(rng, 1, b - 1), d = R(rng, 2, 9), c = R(rng, 1, d - 1); return Q(`Chọn kết quả đúng:\n${a}/${b} × ${c}/${d} = ?`, null, fch(rng, [a * c, b * d], [[a + c, b + d], [a * c, b + d], [a * d, b * c]]), 'Tử nhân tử, mẫu nhân mẫu.', `${a}/${b} × ${c}/${d} = ${fs(a * c, b * d)}.`); }],
+          [0, 9, rng => { const b = R(rng, 2, 9), a = R(rng, 1, b - 1), d = R(rng, 2, 9), c = R(rng, 1, d - 1), ok = R(rng, 0, 1) === 1, cl = ok ? fs(a * c, b * d) : P(rng, [fs(a + c, b + d), fs(a * c, b + d)]); return Q(`Đúng hay sai?\n${a}/${b} × ${c}/${d} = ${cl}`, null, tf(rng, ok), 'Tử nhân tử, mẫu nhân mẫu.', `${a}/${b} × ${c}/${d} = ${fs(a * c, b * d)}. ${ok ? 'Đúng' : 'Sai'}.`); }],
+          [3, 9, rng => { const b = R(rng, 2, 9), a = R(rng, 1, b - 1), per = R(rng, 0, 1) === 1; if (per) { const [sn, sd] = U.simplify(a * 4, b); return Q(`Một hình vuông có cạnh ${a}/${b} m. Tính chu vi hình vuông.`, vz('shape', { kind: 'square' }), fracA(sn, sd), 'Chu vi hình vuông = cạnh × 4.', `${a}/${b} × 4 = ${a * 4}/${b}${sn !== a * 4 ? ` = ${sn}/${sd}` : ''} (m).`); } const [sn, sd] = U.simplify(a * a, b * b); return Q(`Một hình vuông có cạnh ${a}/${b} m. Tính diện tích hình vuông (m²).`, vz('shape', { kind: 'square' }), fracA(sn, sd), 'Diện tích hình vuông = cạnh × cạnh.', `${a}/${b} × ${a}/${b} = ${a * a}/${b * b} (m²).`); }],
+          [3, 9, rng => { const b = R(rng, 2, 9), a = R(rng, 1, b - 1), k = R(rng, 2, 9), [sn, sd] = U.simplify(a * k, b), [it, u, uu] = P(rng, [['chai', 'l', 'lít'], ['túi', 'kg', 'ki-lô-gam'], ['đoạn dây', 'm', 'mét']]); return Q(`Mỗi ${it} có ${a}/${b} ${u}${it === 'đoạn dây' ? ' dài' : ''}. Hỏi ${k} ${it} như thế ${it === 'đoạn dây' ? 'dài' : 'có'} tất cả bao nhiêu ${uu}?`.replace(`có ${a}/${b} ${u} dài`, `dài ${a}/${b} ${u}`), null, fracA(sn, sd), `Lấy ${a}/${b} × ${k}.`, `${a}/${b} × ${k} = ${a * k}/${b}${sn !== a * k ? ` = ${sn}/${sd}` : ''} (${u}).`); }],
+          [6, 9, rng => { const b = R(rng, 2, 9), a = R(rng, 1, 9), d = R(rng, 2, 9), c = R(rng, 0, 1) ? R(rng, 1, d - 1) : R(rng, d + 1, 2 * d), v = a * c / (b * d); return Q(`So sánh: ${a}/${b} × ${c}/${d} … ${a}/${b}`, null, cmpAns(v, a / b), 'So sánh thừa số thứ hai với 1: nhân với phân số bé hơn 1 thì được kết quả bé hơn, lớn hơn 1 thì được kết quả lớn hơn.', `${c}/${d} ${sign(c, d)} 1 nên ${a}/${b} × ${c}/${d} = ${fs(a * c, b * d)} ${sign(v, a / b)} ${a}/${b}.`); }],
+        ])),
       lesson(12, 64, 'Phép chia phân số',
         'Rô-bốt ISA chia đều nước cam vào những chiếc cốc nhỏ cho các bạn.',
         [
           { text: 'Phân số đảo ngược của 2/3 là 3/2.' },
           { text: 'Muốn chia hai phân số, ta lấy phân số thứ nhất nhân với phân số thứ hai đảo ngược. 3/4 : 2/5 = 3/4 × 5/2 = 15/8.' },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 3;
           const b = R(rng, 2, 9), a = R(rng, 1, 9), d = R(rng, 2, 9), c = R(rng, 1, d - 1);
           if (f === 0) return Q(`Phân số đảo ngược của ${c}/${d} là:`, null, ch(rng, fs(d, c), [fs(c, d), fs(d, c + 1), fs(c + d, d)]), 'Đổi chỗ tử số và mẫu số.', `Phân số đảo ngược của ${c}/${d} là ${d}/${c}.`);
@@ -787,19 +896,35 @@
           if (f === 1) return Q(`Tính: ${a}/${b} : ${c}/${d}`, null, fracA(sn, sd), 'Nhân phân số thứ nhất với phân số thứ hai đảo ngược.', `${a}/${b} : ${c}/${d} = ${a}/${b} × ${d}/${c} = ${a * d}/${b * c}${sn !== a * d ? ` = ${sn}/${sd}` : ''}.`);
           const k = R(rng, 2, 5), [s2n, s2d] = U.simplify(a, b * k);
           return Q(`Tính: ${a}/${b} : ${k}`, null, fracA(s2n, s2d), `Chia cho ${k} tức là nhân với 1/${k}.`, `${a}/${b} : ${k} = ${a}/${b} × 1/${k} = ${a}/${b * k}${s2n !== a ? ` = ${s2n}/${s2d}` : ''}.`);
-        }),
+        }, [
+          [0, 6, rng => { const b = R(rng, 2, 9), a = R(rng, 1, 9), d = R(rng, 2, 9), c = R(rng, 1, d - 1); return Q(`Chọn kết quả đúng:\n${a}/${b} : ${c}/${d} = ?`, null, fch(rng, [a * d, b * c], [[a * c, b * d], [b * c, a * d], [a * d, b * d]]), 'Nhân phân số thứ nhất với phân số thứ hai đảo ngược.', `${a}/${b} : ${c}/${d} = ${a}/${b} × ${d}/${c} = ${fs(a * d, b * c)}.`); }],
+          [0, 9, rng => { const b = R(rng, 2, 9), a = R(rng, 1, 9), d = R(rng, 2, 9), c = R(rng, 1, d - 1), ok = R(rng, 0, 1) === 1; const st = ok ? `${a}/${b} : ${c}/${d} = ${a}/${b} × ${d}/${c}` : `${a}/${b} : ${c}/${d} = ${a}/${b} × ${c}/${d}`; return Q(`Đúng hay sai?\n${st}`, null, tf(rng, ok), 'Chia cho một phân số là nhân với phân số đảo ngược của nó.', `${a}/${b} : ${c}/${d} = ${a}/${b} × ${d}/${c}. ${ok ? 'Đúng' : 'Sai'}.`); }],
+          [3, 9, rng => { let b = R(rng, 2, 9), a = R(rng, 1, b - 1), d = R(rng, 2, 9), c = R(rng, 1, d - 1); if (a * d === b * c) c = d + 1; if (c * b < a * d) [a, b, c, d] = [c, d, a, b]; const [Sn, Sd] = U.simplify(a * c, b * d); return Q(`Một hình chữ nhật có diện tích ${Sn}/${Sd} m², chiều rộng ${a}/${b} m. Tính chiều dài hình chữ nhật.`, vz('shape', { kind: 'rect' }), fracA(...U.simplify(c, d)), 'Chiều dài = diện tích : chiều rộng.', `${Sn}/${Sd} : ${a}/${b} = ${Sn}/${Sd} × ${b}/${a} = ${fs(Sn * b, Sd * a)} = ${fs(...U.simplify(c, d))} (m).`); }],
+          [3, 9, rng => { const b = R(rng, 2, 9), a = R(rng, 1, 9), k = R(rng, 2, 6), [sn, sd] = U.simplify(a, b * k); return Q(`Có ${a}/${b} l nước cam rót đều vào ${k} cốc. Hỏi mỗi cốc có bao nhiêu lít nước cam?`, null, fracA(sn, sd), `Lấy ${a}/${b} : ${k}.`, `${a}/${b} : ${k} = ${a}/${b} × 1/${k} = ${fs(a, b * k)}${sn !== a ? ` = ${sn}/${sd}` : ''} (l).`); }],
+          [6, 9, rng => { const k = R(rng, 2, 9), b = R(rng, 2, 9), a = R(rng, 1, 9), [sn, sd] = U.simplify(k * b, a); return Q(`Tính: ${k} : ${a}/${b}`, null, fracA(sn, sd), `Lấy ${k} nhân với phân số đảo ngược của ${a}/${b}.`, `${k} : ${a}/${b} = ${k} × ${b}/${a} = ${fs(k * b, a)}${sn !== k * b || sd !== a ? ` = ${sn}/${sd}` : ''}.`); }],
+        ])),
       lesson(12, 65, 'Tìm phân số của một số',
         'Rô-bốt ISA giúp cô giáo tính 2/3 số học sinh của lớp đi tham quan.',
         [
           { text: 'Muốn tìm 2/3 của 12, ta lấy 12 × 2/3 = 8. (Chia 12 thành 3 phần bằng nhau, lấy 2 phần.)', visual: vz('tape', { bars: [{ label: '12', parts: 3, units: 6, value: '12' }, { label: '2/3', parts: 2, units: 4, value: '?' }] }) },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const d = R(rng, 2, 9), f = i % 3; let n = R(rng, 1, d - 1); while (U.gcd(n, d) > 1) n--; const q = R(rng, 2, f === 1 ? Math.max(2, Math.floor(45 / d)) : lv(i) === 0 ? 6 : 20), N = d * q, v = n * q;
           const tape = vz('tape', { bars: [{ label: 'Cả', parts: d, units: d, value: String(N) }, { label: `${n}/${d}`, parts: n, units: n, value: '?' }] });
           if (f === 0) return Q(`Tìm ${n}/${d} của ${N}.`, tape, num(v), `Lấy ${N} × ${n}/${d}.`, `${N} × ${n}/${d} = ${N} : ${d} × ${n} = ${v}.`);
           if (f === 1) return Q(`Lớp 4A có ${N} học sinh, trong đó ${n}/${d} số học sinh là học sinh nữ. Hỏi lớp có bao nhiêu học sinh nữ?`, tape, num(v), `Tìm ${n}/${d} của ${N}.`, `${N} × ${n}/${d} = ${v} (học sinh).`);
           return Q(`Một cửa hàng có ${N} kg gạo, đã bán ${n}/${d} số gạo đó. Hỏi cửa hàng đã bán bao nhiêu ki-lô-gam gạo?`, tape, num(v, 'kg'), `Tìm ${n}/${d} của ${N}.`, `${N} × ${n}/${d} = ${v} (kg).`);
-        }),
+        }, [
+          [0, 9, (rng, i) => {
+            const d = R(rng, 2, 9); let n = R(rng, 1, d - 1); while (U.gcd(n, d) > 1) n--; const q = R(rng, 2, lv(i) === 0 ? 6 : 20), N = d * q, v = n * q;
+            const [tx, u] = P(rng, [[`Một quãng đường dài ${N} m, đội công nhân đã sửa ${n}/${d} quãng đường. Hỏi đội đã sửa bao nhiêu mét đường?`, 'm'], [`Một tấm vải dài ${N} m, mẹ đã dùng ${n}/${d} tấm vải để may rèm. Hỏi mẹ đã dùng bao nhiêu mét vải?`, 'm'], [`Bể chứa ${N} l nước, người ta đã dùng ${n}/${d} số nước trong bể. Hỏi đã dùng bao nhiêu lít nước?`, 'l'], [`Đàn gà có ${N} con, trong đó ${n}/${d} số gà là gà mái. Hỏi đàn gà có bao nhiêu con gà mái?`, '']]);
+            return Q(tx, vz('tape', { bars: [{ label: 'Cả', parts: d, units: d, value: String(N) }, { label: `${n}/${d}`, parts: n, units: n, value: '?' }] }), u ? num(v, u) : num(v), `Tìm ${n}/${d} của ${N}.`, `${N} × ${n}/${d} = ${v}${u ? ` (${u})` : ' (con)'}.`);
+          }],
+          [6, 9, rng => { const d = R(rng, 3, 9); let n = R(rng, 1, d - 1); while (U.gcd(n, d) > 1) n--; const q = R(rng, 2, 12), N = d * q, v = n * q; return Q(`Một cửa hàng có ${N} kg đường, đã bán ${n}/${d} số đường đó. Hỏi cửa hàng còn lại bao nhiêu ki-lô-gam đường?`, vz('tape', { bars: [{ label: 'Có', parts: d, units: d, value: String(N) }, { label: 'Đã bán', parts: n, units: n, value: '?' }] }), num(N - v, 'kg'), `Bước 1: tìm ${n}/${d} của ${N}. Bước 2: lấy ${N} trừ số đã bán.`, `Đã bán: ${N} × ${n}/${d} = ${v} (kg). Còn lại: ${N} ${M} ${v} = ${N - v} (kg).`); }],
+          [0, 6, rng => { const d = R(rng, 2, 9); let n = R(rng, 1, d - 1); while (U.gcd(n, d) > 1) n--; const q = R(rng, 2, 10), N = d * q; return Q(`${n}/${d} của ${N} là:`, null, ch(rng, n * q, [q, N * n, N + n, N - n].filter(x => x !== n * q)), `Lấy ${N} : ${d} × ${n}.`, `${N} : ${d} × ${n} = ${n * q}.`); }],
+          [0, 9, rng => { const d = R(rng, 2, 9); let n = R(rng, 1, d - 1); while (U.gcd(n, d) > 1) n--; const q = R(rng, 2, 10), N = d * q, v = n * q, cl = P(rng, [v, v, q, v + n]); return Q(`Đúng hay sai?\n${n}/${d} của ${N} là ${cl}.`, null, tf(rng, cl === v), `Tìm ${n}/${d} của ${N}: lấy ${N} × ${n}/${d}.`, `${N} × ${n}/${d} = ${v}. ${cl === v ? 'Đúng' : 'Sai'}.`); }],
+          [3, 9, rng => { const [base, u1, u2, ds] = P(rng, [[60, 'giờ', 'phút', [2, 3, 4, 5, 6, 10, 12]], [100, 'm', 'cm', [2, 4, 5, 10, 20, 25]], [1000, 'kg', 'g', [2, 4, 5, 8, 10]], [100, 'tạ', 'kg', [2, 4, 5, 10]], [100, 'thế kỉ', 'năm', [2, 4, 5]]]), d = P(rng, ds); let n = R(rng, 1, d - 1); while (U.gcd(n, d) > 1) n--; const v = base / d * n; return Q(`${n}/${d} ${u1} = ? ${u2}`, null, num(v, u2), `1 ${u1} = ${F(base)} ${u2}; tìm ${n}/${d} của ${F(base)}.`, `${F(base)} × ${n}/${d} = ${F(v)}. Vậy ${n}/${d} ${u1} = ${F(v)} ${u2}.`); }],
+        ])),
     ],
   };
 

@@ -15,6 +15,18 @@
   const sign = (a, b) => (a < b ? '<' : a > b ? '>' : '=');
   const lv = i => (i < 3 ? 0 : i < 7 ? 1 : 2);
   const vz = (type, params) => ({ type, params });
+  // Extra question forms mixed into a lesson generator. extra: [[fromI, toI, fn(rng, i)], ...];
+  // the base generator keeps `w` shares (default 2) so its own forms still appear. Keeps base.exam.
+  function more(base, extra, w) {
+    const g = function (rng, i) {
+      const ok = extra.filter(e => i >= e[0] && i <= e[1]);
+      const k = R(rng, 0, ok.length + (w || 2) - 1);
+      return k < ok.length ? ok[k][2](rng, i) : base(rng, i);
+    };
+    if (base.exam) g.exam = base.exam;
+    return g;
+  }
+  const tf = (rng, ok) => U.choices(rng, ok ? 'Đúng' : 'Sai', [ok ? 'Sai' : 'Đúng']);
   function Q(prompt, visual, answer, hint, explain, extra) {
     const q = { prompt, answer, hint, explain };
     if (visual) q.visual = visual;
@@ -824,14 +836,25 @@
           { text: '10 đơn vị = 1 chục; 10 chục = 1 trăm; 10 trăm = 1 nghìn.', visual: vz('blocks', { thousands: 1, hundreds: 0, tens: 0, ones: 0 }) },
           { text: '3 tấm trăm là 300, đọc là "ba trăm".', visual: vz('blocks', { hundreds: 3, tens: 0, ones: 0 }) },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 4;
           if (f === 0) { const h = R(rng, 1, 9); return Q('Hình dưới đây biểu diễn số nào?', vz('blocks', { hundreds: h, tens: 0, ones: 0 }), num(h * 100), 'Mỗi tấm là 1 trăm.', `${h} trăm là ${h * 100}.`); }
           if (f === 1) { const [p, v] = P(rng, [['10 trăm = ? ', 1000], ['1 trăm = ? chục', 10], ['1 chục = ? đơn vị', 10], ['1 nghìn = ? trăm', 10], ['10 chục = ?', 100]]); return Q(p.trim(), null, num(v), 'Cứ 10 đơn vị của hàng này gộp thành 1 đơn vị của hàng liền trên.', `${p.replace('?', v).trim()}.`); }
           if (f === 2) { const h = R(rng, 1, 9), t = R(rng, 1, 9); return Q('Hình dưới đây biểu diễn số nào?', vz('blocks', { hundreds: h, tens: t, ones: 0 }), num(h * 100 + t * 10), 'Đếm số tấm trăm, rồi đếm số thanh chục.', `${h} trăm và ${t} chục là ${h * 100 + t * 10}.`); }
           const h = R(rng, 1, 9);
           return Q(`${DIG[h][0].toUpperCase() + DIG[h].slice(1)} trăm viết là:`, null, ch(rng, h * 100, [h * 10, h * 1000, h]), 'Số tròn trăm có hai chữ số 0 ở cuối.', `${readVN(h * 100)} viết là ${h * 100}.`);
-        }),
+        }, [
+          [0, 4, rng => { const h = R(rng, 1, 9); return Q(`Số ${h * 100} gồm mấy trăm?`, vz('blocks', { hundreds: h, tens: 0, ones: 0 }), num(h), 'Mỗi tấm là 1 trăm.', `${h * 100} gồm ${h} trăm.`); }],
+          [0, 6, rng => { const s = R(rng, 1, 6), miss = R(rng, 1, 3), seq = [0, 1, 2, 3].map(j => (s + j) * 100); return Q(`Đếm thêm 100. Số thích hợp ở ô ? là:\n${seq.map((v, j) => (j === miss ? '?' : v)).join(', ')}`, null, num(seq[miss]), 'Mỗi lần đếm thêm 1 trăm.', `${seq.join(', ')}.`); }],
+          [3, 9, rng => {
+            const h = R(rng, 1, 9);
+            const [st, ok, fix] = P(rng, [[`${h} trăm viết là ${h * 100}`, true, `${h} trăm viết là ${h * 100}`], [`${h} trăm viết là ${h * 10}`, false, `${h} trăm viết là ${h * 100}`], [`Số ${h * 100} gồm ${h} trăm`, true, `${h * 100} gồm ${h} trăm`], [`Số ${h * 100} gồm ${h} chục`, false, `${h * 100} gồm ${h} trăm`], ['10 trăm = 1 nghìn', true, '10 trăm = 1 nghìn'], ['10 chục = 1 nghìn', false, '10 chục = 1 trăm; 10 trăm = 1 nghìn'], ['1 nghìn viết là 1000', true, '1 nghìn viết là 1000'], ['1 trăm = 100 chục', false, '1 trăm = 10 chục']]);
+            return Q(`Đúng hay sai?\n${st}.`, null, tf(rng, ok), '10 đơn vị = 1 chục; 10 chục = 1 trăm; 10 trăm = 1 nghìn.', `${ok ? 'Đúng' : 'Sai'}. ${fix}.`);
+          }],
+          [3, 9, rng => { const h = R(rng, 1, 9), k = P(rng, [h, h < 9 ? h + 1 : h - 1, h > 1 ? h - 1 : h + 1, R(rng, 1, 9)]); return Q(`So sánh: ${h} trăm … ${k * 100}`, vz('compare', { left: `${h} trăm`, right: k * 100 }), cmpAns(h, k), `${h} trăm là ${h * 100}.`, `${h} trăm = ${h * 100}; ${h * 100} ${sign(h, k)} ${k * 100}.`); }],
+          [3, 9, rng => { const h = R(rng, 2, 9), x = nm(rng), it = P(rng, [['hộp', 'viên bi'], ['túi', 'cái kẹo'], ['bó', 'que tính'], ['thùng', 'quả cam']]); return Q(`Mỗi ${it[0]} có 100 ${it[1]}. ${x} có ${h} ${it[0]} như thế. Hỏi ${x} có tất cả bao nhiêu ${it[1]}?`, vz('blocks', { hundreds: h, tens: 0, ones: 0 }), num(h * 100), 'Đếm thêm 100: 100, 200, 300, …', `${h} trăm là ${h * 100}. ${x} có ${h * 100} ${it[1]}.`); }],
+          [6, 9, rng => { const h = R(rng, 1, 9); return Q(`Có ${h} tấm trăm. Cần thêm mấy tấm trăm nữa để được 1 nghìn?`, vz('blocks', { hundreds: h, tens: 0, ones: 0 }), num(10 - h), '10 trăm = 1 nghìn.', `${h} + ${10 - h} = 10. Cần thêm ${10 - h} tấm trăm.`); }],
+        ])),
 
       lesson(10, 49, 'Các số tròn trăm, tròn chục',
         'Rô-bốt ISA và bạn Lan đếm những bó que tính, mỗi bó một chục.',
@@ -958,7 +981,7 @@
           { text: 'Các tờ tiền: 100 đồng, 200 đồng, 500 đồng, 1000 đồng.', visual: vz('money', { notes: [100, 200, 500, 1000] }) },
           { text: '1 tờ 500 đồng và 2 tờ 200 đồng: 500 + 200 + 200 = 900 (đồng).', visual: vz('money', { notes: [500, 200, 200] }) },
         ],
-        function (rng, i) {
+        more(function (rng, i) {
           const f = i % 4;
           if (f === 0) {
             let notes, s; for (let g = 0; g < 50; g++) { notes = Array.from({ length: R(rng, 2, lv(i) === 0 ? 3 : 4) }, () => P(rng, [100, 200, 500])); s = notes.reduce((x, y) => x + y, 0); if (s <= 1000) break; }
@@ -975,7 +998,31 @@
           const str = c => c.map(x => x + ' đồng').join(' + ');
           if (!good.length) { const n = target / 100; return Q(`Cần bao nhiêu tờ 100 đồng để được ${target} đồng?`, vz('money', { notes: [100] }), num(n), 'Đếm thêm 100.', `${target} : 100 = ${n}.`); }
           return Q(`Chọn các tờ tiền có tổng là ${target} đồng:`, null, ch(rng, str(good[0]), U.sample(rng, bad, 3).map(str)), 'Cộng giá trị các tờ tiền trong mỗi đáp án.', `${good[0].join(' + ')} = ${target} (đồng).`);
-        }),
+        }, [
+          [0, 6, rng => {
+            const x = nm(rng), [a, b] = U.sample(rng, ['cái kẹo', 'cái bút chì', 'quyển vở', 'cái tẩy', 'cái thước kẻ', 'gói bánh quy'], 2);
+            const p1 = R(rng, 1, 5) * 100, p2 = R(rng, 1, 10 - p1 / 100) * 100;
+            return Q(`${x} mua một ${a} giá ${p1} đồng và một ${b} giá ${p2} đồng. Hỏi ${x} phải trả tất cả bao nhiêu tiền?`, null, num(p1 + p2, 'đồng'), 'Cộng giá tiền hai món đồ.', `${p1} + ${p2} = ${p1 + p2} (đồng).`);
+          }],
+          [0, 9, rng => {
+            const [a, b] = [P(rng, [500, 200, 100]), P(rng, [200, 100, 500])].sort((x, y) => y - x), s = a + b, claim = P(rng, [s, s, s + 100, s - 100, s + 200]);
+            return Q(`Đúng hay sai?\nTờ ${a} đồng và tờ ${b} đồng có tất cả ${claim} đồng.`, vz('money', { notes: [a, b] }), tf(rng, claim === s), 'Cộng giá trị hai tờ tiền.', `${a} + ${b} = ${s} (đồng). ${claim === s ? 'Đúng' : 'Sai'}.`);
+          }],
+          [3, 9, rng => {
+            const a = P(rng, [500, 200]), b = P(rng, [200, 100, 500]), c = Math.min(1000, a + b + P(rng, [-200, -100, 0, 0, 100, 200]));
+            return Q(`So sánh: ${a} đồng + ${b} đồng … ${c} đồng`, vz('compare', { left: `${a} + ${b}`, right: c }), cmpAns(a + b, c), 'Tính tổng số tiền bên trái rồi so sánh.', `${a} + ${b} = ${a + b}; ${a + b} ${sign(a + b, c)} ${c}.`);
+          }],
+          [3, 9, rng => {
+            const notes = U.sample(rng, [500, 200, 200, 100, 100], R(rng, 2, 3)).sort((x, y) => y - x), s = notes.reduce((x, y) => x + y, 0);
+            const p = Math.max(100, Math.min(1000, s + P(rng, [-200, -100, 0, 100, 200, 300]))), x = nm(rng), it = P(rng, ['quyển truyện', 'hộp bút màu', 'cái cặp tóc', 'quả bóng nhỏ']);
+            return Q(`${x} có số tiền như hình. ${x} muốn mua một ${it} giá ${p} đồng. ${x} có đủ tiền không?`, vz('money', { notes }), ch(rng, s >= p ? 'Đủ tiền' : 'Không đủ tiền', [s >= p ? 'Không đủ tiền' : 'Đủ tiền']), 'Cộng số tiền đang có rồi so sánh với giá tiền.', `${notes.join(' + ')} = ${s} (đồng); ${s} ${sign(s, p)} ${p} nên ${x} ${s >= p ? 'đủ' : 'không đủ'} tiền.`);
+          }],
+          [6, 9, rng => {
+            const notes = U.sample(rng, [500, 200, 200, 100], R(rng, 1, 2)).sort((x, y) => y - x), s = notes.reduce((x, y) => x + y, 0);
+            const p = R(rng, s / 100 + 1, 10) * 100, x = nm(rng);
+            return Q(`${x} có số tiền như hình. Một chiếc bút giá ${p} đồng. ${x} cần thêm bao nhiêu tiền nữa thì mua được chiếc bút?`, vz('money', { notes }), num(p - s, 'đồng'), 'Tính số tiền đang có, rồi lấy giá tiền trừ đi số tiền đó.', `${x} có ${s} đồng. ${p} ${M} ${s} = ${p - s} (đồng).`);
+          }],
+        ])),
     ],
   };
 
