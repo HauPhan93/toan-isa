@@ -951,3 +951,12 @@ body.no-voice .say-btn { display: none; }
 @media (orientation: portrait) and (min-width: 641px) { .grade-card:not(.review-card) .gnum { font-size: 60px; } }
 @media (max-width: 640px) { .grade-card:not(.review-card) .gnum { font-size: 44px; } }
 @media (orientation: landscape) and (max-height: 540px) { .grade-card:not(.review-card) .gnum { font-size: 40px; } }
+/* lighter, brighter number colours (user: "màu nhạt sáng 1 tí để thân thiện với các bé") */
+.grade-card .gnum {
+  background:
+    linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, .9) 48%, transparent 58%) 160% 0 / 250% 100% no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, .45) 0 44%, rgba(255, 255, 255, 0) 46%),
+    linear-gradient(170deg, color-mix(in srgb, var(--gc) 55%, #fff) 0%, color-mix(in srgb, var(--gc) 82%, #fff) 50%, var(--gc) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 2px 0 color-mix(in srgb, var(--gc) 88%, #000)) drop-shadow(0 4px 6px color-mix(in srgb, var(--gc) 35%, transparent));
+}
