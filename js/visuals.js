@@ -1696,6 +1696,21 @@
       line(g, cx - 22, y, cx - 22 - (big ? 18 : mid ? 12 : 7), y, tc, big ? 2.4 : 1.3);
       if (big) T(g, cx - 48, y, fmt(x), { size: 17, anchor: 'end', fill: tc });
     }
+    // a little steam puffs out of the top (user: "nhiệt kế thì xì khói tí nha"); the empty frame above keeps room
+    // for it when the picture is fitted, and the moving wisps themselves are not measured (viz-nobox)
+    rect(g, cx - 30, t0 - 82, 60, 60, 0, 'none');
+    if (!reduced()) {
+      const steam = mk('g', { class: 'viz-nobox' }, g);
+      const sc = isBoard() ? 'rgba(244,247,242,.75)' : '#A9B8C1';
+      [[-9, '0.0s'], [6, '0.9s'], [-2, '1.8s']].forEach(([dx, delay], i) => {
+        const at = mk('g', { transform: `translate(${cx + dx},${t0 - 26})` }, steam);
+        const wisp = mk('g', { opacity: 0 }, at);
+        path(wisp, 'M0,0 c -7,-5 7,-11 0,-17 c -7,-5 7,-11 0,-17', 'none', sc, 4.5);
+        const begin = `${(1.7 + parseFloat(delay)).toFixed(1)}s`, dur = '2.7s';
+        mk('animateTransform', { attributeName: 'transform', type: 'translate', values: `0 4; ${i % 2 ? 4 : -4} -14; 0 -28`, dur, begin, repeatCount: 'indefinite' }, wisp);
+        mk('animate', { attributeName: 'opacity', values: '0;0.9;0.6;0', keyTimes: '0;0.25;0.7;1', dur, begin, repeatCount: 'indefinite' }, wisp);
+      });
+    }
     T(g, cx + 34, t0 - 10, '°C', { size: 20, anchor: 'start', fill: K.ink });
     if (p.showValue) {
       const ag = A(g, 'viz-fade', 1500);
