@@ -1,7 +1,7 @@
 {
   "name": "Toán ISA",
   "short_name": "Toán ISA",
-  "description": "Luyện Toán lớp 2–5 theo SGK Kết nối tri thức với cuộc sống",
+  "description": "Luyện Toán lớp 1–5 theo SGK Kết nối tri thức với cuộc sống",
   "lang": "vi",
   "start_url": "./index.html",
   "scope": "./",
