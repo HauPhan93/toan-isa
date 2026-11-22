@@ -911,3 +911,10 @@ body.no-voice .say-btn { display: none; }
 @media (max-width: 640px) and (orientation: portrait), (orientation: landscape) and (max-height: 540px) {
   .answer-card > .feedback { scroll-margin-bottom: 78px; }   /* clear of the pinned buttons when scrolled into view */
 }
+.voice-row { flex-wrap: wrap; }
+.voice-row .grow { min-width: 200px; }
+.voice-note { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+@media (max-width: 640px) {
+  .sheet .row:has(.btn) > .grow { flex: 1 1 100%; }   /* label on its own line, its buttons below */
+  .sheet .row:has(.btn) { gap: 8px; }
+}

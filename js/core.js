@@ -299,10 +299,23 @@
     cute: { name: 'Dễ thương', pitch: 1.25, rate: 0.88 },   // higher pitch blurred the first consonant ("Bé" heard as "mớ")
     normal: { name: 'Bình thường', pitch: 1, rate: 0.92 },
   };
+  // Which Vietnamese voice: the one the parent picked in Góc phụ huynh, else the clearest one on the device.
+  // (Windows lists the old "Microsoft An" first; it swallows the first sound — "Bé ơi" heard as "mớ ơi" —
+  // so natural/online voices like HoaiMy, Google Tiếng Việt or Linh come first.)
+  const voiceRank = v => {
+    const n = v.name || '';
+    if (/HoaiMy|Hoài My/i.test(n)) return 0;
+    if (/Natural|Online|Neural/i.test(n)) return 1;
+    if (/Google/i.test(n)) return 2;
+    if (/Linh|Enhanced|Premium|Siri/i.test(n)) return 3;
+    if (/\bAn\b/.test(n)) return 9;
+    return 5;
+  };
+  const viVoices = () => speechSynthesis.getVoices().filter(v => /^vi/i.test(v.lang)).sort((a, b) => voiceRank(a) - voiceRank(b));
   function pickVoice() {
     if (!('speechSynthesis' in window)) return;
-    const vs = speechSynthesis.getVoices();
-    viVoice = vs.find(v => /^vi/i.test(v.lang)) || null;
+    const vs = viVoices();
+    viVoice = vs.find(v => v.name === S.settings.voiceName) || vs[0] || null;
     // Without a Vietnamese voice the device would read Vietnamese text with a foreign accent:
     // stay silent and hide the read-aloud buttons instead.
     document.body.classList.toggle('no-voice', !viVoice);
@@ -407,6 +420,8 @@
   /* ---------- home ---------- */
   function showHome() {
     stopSpeech();
+    if (!S.name && !S.askedName) return askName();
+    const hi = `Chào ${S.name || 'bé'}!`;   // only the home greeting uses the child's name (user request)
     const d = daily();
     const pct = Math.min(1, d.count / d.goal);
     const ring = `<svg class="ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="7"/>
@@ -448,15 +463,34 @@
       topbar('Toán ISA', 'Kết nối tri thức với cuộc sống', null, [coinPill(), parentBtn()]),
       h('div', { class: 'home' },
         h('div', { class: 'hero' },
-          h('div', { class: 'speech' }, `Chào bé! ${greet}`),
+          h('div', { class: 'speech' }, `${hi} ${greet}`),
           m,
-          h('div', null, h('h1', null, 'Chào bé!'), h('p', null, greet),
+          h('div', null, h('h1', null, hi), h('p', null, greet),
             h('div', { class: 'daily', html: ring + `<div>Mục tiêu hôm nay<br><b>${Math.min(d.count, d.goal)}/${d.goal} câu</b></div>` }))),
         grades));
-    m.addEventListener('click', () => speak(`Chào bé! ${greet}`));
+    m.addEventListener('click', () => speak(`${hi} ${greet}`));
     Peek.bind(grades, '.grade-card');
   }
 
+
+  function askName() {
+    const input = h('input', { class: 'text-input', placeholder: 'Tên của bé', maxlength: 16, autocomplete: 'off' });
+    const go = () => { const v = input.value.trim(); if (!v) { input.focus(); return; } S.name = v; S.askedName = true; save(); sfx.good(); showHome(); };
+    const skip = () => { S.askedName = true; save(); showHome(); };
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    screen(
+      topbar('Toán ISA', 'Kết nối tri thức với cuộc sống'),
+      h('div', { class: 'result' },
+        h('div', { class: 'card result-card' },
+          h('div', { class: 'mascot-wrap' }, mascot('cheer')),
+          h('h2', null, 'Xin chào! Mình là Rô-bốt ISA'),
+          h('p', null, 'Bé tên là gì nhỉ?'),
+          input,
+          h('div', { class: 'result-actions' },
+            h('button', { class: 'btn ghost', onclick: skip }, 'Bỏ qua'),
+            h('button', { class: 'btn', onclick: go }, 'Bắt đầu 🚀')))));
+    setTimeout(() => input.focus(), 300);
+  }
 
   /* ---------- map ---------- */
   function showMap(n, sem) {
@@ -924,7 +958,17 @@
         class: 'btn small ' + (curStyle === k ? '' : 'ghost'),
         onclick: () => { S.settings.voiceStyle = k; save(); sh.close(); parentCorner(); speak('Chào bé! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.'); },
       }, v.name)),
-      h('button', { class: 'btn ghost small', onclick: () => speak('Chào bé! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.') }, '🔊 Nghe thử'));
+      h('button', { class: 'btn ghost small', onclick: () => speak('Bé ơi, lớp 1 nè! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.') }, '🔊 Nghe thử'));
+    // every Vietnamese voice on this device, clearest first; a tap picks it and plays the test line
+    const voiceShort = v => v.name.replace(/^Microsoft\s+|^Google\s+/i, '').replace(/\s*[-–]\s*Vietnamese.*$/i, '').replace(/\s*\(.*?\)\s*/g, ' ').trim() || v.name;
+    const vlist = 'speechSynthesis' in window ? viVoices() : [];
+    const voiceRow = vlist.length ? h('div', { class: 'row voice-row' }, h('div', { class: 'grow' }, 'Giọng máy', h('div', { class: 'voice-note' }, 'Nghe chưa rõ (ví dụ "Bé" thành "mớ")? Chọn giọng khác.')),
+      ...vlist.map(v => h('button', {
+        class: 'btn small ' + (viVoice && viVoice.name === v.name ? '' : 'ghost'), title: v.name,
+        onclick: () => { S.settings.voiceName = v.name; save(); pickVoice(); sh.close(); parentCorner(); speak('Bé ơi, lớp 1 nè! Mình là Rô-bốt ISA.'); },
+      }, voiceShort(v)))) : null;
+    const nameIn = h('input', { class: 'text-input', value: S.name || '', placeholder: 'Tên của bé', maxlength: 16 });
+    nameIn.addEventListener('change', () => { S.name = nameIn.value.trim(); S.askedName = true; save(); });
     const goalSel = h('div', { class: 'row' }, h('div', { class: 'grow' }, 'Mục tiêu mỗi ngày'),
       ...[10, 20, 30, 50].map(v => h('button', { class: 'btn small ' + (daily().goal === v ? '' : 'ghost'), onclick: () => { S.daily.goal = v; save(); sh.close(); parentCorner(); } }, v + ' câu')));
     const gradeRows = GRADES.map(g => {
@@ -952,7 +996,7 @@
     };
     const resetProgress = confirmRow('Xóa tiến độ học (giữ cài đặt)', 'Xóa tiến độ',
       'Xóa hết sao, điểm và các đề đã làm? Không thể hoàn tác.',
-      () => { S = Object.assign(defaults(), { settings: S.settings, daily: { date: '', count: 0, goal: S.daily.goal || 20 } }); save(); sh.close(); toast('Đã xóa tiến độ học'); showHome(); });
+      () => { S = Object.assign(defaults(), { name: S.name, askedName: S.askedName, settings: S.settings, daily: { date: '', count: 0, goal: S.daily.goal || 20 } }); save(); sh.close(); toast('Đã xóa tiến độ học'); showHome(); });
     const resetAll = confirmRow('Đặt lại toàn bộ ứng dụng như lúc mới cài', 'Đặt lại',
       'Xóa tiến độ, cài đặt và nét chữ bé đã dạy cho ISA, rồi mở lại ứng dụng? Không thể hoàn tác.',
       async () => {
@@ -975,7 +1019,8 @@
         h('div', { class: 'grow' }, `Lớp ${w.r.grade.grade} · ${w.r.lesson.book || ''} · ${w.r.lesson.title}`), h('b', null, U.fmt(w.best) + '/10'),
         h('button', { class: 'btn small', onclick: () => { sh.close(); startLesson(w.r.lesson.id); } }, 'Ôn')))) : h('p', null, 'Chưa có bài nào dưới 7 điểm. 👍'),
       h('h3', null, 'Cài đặt'),
-      toggle('voice', 'Giọng đọc tiếng Việt' + (viVoice ? '' : ' (máy này chưa có giọng tiếng Việt nên app không đọc)')), styleRow, toggle('autoRead', 'Tự đọc đề bài'), toggle('sound', 'Âm thanh'), goalSel,
+      toggle('voice', 'Giọng đọc tiếng Việt' + (viVoice ? '' : ' (máy này chưa có giọng tiếng Việt nên app không đọc)')), voiceRow, styleRow, toggle('autoRead', 'Tự đọc đề bài'), toggle('sound', 'Âm thanh'), goalSel,
+      h('div', { class: 'row' }, h('div', { style: { width: '120px' } }, 'Tên bé'), nameIn),
       h('h3', null, 'Đặt lại ứng dụng'), resetProgress, resetAll,
       h('div', { class: 'result-actions', style: { marginTop: '14px' } }, h('button', { class: 'btn', onclick: () => { sh.close(); showHome(); } }, 'Xong')));
   }
