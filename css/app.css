@@ -918,3 +918,26 @@ body.no-voice .say-btn { display: none; }
   .sheet .row:has(.btn) > .grow { flex: 1 1 100%; }   /* label on its own line, its buttons below */
   .sheet .row:has(.btn) { gap: 8px; }
 }
+
+/* ---------- glossy grade numbers 1–5 on the home cards (user: "cần có độ bóng để sinh động hơn") ---------- */
+.grade-card .gnum {
+  display: inline-block; padding: 0 .06em .04em; position: relative;
+  background:
+    linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, .85) 48%, transparent 58%) 160% 0 / 250% 100% no-repeat,   /* moving shine */
+    linear-gradient(180deg, rgba(255, 255, 255, .5) 0 44%, rgba(255, 255, 255, 0) 46%),                                    /* glossy top half */
+    linear-gradient(170deg, color-mix(in srgb, var(--gc) 55%, #fff) 0%, var(--gc) 50%, color-mix(in srgb, var(--gc) 72%, #000) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 3px 0 color-mix(in srgb, var(--gc) 55%, #000)) drop-shadow(0 6px 7px rgba(0, 40, 50, .18));
+  animation: gnumShine 4.5s ease-in-out infinite;
+}
+.grade-card:nth-child(2) .gnum { animation-delay: .6s; }
+.grade-card:nth-child(3) .gnum { animation-delay: 1.2s; }
+.grade-card:nth-child(4) .gnum { animation-delay: 1.8s; }
+.grade-card:nth-child(5) .gnum { animation-delay: 2.4s; }
+.grade-card:nth-child(6) .gnum { animation-delay: 3s; }
+@keyframes gnumShine {
+  0%, 55% { background-position: 160% 0, 0 0, 0 0; }
+  85%, 100% { background-position: -60% 0, 0 0, 0 0; }
+}
+@media (prefers-reduced-motion: reduce) { .grade-card .gnum { animation: none; } }
