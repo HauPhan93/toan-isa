@@ -593,6 +593,8 @@
     nextBtn.style.display = 'none';
     const pane = h('div', { class: 'card answer-card' });
     let input = '';
+    const bi = A.kind === 'number' && visualEl && visualEl.boxInput ? visualEl.boxInput : null;   // đặt tính boxes
+    let colMode = bi ? (S.settings.colMode === 'type' ? 'type' : 'box') : 'type';
 
     function setSlot(text) { slot.textContent = text === '' ? '??' : text; slot.classList.toggle('empty', text === ''); }
     function refreshFraction() {
@@ -623,14 +625,35 @@
       pane.append(grid);
     } else if (A.kind === 'number' || A.kind === 'fraction') {
       const isFr = A.kind === 'fraction';
-      pane.append(h('div', { class: 'answer-label' }, isFr ? 'Viết phân số' : 'Nhập số'));
+      const label = h('div', { class: 'answer-label' }, isFr ? 'Viết phân số' : 'Nhập số');
+      pane.append(label);
+      // Đặt tính: the child can fill the boxes digit by digit (from the units box, or any box they tap)
+      // or type the whole number as before — two options, the choice is remembered.
+      let commaKey = null;
+      if (bi) {
+        const bBox = h('button', { class: 'cm-btn' }, '✍️ Điền vào ô'), bType = h('button', { class: 'cm-btn' }, '⌨️ Gõ số');
+        const setMode = m => {
+          colMode = m; S.settings.colMode = m; save();
+          bBox.classList.toggle('on', m === 'box'); bType.classList.toggle('on', m === 'type');
+          label.textContent = m === 'box' ? 'Chạm vào ô rồi điền chữ số (bắt đầu từ hàng đơn vị)' : 'Nhập số';
+          bi.enable(m === 'box'); bi.clear(); input = ''; setSlot(''); checkBtn.disabled = true;
+          if (commaKey) commaKey.style.visibility = m === 'box' ? 'hidden' : '';
+        };
+        bBox.onclick = () => { if (!finished) { sfx.tap(); setMode('box'); } };
+        bType.onclick = () => { if (!finished) { sfx.tap(); setMode('type'); } };
+        bi.onChange(v => { if (colMode !== 'box') return; input = v; setSlot(prettyInput(v)); checkBtn.disabled = !v; });
+        pane.append(h('div', { class: 'col-mode' }, bBox, bType));
+        setTimeout(() => setMode(colMode), 0);
+      }
       const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', isFr ? '⇅' : ',', '0', '⌫'];
       const pad = h('div', { class: 'keypad' });
       for (const k of keys) {
         const b = h('button', { class: 'key' + (k === '⌫' || k === '⇅' || k === ',' ? ' fn' : '') }, k === '⇅' ? 'Tử/Mẫu' : k);
+        if (k === ',') commaKey = b;
         b.onclick = () => {
           if (finished) return;
           sfx.tap();
+          if (bi && colMode === 'box') { if (k === '⌫') bi.back(); else bi.type(k); return; }
           if (isFr) {
             if (k === '⇅') fr.part = fr.part === 'num' ? 'den' : 'num';
             else if (k === '⌫') fr[fr.part] = fr[fr.part].slice(0, -1);
@@ -642,6 +665,7 @@
           else if (k === ',') { if (!input.includes(',')) input = (input || '0') + ','; }
           else if (input.replace(',', '').length < 9) input = (input === '0' ? '' : input) + k;
           setSlot(prettyInput(input));
+          if (bi) bi.fill(input);   // typing mode: mirror the number into the boxes, right-aligned
           checkBtn.disabled = input === '' || input.endsWith(',');
         };
         pad.append(b);
@@ -667,8 +691,9 @@
       if (finished) return;
       if (A.kind === 'number') {
         const v = U.parseNum(input);
-        judge(Math.abs(v - A.value) < 1e-9, () => slot.classList.add(Math.abs(v - A.value) < 1e-9 ? 'right' : 'wrong'),
-          () => { setSlot(U.fmt(A.value)); slot.classList.remove('wrong'); slot.classList.add('right'); });
+        const ok = Math.abs(v - A.value) < 1e-9;
+        judge(ok, () => { slot.classList.add(ok ? 'right' : 'wrong'); if (bi) bi.mark(ok ? null : 'wrong'); },
+          () => { setSlot(U.fmt(A.value)); slot.classList.remove('wrong'); slot.classList.add('right'); if (bi) { bi.fill(U.fmt(A.value)); bi.mark(null); } });
       } else if (A.kind === 'fraction') {
         const a = Number(fr.num), b = Number(fr.den);
         let ok = b > 0 && Math.abs(a / b - A.num / A.den) < 1e-9;
@@ -702,7 +727,7 @@
         showFeedback('hint', 'Chưa đúng, con thử lại nhé!', q.hint || '', q.hintVisual);
         speak('Chưa đúng, con thử lại nhé. ' + (q.hint || ''));
         // allow another try
-        if (A.kind === 'number') { input = ''; setTimeout(() => { setSlot(''); slot.classList.remove('wrong'); checkBtn.disabled = true; }, 700); }
+        if (A.kind === 'number') { input = ''; setTimeout(() => { setSlot(''); slot.classList.remove('wrong'); checkBtn.disabled = true; if (bi) { bi.mark(null); bi.clear(); } }, 700); }
         if (A.kind === 'fraction') { fr.num = ''; fr.den = ''; fr.part = 'num'; setTimeout(refreshFraction, 700); }
       } else {
         sfx.bad();
@@ -714,6 +739,7 @@
     }
     function settle(pts) {
       finished = true;
+      if (bi) bi.enable(false);
       run.score += pts; run.results[run.i] = pts;
       scoreEl.textContent = 'Điểm: ' + fmtScore(run.score);
       const d = daily(); d.count++; S.totals.answered++; if (pts === 1) S.totals.correct++; save();

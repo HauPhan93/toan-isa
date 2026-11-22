@@ -40,6 +40,7 @@
 }
 .scr-btn.on { background: #FFF1E7; box-shadow: inset 0 0 0 3px #F47A2A; }
 .scr-btn.close { background: #F47A2A; color: #fff; box-shadow: 0 4px 0 #D9611A; }
+.scr-btn.wipe { background: #FFF0F2; color: #C2344F; box-shadow: inset 0 0 0 2px #F7C6D0; }
 .scr-dot { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .12); }
 .scr-tools { display: flex; gap: 8px; padding: 8px 14px; flex-wrap: wrap; }
 .scr-tools .sep { width: 2px; background: #EFE4CF; margin: 4px 2px; }
@@ -72,7 +73,7 @@
 
   let root, panel, handle, sheet, canvas, ctx;
   let key = null, isOpen = false, tipShown = false;
-  let strokes = [], cur = null, penSeen = false;
+  let strokes = [], cur = null, penSeen = false, cleared = null;
   const tool = { color: COLORS[0][0], erase: false };
   const btns = {};
 
@@ -99,8 +100,10 @@
     btns.erase = el('button', 'scr-btn', '🧽 Tẩy'); btns.erase.onclick = () => { tool.erase = true; paintTools(); };
     tools.append(btns.erase, el('div', 'sep'));
     const undo = el('button', 'scr-btn', '↶'); undo.setAttribute('aria-label', 'Hoàn tác');
-    undo.onclick = () => { strokes.pop(); redraw(); };
-    const clear = el('button', 'scr-btn', '🗒️ Trang mới'); clear.onclick = () => { strokes = []; redraw(); };
+    // ↶ also brings back a page wiped with "Xóa hết" (in case it was tapped by mistake)
+    undo.onclick = () => { if (!strokes.length && cleared) { strokes = cleared; cleared = null; } else strokes.pop(); redraw(); };
+    const clear = el('button', 'scr-btn wipe', '🧹 Xóa hết'); clear.setAttribute('aria-label', 'Xóa hết giấy nháp');
+    clear.onclick = () => { if (!strokes.length) return; cleared = strokes; strokes = []; redraw(); };
     tools.append(undo, clear);
     sheet = el('div', 'scr-sheet');
     canvas = el('canvas'); sheet.append(canvas);
@@ -226,7 +229,7 @@
 
   function attach(k) {
     build();
-    if (k !== key) { key = k; strokes = []; redraw(); }
+    if (k !== key) { key = k; strokes = []; cleared = null; redraw(); }
     root.hidden = false;
     document.body.classList.add('scratch-on');   // portrait: the app keeps room above the bottom "Nháp" tab
     if (!tipShown) {

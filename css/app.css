@@ -625,3 +625,8 @@ body.no-voice .say-btn { display: none; }
   .exam-pad .keypad > :nth-child(10) { order: 11; } .exam-pad .keypad > :nth-child(11) { order: 10; } .exam-pad .keypad > :nth-child(12) { order: 12; }
 }
 .es-cheer { font-size: 22px; font-weight: 900; color: var(--ink); margin: 2px 0 4px; }
+
+/* ---------- đặt tính: fill the boxes or type the number (user request) ---------- */
+.col-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border-radius: 18px; background: #EEF5F6; }
+.cm-btn { height: 44px; border-radius: 14px; font-size: 16px; font-weight: 800; color: var(--ink-2); white-space: nowrap; }
+.cm-btn.on { background: #fff; color: var(--teal-d, #0E8C88); box-shadow: 0 2px 6px rgba(0, 40, 50, .12); }

@@ -955,7 +955,8 @@
     const cx = c => xR - c * CW - CW / 2;
     const ry = r => topPad + r * RH + RH / 2;
     const stg = stager(root, g, reveal, captions);
-    if (reveal !== 'all') { const bg = stg.S(0); model.boxes.forEach(bx => box(bg, cx(bx.c), ry(bx.row))); }
+    if (reveal === 'steps') { const bg = stg.S(0); model.boxes.forEach(bx => box(bg, cx(bx.c), ry(bx.row))); }
+    if (reveal === 'none') root.boxInput = boxInput(root, stg.S(0), model, { cx, ry, CW, RH, FS, resCol, box });
     model.cells.forEach(c => {
       const gp = stg.S(c.stage);
       if (c.kind === 'carry') {
@@ -972,6 +973,83 @@
     model.lines.forEach(r => line(stg.S(0), off + left - 40, ry(r) + RH / 2, xR + 6, ry(r) + RH / 2, K.ink, 2.6));
     stg.finish(model.nSt);
   };
+
+  /**
+   * Fill-in boxes for đặt tính (reveal 'none'): the child taps a box and types its digit, in any order;
+   * by default the cursor starts at the units box of the answer row and moves left after each digit
+   * (the way the sum is worked out). The host (app) drives it through root.boxInput:
+   *   type(d) · back() · select(i) · clear() · fill(str) · value() → "1234" / "12,5" / "" (incomplete)
+   *   onChange(fn) · enable(on) · mark('right'|'wrong'|null)
+   * Boxes of partial-product rows (long multiplication) can be filled too; only the last row is the answer.
+   */
+  function boxInput(root, gp, model, o) {
+    const ansRow = Math.max(...model.boxes.map(b => b.row));
+    const cm = model.commas.find(c => c.row === ansRow);
+    const ink = o.resCol, sel = K.orange, idle = K.sky, fillTint = tint(K.sky, 0.12), bad = K.berry;
+    const slots = model.boxes.map((bx, i) => {
+      const x = o.cx(bx.c), y = o.ry(bx.row);
+      const g = mk('g', { class: 'viz-cbox', style: { cursor: 'pointer' } }, gp);
+      const r = rect(g, x - o.CW / 2 + 3, y - o.RH / 2 + 5, o.CW - 6, o.RH - 10, 8, fillTint, idle, 2, { dash: '5 4' });
+      const t = T(g, x, y, '', { size: o.FS, weight: 700, fill: ink });
+      rect(g, x - o.CW / 2, y - o.RH / 2, o.CW, o.RH, 0, 'transparent');   // full-cell hit area
+      g.addEventListener('pointerdown', e => { if (!enabled) return; e.preventDefault(); select(i); });
+      return { row: bx.row, c: bx.c, r, t, ch: '' };
+    });
+    // decimals: the answer row's comma is drawn in place (the app adds it to the value too)
+    if (cm) T(gp, (o.cx(cm.at - 1) + o.cx(cm.at)) / 2, o.ry(ansRow) + 10, ',', { size: o.FS, weight: 800, fill: ink });
+    let cur = -1, enabled = true, cb = null;
+    const unitsOf = row => slots.findIndex(s => s.row === row && s.c === Math.min(...slots.filter(z => z.row === row).map(z => z.c)));
+    function paint() {
+      slots.forEach((s, i) => {
+        const on = enabled && i === cur;
+        s.r.setAttribute('stroke', on ? sel : idle);
+        s.r.setAttribute('stroke-width', on ? 3.5 : 2);
+        s.r.setAttribute('stroke-dasharray', on ? '' : '5 4');
+        s.t.textContent = s.ch;
+      });
+    }
+    function select(i) { cur = i; paint(); }
+    function next() {   // move left (towards higher places) in the same row
+      const s = slots[cur]; if (!s) return;
+      const j = slots.findIndex(z => z.row === s.row && z.c === s.c + 1);
+      if (j >= 0) cur = j;
+    }
+    function value() {
+      const row = slots.filter(s => s.row === ansRow).sort((a, b) => b.c - a.c).map(s => s.ch);
+      while (row.length && row[0] === '') row.shift();
+      if (!row.length || row.includes('')) return '';
+      let str = row.join('');
+      if (cm) { str = str.padStart(cm.at + 1, '0'); str = str.slice(0, str.length - cm.at) + ',' + str.slice(str.length - cm.at); }
+      return str.replace(/^0+(?=\d)/, '');
+    }
+    const changed = () => { paint(); if (cb) cb(value()); };
+    const api = {
+      type(d) { if (!enabled || !/^\d$/.test(d)) return; if (cur < 0) cur = unitsOf(ansRow); slots[cur].ch = d; next(); changed(); },
+      back() {
+        if (!enabled) return;
+        if (cur < 0) cur = unitsOf(ansRow);
+        if (slots[cur].ch) slots[cur].ch = '';
+        else { const s = slots[cur]; const j = slots.findIndex(z => z.row === s.row && z.c === s.c - 1); if (j >= 0) { cur = j; slots[j].ch = ''; } }
+        changed();
+      },
+      select(i) { select(i); },
+      clear() { slots.forEach(s => { s.ch = ''; }); cur = unitsOf(ansRow); changed(); },
+      fill(str) {   // write a number right-aligned into the answer row (used to mirror typing and to show the answer)
+        const digits = String(str || '').replace(/[^\d]/g, '');
+        const row = slots.filter(s => s.row === ansRow).sort((a, b) => a.c - b.c);
+        row.forEach((s, k) => { s.ch = k < digits.length ? digits[digits.length - 1 - k] : ''; });
+        paint();
+      },
+      value,
+      onChange(fn) { cb = fn; },
+      enable(on) { enabled = !!on; paint(); },
+      mark(m) { slots.filter(s => s.row === ansRow).forEach(s => s.t.setAttribute('fill', m === 'wrong' ? bad : ink)); },
+      hasComma: !!cm,
+    };
+    cur = unitsOf(ansRow);
+    paint();
+    return api;
+  }
 
   function divCalc(p, ctx, root, a, b, reveal) {
     const CW = 38, RH = 46, FS = 32;
