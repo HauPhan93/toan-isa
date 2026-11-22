@@ -311,6 +311,8 @@
   else document.body.classList.add('no-voice');
   function speakable(t) {
     return String(t)
+      // icons are for the eyes only: never read them aloud (user request)
+      .replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}️‍⃣✓✗]/gu, ' ')
       .replace(/(\d)\s*\/\s*(\d)/g, '$1 phần $2')
       .replace(/(\d)[\s\u202F](?=\d{3}\b)/g, '$1')
       .replace(/×/g, ' nhân ').replace(/(\d)\s*:\s*(\d)/g, '$1 chia $2').replace(/\s:\s/g, ' chia ')
@@ -399,12 +401,11 @@
   /* ---------- home ---------- */
   function showHome() {
     stopSpeech();
-    if (!S.name) return askName();
     const d = daily();
     const pct = Math.min(1, d.count / d.goal);
     const ring = `<svg class="ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="7"/>
       <circle cx="27" cy="27" r="22" fill="none" stroke="#FFC93C" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(138.2 * pct).toFixed(1)} 200" transform="rotate(-90 27 27)"/></svg>`;
-    const greet = d.count >= d.goal ? 'Hôm nay con giỏi quá! 🎉' : 'Hôm nay mình học gì nào?';
+    const greet = d.count >= d.goal ? 'Hôm nay bé đã xong mục tiêu rồi! 🎉' : 'Hôm nay mình học gì nào?';
     const grades = h('div', { class: 'grades' });
     for (const n of [1, 2, 3, 4, 5]) {
       const g = gradeOf(n), info = GRADE_INFO[n];
@@ -441,30 +442,15 @@
       topbar('Toán ISA', 'Kết nối tri thức với cuộc sống', null, [coinPill(), parentBtn()]),
       h('div', { class: 'home' },
         h('div', { class: 'hero' },
-          h('div', { class: 'speech' }, `Chào ${S.name}! ${greet}`),
+          h('div', { class: 'speech' }, `Chào bé! ${greet}`),
           m,
-          h('div', null, h('h1', null, 'Chào ' + S.name + '!'), h('p', null, 'Cùng Rô-bốt ISA chinh phục Toán nhé'),
+          h('div', null, h('h1', null, 'Chào bé!'), h('p', null, 'Cùng Rô-bốt ISA học Toán nhé'),
             h('div', { class: 'daily', html: ring + `<div>Mục tiêu hôm nay<br><b>${Math.min(d.count, d.goal)}/${d.goal} câu</b></div>` }))),
         grades));
-    m.addEventListener('click', () => speak(`Chào ${S.name}! ${greet}`));
+    m.addEventListener('click', () => speak(`Chào bé! ${greet}`));
     Peek.bind(grades, '.grade-card');
   }
 
-  function askName() {
-    const input = h('input', { class: 'text-input', placeholder: 'Tên của con', maxlength: 16, autocomplete: 'off' });
-    const go = () => { const v = input.value.trim(); if (!v) { input.focus(); return; } S.name = v; save(); sfx.good(); showHome(); };
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
-    screen(
-      topbar('Toán ISA', 'Kết nối tri thức với cuộc sống'),
-      h('div', { class: 'result' },
-        h('div', { class: 'card result-card' },
-          h('div', { class: 'mascot-wrap' }, mascot('cheer')),
-          h('h2', null, 'Xin chào! Mình là Rô-bốt ISA'),
-          h('p', null, 'Con tên là gì nhỉ?'),
-          input,
-          h('button', { class: 'btn', onclick: go }, 'Bắt đầu 🚀'))));
-    setTimeout(() => input.focus(), 300);
-  }
 
   /* ---------- map ---------- */
   function showMap(n, sem) {
@@ -566,7 +552,7 @@
         if (q && q.prompt && q.answer && (HAS_V || q.answer.kind !== 'visual')) return q;
       } catch (e) { console.error('generator failed', L.id, e); }
     }
-    return { prompt: 'Câu này đang được sửa, con bấm "Câu tiếp" nhé!', answer: { kind: 'choice', options: ['Câu tiếp'], correct: 0 }, explain: '' };
+    return { prompt: 'Câu này đang được sửa, bé bấm "Câu tiếp" nhé!', answer: { kind: 'choice', options: ['Câu tiếp'], correct: 0 }, explain: '' };
   }
 
   function fmtTime(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
@@ -763,7 +749,7 @@
       }
     } else if (A.kind === 'visual') {
       pane.append(h('div', { class: 'answer-label' }, 'Làm trên bảng'),
-        h('div', { style: { fontSize: '18px', fontWeight: 700, color: 'var(--ink-2)' } }, 'Con chạm hoặc kéo trên hình trên bảng, rồi bấm "Bé đã xong" nhé.'));
+        h('div', { style: { fontSize: '18px', fontWeight: 700, color: 'var(--ink-2)' } }, 'Bé chạm hoặc kéo trên hình trên bảng, rồi bấm "Bé đã xong" nhé.'));
       if (visualEl && typeof visualEl.getValue === 'function') {
         // some visuals start with a valid value already (e.g. a clock) — allow checking at once
         checkBtn.disabled = false;
@@ -806,12 +792,12 @@
         settle(pts);
         sfx.good(); if (tries === 1) confetti(40);
         showTick(true);
-        showFeedback('good', tries === 1 ? pick(['Đúng rồi bé ơi! Giỏi quá!', 'Đúng rồi bé ơi! 🎉', 'Đúng rồi bé ơi! Tuyệt vời!', 'Đúng rồi bé ơi! Siêu quá!']) : 'Đúng rồi bé ơi! Lần sau bé làm ngay từ đầu nhé!', q.explain);
+        showFeedback('good', tries === 1 ? pick(['Đúng rồi bé ơi!', 'Đúng rồi bé ơi! 🎉', 'Đúng rồi bé ơi! Bé làm tiếp nhé!']) : 'Đúng rồi bé ơi! Lần sau bé làm ngay từ đầu nhé!', q.explain);
         speak('Đúng rồi bé ơi!');
       } else if (tries === 1) {
         sfx.bad();
-        showFeedback('hint', 'Chưa đúng, con thử lại nhé!', q.hint || '', q.hintVisual);
-        speak('Chưa đúng, con thử lại nhé. ' + (q.hint || ''));
+        showFeedback('hint', 'Chưa đúng, bé thử lại nhé!', q.hint || '', q.hintVisual);
+        speak('Chưa đúng, bé thử lại nhé. ' + (q.hint || ''));
         // allow another try
         if (A.kind === 'number') { input = ''; setTimeout(() => { setSlot(''); slot.classList.remove('wrong'); checkBtn.disabled = true; if (bi) { bi.mark(null); bi.clear(); } }, 700); }
         if (A.kind === 'fraction') { fr.num = ''; fr.den = ''; fr.part = 'num'; setTimeout(refreshFraction, 700); }
@@ -862,8 +848,8 @@
   /* ---------- result ---------- */
   // Spoken encouragement by score (out of 10), shared by lessons and exams (user request).
   const CHEERS = {
-    top: ['Bé làm rất tốt! Giỏi quá đi!', 'Bé làm rất tốt! ISA tự hào về bé lắm!', 'Bé làm rất tốt! Đúng là siêu sao Toán!'],
-    good: ['Bé làm tốt lắm! Bé hãy cố gắng thêm chút nữa nhé!', 'Giỏi lắm! Bé hãy cố gắng thêm một chút là được điểm tối đa nhé!'],
+    top: ['Bé làm rất tốt!', 'Bé làm rất tốt! Bé cứ chăm chỉ như vậy nhé!', 'Bé làm rất tốt! Mình học tiếp bài sau nhé!'],
+    good: ['Bé làm tốt lắm! Bé hãy cố gắng thêm chút nữa nhé!', 'Bé làm tốt lắm! Cố gắng thêm một chút là bé được 10 điểm nhé!'],
     ok: ['Bé hãy cố gắng nhé! Mình xem lại các câu sai cùng nhau nha.', 'Bé hãy cố gắng nhé! Làm lại một lần nữa là bé tiến bộ ngay.'],
     low: ['Không sao đâu! Bé cố gắng lên vào lần kế tiếp nhé!', 'Bé cố gắng lên vào lần kế tiếp nhé! ISA luôn ở bên bé.'],
   };
@@ -928,11 +914,9 @@
     const styleRow = h('div', { class: 'row' }, h('div', { class: 'grow' }, 'Giọng ISA'),
       ...Object.entries(VOICE_STYLES).map(([k, v]) => h('button', {
         class: 'btn small ' + (curStyle === k ? '' : 'ghost'),
-        onclick: () => { S.settings.voiceStyle = k; save(); sh.close(); parentCorner(); speak(`Chào ${S.name || 'bé'}! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.`); },
+        onclick: () => { S.settings.voiceStyle = k; save(); sh.close(); parentCorner(); speak('Chào bé! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.'); },
       }, v.name)),
-      h('button', { class: 'btn ghost small', onclick: () => speak(`Chào ${S.name || 'bé'}! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.`) }, '🔊 Nghe thử'));
-    const nameIn = h('input', { class: 'text-input', value: S.name, maxlength: 16 });
-    nameIn.addEventListener('change', () => { S.name = nameIn.value.trim() || S.name; save(); });
+      h('button', { class: 'btn ghost small', onclick: () => speak('Chào bé! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.') }, '🔊 Nghe thử'));
     const goalSel = h('div', { class: 'row' }, h('div', { class: 'grow' }, 'Mục tiêu mỗi ngày'),
       ...[10, 20, 30, 50].map(v => h('button', { class: 'btn small ' + (daily().goal === v ? '' : 'ghost'), onclick: () => { S.daily.goal = v; save(); sh.close(); parentCorner(); } }, v + ' câu')));
     const gradeRows = GRADES.map(g => {
@@ -943,15 +927,33 @@
     const weak = [];
     for (const [id, best] of Object.entries(S.best)) { const r = LESSONS.get(id); if (r && best < 7) weak.push({ r, best }); }
     weak.sort((a, b) => a.best - b.best);
-    const resetRow = h('div', { class: 'row' });
-    const resetBtn = h('button', { class: 'btn ghost small' }, 'Xóa tiến độ');
-    resetBtn.onclick = () => {
-      resetRow.innerHTML = '';
-      resetRow.append(h('div', { class: 'grow' }, 'Xóa hết sao và điểm? Không thể hoàn tác.'),
-        h('button', { class: 'btn ghost small', onclick: () => { sh.close(); parentCorner(); } }, 'Hủy'),
-        h('button', { class: 'btn small', onclick: () => { const keep = { name: S.name, settings: S.settings }; S = Object.assign(defaults(), keep); save(); sh.close(); showHome(); } }, 'Xóa'));
+    // "Đặt lại ứng dụng" for parents (user request): each choice asks once more before it acts.
+    const confirmRow = (label, btnText, ask, act) => {
+      const row = h('div', { class: 'row reset-row' });
+      const draw = () => {
+        row.innerHTML = '';
+        row.append(h('div', { class: 'grow' }, label), h('button', { class: 'btn ghost small', onclick: () => {
+          row.innerHTML = '';
+          row.append(h('div', { class: 'grow reset-ask' }, ask),
+            h('button', { class: 'btn ghost small', onclick: draw }, 'Hủy'),
+            h('button', { class: 'btn small danger', onclick: act }, 'Đồng ý'));
+        } }, btnText));
+      };
+      draw();
+      return row;
     };
-    resetRow.append(h('div', { class: 'grow' }, 'Bắt đầu lại từ đầu'), resetBtn);
+    const resetProgress = confirmRow('Xóa tiến độ học (giữ cài đặt)', 'Xóa tiến độ',
+      'Xóa hết sao, điểm và các đề đã làm? Không thể hoàn tác.',
+      () => { S = Object.assign(defaults(), { settings: S.settings, daily: { date: '', count: 0, goal: S.daily.goal || 20 } }); save(); sh.close(); toast('Đã xóa tiến độ học'); showHome(); });
+    const resetAll = confirmRow('Đặt lại toàn bộ ứng dụng như lúc mới cài', 'Đặt lại',
+      'Xóa tiến độ, cài đặt và nét chữ bé đã dạy cho ISA, rồi mở lại ứng dụng? Không thể hoàn tác.',
+      async () => {
+        stopSpeech(true);
+        try { Object.keys(localStorage).filter(k => k.startsWith('toanisa')).forEach(k => localStorage.removeItem(k)); } catch (e) { /* private mode */ }
+        // drop the offline copy only when online, so the app can download a fresh one straight away
+        if (navigator.onLine && window.caches) { try { for (const k of await caches.keys()) await caches.delete(k); } catch (e) { /* ignore */ } }
+        location.reload();
+      });
     const sh = sheet(
       h('h2', null, '👨‍👩‍👧 Góc phụ huynh'),
       h('div', { class: 'stat-grid' },
@@ -966,8 +968,7 @@
         h('button', { class: 'btn small', onclick: () => { sh.close(); startLesson(w.r.lesson.id); } }, 'Ôn')))) : h('p', null, 'Chưa có bài nào dưới 7 điểm. 👍'),
       h('h3', null, 'Cài đặt'),
       toggle('voice', 'Giọng đọc tiếng Việt' + (viVoice ? '' : ' (máy này chưa có giọng tiếng Việt nên app không đọc)')), styleRow, toggle('autoRead', 'Tự đọc đề bài'), toggle('sound', 'Âm thanh'), goalSel,
-      h('div', { class: 'row' }, h('div', { style: { width: '120px' } }, 'Tên bé'), nameIn),
-      resetRow,
+      h('h3', null, 'Đặt lại ứng dụng'), resetProgress, resetAll,
       h('div', { class: 'result-actions', style: { marginTop: '14px' } }, h('button', { class: 'btn', onclick: () => { sh.close(); showHome(); } }, 'Xong')));
   }
 
@@ -1120,7 +1121,7 @@
     const bp = blueprintFor(n, term);
     const sh = sheet(h('h2', null, `📝 Đề số ${no}`),
       h('p', { style: { fontSize: '19px', fontWeight: 600 } }, `${TERMS[term].name} · Lớp ${n} · ${bp.minutes} phút`),
-      h('p', null, 'Con đọc kĩ từng câu, làm xong hết thì bấm "Nộp bài". Đồng hồ sẽ đếm ngược, hết giờ bài tự nộp.'),
+      h('p', null, 'Bé đọc kĩ từng câu, làm xong hết thì bấm "Nộp bài". Đồng hồ sẽ đếm ngược, hết giờ bài tự nộp.'),
       h('div', { class: 'result-actions', style: { marginTop: '14px' } },
         h('button', { class: 'btn ghost small', onclick: () => sh.close() }, 'Để sau'),
         h('button', { class: 'btn', onclick: () => { sh.close(); startExam(n, term, no); } }, 'Bắt đầu làm bài ✏️')));
@@ -1143,7 +1144,7 @@
     const commentBox = h('div', { class: 'ep-comment' }, h('div', { class: 'ep-lbl' }, 'Nhận xét của giáo viên'), h('div', { class: 'ep-cmt' }, ''));
     const paper = h('div', { class: 'exam-paper' },
       h('div', { class: 'ep-head' },
-        h('div', { class: 'ep-school' }, h('div', null, 'TRƯỜNG TIỂU HỌC ISA'), h('div', null, `Họ và tên: ${S.name}`), h('div', null, `Lớp: ${n}`)),
+        h('div', { class: 'ep-school' }, h('div', null, 'TRƯỜNG TIỂU HỌC ISA'), h('div', null, 'Họ và tên: ................'), h('div', null, `Lớp: ${n}`)),
         h('div', { class: 'ep-title' }, h('div', { class: 'ep-t1' }, bp.title || TERMS[term].title), h('div', null, `NĂM HỌC ${schoolYear()}`),
           h('div', { class: 'ep-t2' }, `Môn: Toán – Lớp ${n}`), h('div', { class: 'ep-t3' }, `Thời gian làm bài: ${bp.minutes} phút · Đề số ${no}`))),
       h('div', { class: 'ep-boxes' }, scoreBox, commentBox));
@@ -1185,7 +1186,7 @@
         ans.append(h('span', { class: 'ep-say' }, 'Trả lời: '), slot);
         if (A.unit) ans.append(h('span', { class: 'ep-unit' }, A.unit));
       } else if (A.kind === 'visual') {
-        ans.append(h('span', { class: 'ep-say' }, 'Con làm trực tiếp trên hình.'));
+        ans.append(h('span', { class: 'ep-say' }, 'Bé làm trực tiếp trên hình.'));
       }
       box.append(ans);
       st.el = box;
@@ -1242,7 +1243,7 @@
       const raw = U.round(got * 10 / (total || 10), 2);
       const final = roundScore(raw);
       scoreBox.querySelector('.ep-num').textContent = final;
-      const cmt = final >= 9 ? 'Hoàn thành tốt, con giỏi lắm!' : final >= 7 ? 'Bài làm tốt, cố gắng thêm chút nữa nhé.' : final >= 5 ? 'Hoàn thành. Con xem lại các câu sai nhé.' : 'Con cần ôn lại các bài sau rồi làm lại đề nhé.';
+      const cmt = final >= 9 ? 'Hoàn thành tốt, bé làm rất tốt!' : final >= 7 ? 'Bài làm tốt, cố gắng thêm chút nữa nhé.' : final >= 5 ? 'Hoàn thành. Bé xem lại các câu sai nhé.' : 'Bé ôn lại các bài sau rồi làm lại đề nhé.';
       commentBox.querySelector('.ep-cmt').textContent = cmt;
       const key = examKey(n, term, no);
       const prev = S.exams[key] || {};
@@ -1275,7 +1276,7 @@
     submitBtn.onclick = () => {
       const left = states.filter(st => !isAnswered(st)).length;
       if (!left) return submit(false);
-      const sh = sheet(h('h2', null, 'Nộp bài?'), h('p', { style: { fontSize: '19px' } }, `Con còn ${left} câu chưa làm. Con muốn nộp bài luôn không?`),
+      const sh = sheet(h('h2', null, 'Nộp bài?'), h('p', { style: { fontSize: '19px' } }, `Bé còn ${left} câu chưa làm. Bé muốn nộp bài luôn không?`),
         h('div', { class: 'result-actions', style: { marginTop: '14px' } },
           h('button', { class: 'btn ghost small', onclick: () => sh.close() }, 'Làm tiếp'),
           h('button', { class: 'btn small', onclick: () => { sh.close(); submit(false); } }, 'Nộp bài')));
@@ -1354,11 +1355,11 @@
   }
   // Allow deep link for testing: #lesson=<id> or #grade=<n>
   const hash = new URLSearchParams(location.hash.slice(1));
-  if (hash.get('lesson') && LESSONS.has(hash.get('lesson'))) { if (!S.name) S.name = 'Bé'; startLesson(hash.get('lesson')); }
-  else if (hash.get('practice') && LESSONS.has(hash.get('practice'))) { if (!S.name) S.name = 'Bé'; showPractice(LESSONS.get(hash.get('practice')), Number(hash.get('q')) || 0); }
-  else if (hash.get('exam')) { if (!S.name) S.name = 'Bé'; const [gn, t1, t2, no] = hash.get('exam').split('-'); startExam(Number(gn), t1 + '-' + t2, Number(no) || 1); }
-  else if (hash.get('exams') != null) { if (!S.name) S.name = 'Bé'; showExamHome(); }
-  else if (hash.get('grade') && gradeOf(Number(hash.get('grade')))) { if (!S.name) S.name = 'Bé'; showMap(Number(hash.get('grade')), Number(hash.get('hk')) || 1); }
+  if (hash.get('lesson') && LESSONS.has(hash.get('lesson'))) { startLesson(hash.get('lesson')); }
+  else if (hash.get('practice') && LESSONS.has(hash.get('practice'))) { showPractice(LESSONS.get(hash.get('practice')), Number(hash.get('q')) || 0); }
+  else if (hash.get('exam')) { const [gn, t1, t2, no] = hash.get('exam').split('-'); startExam(Number(gn), t1 + '-' + t2, Number(no) || 1); }
+  else if (hash.get('exams') != null) { showExamHome(); }
+  else if (hash.get('grade') && gradeOf(Number(hash.get('grade')))) { showMap(Number(hash.get('grade')), Number(hash.get('hk')) || 1); }
   else showHome();
 
   window.ToanISA = { state: () => S, startLesson, showHome, showMap, showExamHome, startExam, buildPaper, blueprintFor };

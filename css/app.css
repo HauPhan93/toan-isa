@@ -667,3 +667,9 @@ body.no-voice .say-btn { display: none; }
 .learn-viz > .viz > svg { min-height: 0; flex: 0 1 auto; }
 /* fitViz measures pictures with their entrance animations off */
 .viz-measure, .viz-measure * { animation: none !important; transition: none !important; }
+
+/* Góc phụ huynh: đặt lại ứng dụng */
+.btn.danger { background: #E5484D; box-shadow: 0 6px 0 #B23237, 0 10px 18px rgba(229, 72, 77, .3); }
+.btn.danger:active { box-shadow: 0 2px 0 #B23237; }
+.reset-row { flex-wrap: wrap; gap: 8px; }
+.reset-ask { color: #B23237; font-weight: 700; min-width: 220px; }
