@@ -5,6 +5,9 @@
  *   lớp 2–3: 14 câu — Trắc nghiệm 8 câu × 0,5 = 4 điểm; Tự luận 6 điểm. Mức 1/2/3 = 4 / 4 / 2 điểm (40/40/20 %).
  *   lớp 4–5: 14 câu — Trắc nghiệm 8 câu × 0,5 = 4 điểm; Tự luận 6 điểm. Mức 1/2/3 = 3 / 5 / 2 điểm (30/50/20 %).
  *   Time: lớp 2 → 35 phút; lớp 3–5 → 40 phút.
+ * core.js (shapeBlueprint) turns each blueprint into the papers the app gives (user, 2026-11-22): Đề thường 14 câu /
+ * 20 phút, Đề nâng cao 20 câu / 30 phút, each with a set of four "Đặt tính rồi tính". The ma trận here sets which
+ * lessons each slot uses and the weight of the tự luận slots.
  * Lessons whose generator has an `exam(rng, level)` (column-calculation lessons) give "Đặt tính rồi tính" at Mức 1
  * and a word problem ("bài toán có lời văn") at Mức 2–3.
  */
@@ -125,7 +128,7 @@
     ['g5-c7-b36', 1, 'as-is'], ['g5-c8-b46', 1], ['g5-c8-b47', 1], ['g5-c8-b45', 1],
     ['g5-c7-b37', 2], ['g5-c7-b40', 2], ['g5-c7-b41', 2],
     ['g5-c7-b39', 3],
-  ], tl45('g5-c7-b40', 'g5-c7-b41', 'g5-c7-b37', 'g5-c8-b46', 'g5-c7-b38', 'g5-c7-b39', { dt: 'Tính', m3: BT }));
+  ], tl45(['g5-c4-b19', 'g5-c4-b20'], ['g5-c4-b21', 'g5-c4-b22'], ['g5-c7-b37', 'g5-c7-b40'], ['g5-c8-b46', 'g5-c7-b41'], 'g5-c7-b38', 'g5-c7-b39', { m3: BT }));   // đặt tính: ôn số thập phân
 
   blueprint(5, 'cuoi-nam', [
     ['g5-c9-b49', 1], ['g5-c10-b56', 1], ['g5-c11-b64', 1], ['g5-c7-b36', 1, 'as-is'],
