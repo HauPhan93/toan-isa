@@ -315,12 +315,13 @@
   };
   // Only the natural online voices (Edge: HoaiMy, NamMinh) stay clear when ISA raises the pitch for "Dễ thương".
   // Phone, iPad and old Windows voices garble the first word ("Bé ơi" → "mớ ơi"), so they speak at their natural pitch.
+  const voiceId = v => v.voiceURI || v.name;   // two voices can share a name ("Linh"), never a voiceURI
   const isPlainVoice = v => !!v && voiceRank(v) > 1;
   const viVoices = () => speechSynthesis.getVoices().filter(v => /^vi/i.test(v.lang)).sort((a, b) => voiceRank(a) - voiceRank(b));
   function pickVoice() {
     if (!('speechSynthesis' in window)) return;
     const vs = viVoices();
-    viVoice = vs.find(v => v.name === S.settings.voiceName) || vs[0] || null;
+    viVoice = vs.find(v => voiceId(v) === S.settings.voiceName) || vs.find(v => v.name === S.settings.voiceName) || vs[0] || null;
     // Without a Vietnamese voice the device would read Vietnamese text with a foreign accent:
     // stay silent and hide the read-aloud buttons instead.
     document.body.classList.toggle('no-voice', !viVoice);
@@ -969,13 +970,26 @@
       }, v.name)),
       h('button', { class: 'btn ghost small', onclick: () => speak('Bé ơi, lớp 1 nè! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.') }, '🔊 Nghe thử'));
     // every Vietnamese voice on this device, clearest first; a tap picks it and plays the test line
-    const voiceShort = v => v.name.replace(/^Microsoft\s+|^Google\s+/i, '').replace(/\s*[-–]\s*Vietnamese.*$/i, '').replace(/\s*\(.*?\)\s*/g, ' ').trim() || v.name;
+    // short button names that still tell the voices apart: "Linh" · "Linh Nâng cao" · "Linh Cao cấp" · "HoaiMy"
+    const voiceShort = v => {
+      const n = v.name;
+      const base = n.replace(/^Microsoft\s+|^Google\s+/i, '').replace(/\s*[-–]\s*Vietnamese.*$/i, '').replace(/\s*\(.*?\)\s*/g, ' ')
+        .replace(/\s*\b(Online|Natural|Enhanced|Premium)\b/gi, '').trim() || n;
+      const tag = /Premium|Cao cấp/i.test(n) ? 'Cao cấp' : /Enhanced|Nâng cao/i.test(n) ? 'Nâng cao' : '';
+      return tag ? `${base} ${tag}` : base;
+    };
     const vlist = 'speechSynthesis' in window ? viVoices() : [];
     const voiceRow = vlist.length ? h('div', { class: 'row voice-row' }, h('div', { class: 'grow' }, 'Giọng máy', vlist.length > 1 ? h('div', { class: 'voice-note' }, 'Nghe chưa rõ (ví dụ "Bé" thành "mớ")? Chọn giọng khác.') : null),
-      ...vlist.map(v => h('button', {
-        class: 'btn small ' + (viVoice && viVoice.name === v.name ? '' : 'ghost'), title: v.name,
-        onclick: () => { S.settings.voiceName = v.name; save(); pickVoice(); sh.close(); parentCorner(); speak('Bé ơi, lớp 1 nè! Mình là Rô-bốt ISA.'); },
-      }, voiceShort(v)))) : null;
+      ...vlist.map((v, i) => {
+        // same short name twice (e.g. two "Linh" on one device): number them so each button is distinct
+        const nm = voiceShort(v), dup = vlist.filter(w => voiceShort(w) === nm);
+        const label = (dup.length > 1 ? `${nm} ${dup.indexOf(v) + 1}` : nm) + (i === 0 && vlist.length > 1 ? ' ⭐' : '');
+        return h('button', {
+          class: 'btn small ' + (viVoice && voiceId(viVoice) === voiceId(v) ? '' : 'ghost'), title: v.name,
+          onclick: () => { S.settings.voiceName = voiceId(v); save(); pickVoice(); sh.close(); parentCorner(); speak('Bé ơi, lớp 1 nè! Mình là Rô-bốt ISA.'); },
+        }, label);
+      }),
+      vlist.length > 1 ? h('div', { class: 'voice-note', style: { flexBasis: '100%' } }, '⭐ = giọng rõ nhất trên máy này') : null) : null;
     const nameIn = h('input', { class: 'text-input', value: S.name || '', placeholder: 'Tên của bé', maxlength: 16 });
     nameIn.addEventListener('change', () => { S.name = nameIn.value.trim(); S.askedName = true; save(); });
     const goalSel = h('div', { class: 'row' }, h('div', { class: 'grow' }, 'Mục tiêu mỗi ngày'),
