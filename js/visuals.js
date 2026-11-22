@@ -893,9 +893,12 @@
       if (B1.d.length) commas.push({ row: 1, at: D, stage: 0 });
       if (D > 0) commas.push({ row: 2, at: D, stage: nSt });
       const resLen = Math.max(String(res).length, D + 1);
+      // the answer box is as wide as the longest possible result (one more column for +), not the actual result,
+      // so its length never gives away how many digits the answer has
+      const cols = Math.max(op === '+' ? len + 1 : len, D + 1);
       const boxes = [];
-      for (let c = 0; c < resLen; c++) boxes.push({ row: 2, c });
-      model = { cells, commas, boxes, nSt, rows: 3, lines: [1], opRows: [0, 1], opSym: op, N: Math.max(len, resLen, ...cells.map(c => c.c + 1)) };
+      for (let c = 0; c < cols; c++) boxes.push({ row: 2, c });
+      model = { cells, commas, boxes, nSt, rows: 3, lines: [1], opRows: [0, 1], opSym: op, N: Math.max(len, resLen, cols, ...cells.map(c => c.c + 1)) };
     } else {
       // multiplication
       const A1 = splitNum(a), B1 = splitNum(b), dA = A1.d.length, dB = B1.d.length;
@@ -920,29 +923,30 @@
           if (!last && nc && rowIdx === 2 && sb.length === 1) cells.push({ row: -1, c: c + 1, ch: String(nc), stage: st, kind: 'carry' });
           carry = nc;
         }
-        const pl = String(Number(String(bk)) * Ai).length;
-        for (let c = 0; c < Math.max(pl, 1); c++) boxes.push({ row: rowIdx, c: shift + c });
+        for (let c = 0; c < sa.length + 1; c++) boxes.push({ row: rowIdx, c: shift + c });   // never the actual length
       };
       let rows, lines;
       if (sb.length === 1) {
         rowOf(Bi, 2, 0, '');
         rows = 3; lines = [1];
         // fix boxes: padded final may need leading zero digits for decimals
-        for (let c = String(Ai * Bi).length; c < fs.length; c++) { cells.push({ row: 2, c, ch: '0', stage: st }); boxes.push({ row: 2, c }); }
+        for (let c = String(Ai * Bi).length; c < fs.length; c++) cells.push({ row: 2, c, ch: '0', stage: st });
+        for (let c = sa.length + 1; c < fs.length; c++) boxes.push({ row: 2, c });
       } else {
         const m = sb.length;
         for (let k = 0; k < m; k++) rowOf(Number(sb[m - 1 - k]), 2 + k, k, `Lượt ${k + 1} (nhân với ${sb[m - 1 - k]}): `);
         st++;
         captions.push(`Cộng các tích riêng, được ${String(prodAll)}.`);
         const fr = 2 + m;
-        for (let c = 0; c < fs.length; c++) { cells.push({ row: fr, c, ch: fs[fs.length - 1 - c], stage: st }); boxes.push({ row: fr, c }); }
+        for (let c = 0; c < fs.length; c++) cells.push({ row: fr, c, ch: fs[fs.length - 1 - c], stage: st });
+        for (let c = 0; c < Math.max(fs.length, sa.length + sb.length); c++) boxes.push({ row: fr, c });   // n × m digits → at most n + m
         rows = fr + 1; lines = [1, fr - 1];
       }
       const commas = [];
       if (dA) commas.push({ row: 0, at: dA, stage: 0 });
       if (dB) commas.push({ row: 1, at: dB, stage: 0 });
       if (DD) { st++; captions.push(`Hai thừa số có tất cả ${DD} chữ số ở phần thập phân, ta dùng dấu phẩy tách ra ${DD} chữ số ở tích kể từ phải sang trái.`); commas.push({ row: rows - 1, at: DD, stage: st }); }
-      const N = Math.max(...cells.map(c => c.c)) + 1;
+      const N = Math.max(...cells.map(c => c.c), ...boxes.map(b => b.c)) + 1;
       model = { cells, commas, boxes, nSt: st, rows, lines, opRows: [0, 1], opSym: '×', N, plusRows: sb.length > 1 ? [2, rows - 2] : null };
     }
     // ---- draw ----
@@ -955,7 +959,7 @@
     const cx = c => xR - c * CW - CW / 2;
     const ry = r => topPad + r * RH + RH / 2;
     const stg = stager(root, g, reveal, captions);
-    if (reveal === 'steps') { const bg = stg.S(0); model.boxes.forEach(bx => box(bg, cx(bx.c), ry(bx.row))); }
+    if (reveal === 'steps') { const bg = stg.S(0); longBoxes(model.boxes).forEach(rw => rect(bg, cx(rw.hi) - CW / 2 + 3, ry(rw.row) - RH / 2 + 5, (rw.hi - rw.lo + 1) * CW - 6, RH - 10, 10, tint(K.sky, 0.12), K.sky, 2, { dash: '5 4' })); }
     if (reveal === 'none') root.boxInput = boxInput(root, stg.S(0), model, { cx, ry, CW, RH, FS, resCol, box });
     model.cells.forEach(c => {
       const gp = stg.S(c.stage);
@@ -982,14 +986,26 @@
    *   onChange(fn) · enable(on) · mark('right'|'wrong'|null)
    * Boxes of partial-product rows (long multiplication) can be filled too; only the last row is the answer.
    */
+  /** Answer rows of a column layout: [{row, lo, hi}] (lowest and highest column of each row). */
+  function longBoxes(boxes) {
+    const by = {};
+    for (const b of boxes) { const r = by[b.row] || (by[b.row] = { row: b.row, lo: b.c, hi: b.c }); r.lo = Math.min(r.lo, b.c); r.hi = Math.max(r.hi, b.c); }
+    return Object.values(by);
+  }
   function boxInput(root, gp, model, o) {
     const ansRow = Math.max(...model.boxes.map(b => b.row));
     const cm = model.commas.find(c => c.row === ansRow);
     const ink = o.resCol, sel = K.orange, idle = K.sky, fillTint = tint(K.sky, 0.12), bad = K.berry;
+    // one long box per row (its length never shows how many digits the answer has); inside it every column
+    // is a tap target, and an orange caret marks the column the next digit goes into
+    const rowBox = {};
+    longBoxes(model.boxes).forEach(rw => {
+      rowBox[rw.row] = rect(gp, o.cx(rw.hi) - o.CW / 2 + 3, o.ry(rw.row) - o.RH / 2 + 5, (rw.hi - rw.lo + 1) * o.CW - 6, o.RH - 10, 10, fillTint, idle, 2, { dash: '5 4' });
+    });
     const slots = model.boxes.map((bx, i) => {
       const x = o.cx(bx.c), y = o.ry(bx.row);
       const g = mk('g', { class: 'viz-cbox', style: { cursor: 'pointer' } }, gp);
-      const r = rect(g, x - o.CW / 2 + 3, y - o.RH / 2 + 5, o.CW - 6, o.RH - 10, 8, fillTint, idle, 2, { dash: '5 4' });
+      const r = line(g, x - o.CW * 0.32, y + o.RH * 0.32, x + o.CW * 0.32, y + o.RH * 0.32, sel, 3.5);
       const t = T(g, x, y, '', { size: o.FS, weight: 700, fill: ink });
       rect(g, x - o.CW / 2, y - o.RH / 2, o.CW, o.RH, 0, 'transparent');   // full-cell hit area
       g.addEventListener('pointerdown', e => { if (!enabled) return; e.preventDefault(); select(i); });
@@ -1000,11 +1016,15 @@
     let cur = -1, enabled = true, cb = null;
     const unitsOf = row => slots.findIndex(s => s.row === row && s.c === Math.min(...slots.filter(z => z.row === row).map(z => z.c)));
     function paint() {
+      const curRow = enabled && slots[cur] ? slots[cur].row : null;
+      for (const row in rowBox) {
+        const on = String(curRow) === row;
+        rowBox[row].setAttribute('stroke', on ? sel : idle);
+        rowBox[row].setAttribute('stroke-width', on ? 3 : 2);
+        rowBox[row].setAttribute('stroke-dasharray', on ? '' : '5 4');
+      }
       slots.forEach((s, i) => {
-        const on = enabled && i === cur;
-        s.r.setAttribute('stroke', on ? sel : idle);
-        s.r.setAttribute('stroke-width', on ? 3.5 : 2);
-        s.r.setAttribute('stroke-dasharray', on ? '' : '5 4');
+        s.r.style.display = enabled && i === cur ? '' : 'none';
         s.t.textContent = s.ch;
       });
     }
@@ -1094,7 +1114,9 @@
       }
     });
     const qlen = steps.length, blen = String(b).length;
-    const x0 = 46, rightW = Math.max(blen, qlen) * CW + 36;
+    // the answer box is as long as the dividend (the quotient never has more digits), so it never tells how many digits the quotient has
+    const qCols = reveal === 'all' ? qlen : Math.max(qlen, n);
+    const x0 = 46, rightW = Math.max(blen, qCols) * CW + 36;
     const barX = x0 + n * CW + 12;
     const W = barX + rightW + 10, topPad = 10;
     const rStep = RH * 0.9;
@@ -1110,7 +1132,7 @@
     line(base, barX, y0 - RH / 2 + 2, barX, y0 + RH * 1.45, K.ink, 2.6);
     line(base, barX, y0 + RH / 2, barX + rightW - 8, y0 + RH / 2, K.ink, 2.6);
     const qx = j => barX + 18 + j * CW + CW / 2;
-    if (reveal !== 'all') for (let j = 0; j < qlen; j++) rect(base, qx(j) - CW / 2 + 3, y0 + RH - RH / 2 + 7, CW - 6, RH - 10, 8, tint(K.sky, 0.12), K.sky, 2, { dash: '5 4' });
+    if (reveal !== 'all') rect(base, qx(0) - CW / 2 + 3, y0 + RH - RH / 2 + 7, qCols * CW - 6, RH - 10, 10, tint(K.sky, 0.12), K.sky, 2, { dash: '5 4' });
     steps.forEach((st, k) => T(stg.S(k + 1), qx(k), y0 + RH + 2, st.q, { size: FS, fill: resCol }));
     rows.forEach((r, ri) => {
       const y = ry(ri);
