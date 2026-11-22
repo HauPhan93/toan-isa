@@ -138,10 +138,15 @@
   const squash = (strokes, sx) => strokes.map(st => st.map(q => ({ x: q.x * sx, y: q.y })));
 
   let TEMPLATES = null;
+  // Young children often write 3, 7 and 9 mirrored (ε for 3): those are read as the digit they meant, with a
+  // small handicap so a properly written digit always wins a close call.
+  const MIRRORED = ['3', '7', '9'];
+  const mirror = strokes => strokes.map(st => st.map(q => ({ x: 0.62 - q.x, y: q.y })));
   function builtins() {
     const out = [];
     for (const d of Object.keys(SHAPES)) for (const v of SHAPES[d]) {
       for (const k of [0, 0.18, -0.12]) for (const sx of [0.8, 1.25]) out.push({ d, cloud: normalize(squash(shear(v, k), sx)) });
+      if (MIRRORED.includes(d)) for (const k of [0, -0.18]) out.push({ d, cloud: normalize(shear(mirror(v), k)), weight: 1.06 });
     }
     return out;
   }
@@ -163,6 +168,7 @@
     for (const t of templates()) {
       let s = match(c, t.cloud);
       if (t.mine) s *= 0.92;   // the child's own samples count a little more
+      else if (t.weight) s *= t.weight;
       if (best[t.d] == null || s < best[t.d]) best[t.d] = s;
     }
     let list = Object.keys(best).map(d => ({ d, score: best[d] })).sort((a, b) => a.score - b.score);
