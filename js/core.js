@@ -306,12 +306,16 @@
     const n = v.name || '';
     if (/HoaiMy|Hoài My/i.test(n)) return 0;
     if (/Natural|Online|Neural/i.test(n)) return 1;
-    if (/Google/i.test(n)) return 2;
-    if (/Linh|Enhanced|Premium|Siri/i.test(n)) return 3;
+    if (/Premium|Cao cấp/i.test(n)) return 2;           // iPhone/iPad downloaded voices: "Linh (Cao cấp)"
+    if (/Enhanced|Nâng cao/i.test(n)) return 3;         // "Linh (Nâng cao)"
+    if (/Google/i.test(n)) return 4;
+    if (/Linh|Siri/i.test(n)) return 5;
     if (/\bAn\b/.test(n)) return 9;
-    return 5;
+    return 6;
   };
-  const isPlainVoice = v => !!v && voiceRank(v) === 9;
+  // Only the natural online voices (Edge: HoaiMy, NamMinh) stay clear when ISA raises the pitch for "Dễ thương".
+  // Phone, iPad and old Windows voices garble the first word ("Bé ơi" → "mớ ơi"), so they speak at their natural pitch.
+  const isPlainVoice = v => !!v && voiceRank(v) > 1;
   const viVoices = () => speechSynthesis.getVoices().filter(v => /^vi/i.test(v.lang)).sort((a, b) => voiceRank(a) - voiceRank(b));
   function pickVoice() {
     if (!('speechSynthesis' in window)) return;
@@ -958,7 +962,7 @@
     };
     const curStyle = VOICE_STYLES[S.settings.voiceStyle] ? S.settings.voiceStyle : 'cute';
     const styleRow = h('div', { class: 'row' }, h('div', { class: 'grow' }, 'Giọng ISA',
-        isPlainVoice(viVoice) ? h('div', { class: 'voice-note' }, viVoices().length === 1 ? 'Máy này chỉ có giọng An nên ISA đọc giọng thường cho rõ chữ. Mở app bằng Microsoft Edge để có giọng HoaiMy trong trẻo hơn.' : 'Giọng An đọc giọng thường cho rõ chữ.') : null),
+        isPlainVoice(viVoice) ? h('div', { class: 'voice-note' }, 'Giọng của máy này bị méo chữ khi nâng cao giọng, nên ISA đọc ở giọng tự nhiên cho rõ chữ.') : null),
       ...Object.entries(VOICE_STYLES).map(([k, v]) => h('button', {
         class: 'btn small ' + (curStyle === k ? '' : 'ghost'),
         onclick: () => { S.settings.voiceStyle = k; save(); sh.close(); parentCorner(); speak('Chào bé! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.'); },
