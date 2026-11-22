@@ -630,3 +630,33 @@ body.no-voice .say-btn { display: none; }
 .col-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border-radius: 18px; background: #EEF5F6; }
 .cm-btn { height: 44px; border-radius: 14px; font-size: 16px; font-weight: 800; color: var(--ink-2); white-space: nowrap; }
 .cm-btn.on { background: #fff; color: var(--teal-d, #0E8C88); box-shadow: 0 2px 6px rgba(0, 40, 50, .12); }
+
+/* ---------- ✏️ Viết tay: handwriting pad (finger, Apple Pencil or mouse) ---------- */
+.col-mode.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.col-mode.three .cm-btn { font-size: 14px; padding: 0 4px; }
+.hand { display: flex; flex-direction: column; gap: 8px; }
+.hand-area {
+  position: relative; height: clamp(170px, 28vh, 250px); border-radius: 18px; overflow: hidden; touch-action: none;
+  background-color: #fff; box-shadow: inset 0 0 0 3px #DCE7EA;
+  background-image: linear-gradient(#E3EEF9 1px, transparent 1px), linear-gradient(90deg, #E3EEF9 1px, transparent 1px);
+  background-size: 24px 24px; background-position: center;
+}
+.hand-area canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.hand-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; font-size: 18px; font-weight: 800; color: #A9BCC4; transition: opacity .2s; }
+.hand-bar { display: flex; align-items: center; gap: 8px; min-height: 52px; }
+.hand-tools { display: flex; gap: 8px; margin-left: auto; }
+.hand-tools .key { width: 64px; height: 52px; }
+.hand-guess { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; opacity: 0; transition: opacity .2s; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.hand-guess.show { opacity: 1; }
+.hand-guess .hg-d { font-size: 30px; font-weight: 900; color: var(--ink); margin: 0 6px 0 2px; }
+.hand-guess .hg-alt { min-width: 40px; height: 40px; border-radius: 12px; background: #FFF1E7; color: #C25412; font-size: 20px; font-weight: 900; box-shadow: inset 0 0 0 2px #F7C9A6; }
+.hand-note { font-size: 14px; font-weight: 700; color: var(--ink-2); }
+@media (orientation: portrait), (max-width: 900px) {
+  .hand-area { height: clamp(120px, 14vh, 170px); }
+  .hand-bar { min-height: 44px; }
+  .hand-tools .key { height: 44px; }
+}
+/* the chalkboard picture shrinks to the space left on the board (tall đặt tính like 42 × 23 in portrait) */
+.board .qvisual { overflow: hidden; }
+.board .qvisual > .viz { max-height: 100%; display: flex; flex-direction: column; justify-content: center; }
+.board .qvisual > .viz > svg { min-height: 0; flex: 0 1 auto; max-height: min(320px, 100%); }

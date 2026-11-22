@@ -1,8 +1,8 @@
 /* Toán ISA service worker: offline cache. Bump VERSION whenever app files change. */
-const VERSION = 'toanisa-v13';
+const VERSION = 'toanisa-v15';
 const CORE = [
   './', './index.html', './css/app.css', './manifest.webmanifest',
-  './js/util.js', './js/visuals.js', './js/scratch.js', './js/core.js',
+  './js/util.js', './js/visuals.js', './js/scratch.js', './js/hand.js', './js/core.js',
   './js/content/lop1.js', './js/content/lop2.js', './js/content/lop3.js', './js/content/lop4.js', './js/content/lop5.js', './js/content/dethi.js', './js/content/dethi-lop1.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
 ];

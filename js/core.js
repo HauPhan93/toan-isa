@@ -73,7 +73,10 @@
     for (const c of kids.flat()) if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c)));
     return el;
   }
-  function screen(...kids) { if (window.Scratch) Scratch.detach(); APP.innerHTML = ''; const s = h('div', { class: 'screen' }, ...kids); APP.append(s); return s; }
+  // one keyboard handler at a time (the practice screen sets it; every new screen clears it)
+  let keyHandler = null;
+  document.addEventListener('keydown', e => { if (keyHandler) keyHandler(e); });
+  function screen(...kids) { keyHandler = null; if (window.Scratch) Scratch.detach(); APP.innerHTML = ''; const s = h('div', { class: 'screen' }, ...kids); APP.append(s); return s; }
   function toast(msg) { const t = h('div', { class: 'toast' }, msg); document.body.append(t); setTimeout(() => t.remove(), 1800); }
   const starsText = n => '⭐'.repeat(n) + '☆'.repeat(3 - n);
   function starSpans(n) { const w = h('span', { class: 'ls' }); for (let i = 0; i < 3; i++) w.append(h('span', { class: i < n ? '' : 'star-off' }, '⭐')); return w; }
@@ -620,6 +623,7 @@
       checkBtn.disabled = !(fr.num && fr.den);
     }
 
+    let qKeys = null;   // computer keyboard for this question (set after the screen is drawn)
     if (A.kind === 'choice' || A.kind === 'text') {
       const sym = A.kind === 'text' && A.options.every(o => String(o).length <= 2);
       const long = A.options.some(o => String(o).length > 14);
@@ -639,54 +643,91 @@
         grid.append(b);
       });
       pane.append(grid);
+      // keyboard: 1, 2, 3 … picks an option; Enter goes on once answered
+      qKeys = e => {
+        if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+        const k = Number(e.key);
+        if (k >= 1 && k <= A.options.length && !finished) { e.preventDefault(); grid.children[k - 1].click(); }
+        else if (e.key === 'Enter' && finished) { e.preventDefault(); nextBtn.click(); }
+      };
     } else if (A.kind === 'number' || A.kind === 'fraction') {
       const isFr = A.kind === 'fraction';
       const label = h('div', { class: 'answer-label' }, isFr ? 'Viết phân số' : 'Nhập số');
       pane.append(label);
-      // Đặt tính: the child can fill the boxes digit by digit (from the units box, or any box they tap)
-      // or type the whole number as before — two options, the choice is remembered.
+      // How the child enters the number (remembered):
+      //  đặt tính questions: ✍️ Điền vào ô (keypad → boxes, units first) · ⌨️ Gõ số (whole number) · ✏️ Viết tay (write each digit → boxes)
+      //  other questions:    ⌨️ Bàn phím · ✏️ Viết tay
+      // A computer keyboard works in every mode (digits, Backspace, comma, Enter).
       let commaKey = null;
-      if (bi) {
-        const bBox = h('button', { class: 'cm-btn' }, '✍️ Điền vào ô'), bType = h('button', { class: 'cm-btn' }, '⌨️ Gõ số');
-        const setMode = m => {
-          colMode = m; S.settings.colMode = m; save();
-          bBox.classList.toggle('on', m === 'box'); bType.classList.toggle('on', m === 'type');
-          label.textContent = m === 'box' ? 'Chạm vào ô rồi điền chữ số (bắt đầu từ hàng đơn vị)' : 'Nhập số';
-          bi.enable(m === 'box'); bi.clear(); input = ''; setSlot(''); checkBtn.disabled = true;
-          if (commaKey) commaKey.style.visibility = m === 'box' ? 'hidden' : '';
-        };
-        bBox.onclick = () => { if (!finished) { sfx.tap(); setMode('box'); } };
-        bType.onclick = () => { if (!finished) { sfx.tap(); setMode('type'); } };
-        bi.onChange(v => { if (colMode !== 'box') return; input = v; setSlot(prettyInput(v)); checkBtn.disabled = !v; });
-        pane.append(h('div', { class: 'col-mode' }, bBox, bType));
-        setTimeout(() => setMode(colMode), 0);
+      const hasHand = !!window.Hand;
+      const toBoxes = () => bi && (inMode === 'box' || inMode === 'hand');
+      function press(k) {
+        if (finished) return;
+        if (toBoxes()) { if (k === '⌫') bi.back(); else if (/^\d$/.test(k)) bi.type(k); return; }
+        if (isFr) {
+          if (k === '⇅') fr.part = fr.part === 'num' ? 'den' : 'num';
+          else if (k === '⌫') fr[fr.part] = fr[fr.part].slice(0, -1);
+          else if (/^\d$/.test(k) && fr[fr.part].length < 4) { fr[fr.part] += k; }
+          refreshFraction();
+          return;
+        }
+        if (k === '⌫') input = input.slice(0, -1);
+        else if (k === ',') { if (!input.includes(',')) input = (input || '0') + ','; }
+        else if (/^\d$/.test(k) && input.replace(',', '').length < 9) input = (input === '0' ? '' : input) + k;
+        else return;
+        setSlot(prettyInput(input));
+        if (bi) bi.fill(input);   // typing mode: mirror the number into the boxes, right-aligned
+        checkBtn.disabled = input === '' || input.endsWith(',');
       }
       const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', isFr ? '⇅' : ',', '0', '⌫'];
       const pad = h('div', { class: 'keypad' });
       for (const k of keys) {
         const b = h('button', { class: 'key' + (k === '⌫' || k === '⇅' || k === ',' ? ' fn' : '') }, k === '⇅' ? 'Tử/Mẫu' : k);
         if (k === ',') commaKey = b;
-        b.onclick = () => {
-          if (finished) return;
-          sfx.tap();
-          if (bi && colMode === 'box') { if (k === '⌫') bi.back(); else bi.type(k); return; }
-          if (isFr) {
-            if (k === '⇅') fr.part = fr.part === 'num' ? 'den' : 'num';
-            else if (k === '⌫') fr[fr.part] = fr[fr.part].slice(0, -1);
-            else if (fr[fr.part].length < 4) { fr[fr.part] += k; }
-            refreshFraction();
-            return;
-          }
-          if (k === '⌫') input = input.slice(0, -1);
-          else if (k === ',') { if (!input.includes(',')) input = (input || '0') + ','; }
-          else if (input.replace(',', '').length < 9) input = (input === '0' ? '' : input) + k;
-          setSlot(prettyInput(input));
-          if (bi) bi.fill(input);   // typing mode: mirror the number into the boxes, right-aligned
-          checkBtn.disabled = input === '' || input.endsWith(',');
-        };
+        b.onclick = () => { if (finished) return; sfx.tap(); press(k); };
         pad.append(b);
       }
+      // handwriting pad (finger, Apple Pencil or mouse); a wrong guess is fixed by tapping the right digit
+      const handPad = hasHand ? Hand.pad({
+        comma: !isFr && !bi, onComma: () => press(','),
+        onDigit: d => { sfx.tap(); press(d); },
+        onFix: d => { sfx.tap(); press('⌫'); press(d); },
+        onBack: () => press('⌫'),
+      }) : null;
+      if (isFr && handPad) handPad.prepend(h('div', { class: 'hand-note' }, 'Chạm vào tử số hoặc mẫu số trên bảng để chọn chỗ viết.'));
+      const modes = bi ? [['box', '✍️ Điền vào ô'], ['type', '⌨️ Gõ số']] : [['keys', '⌨️ Bàn phím']];
+      if (handPad) modes.push(['hand', '✏️ Viết tay']);
+      const saved = bi ? S.settings.colMode : S.settings.numMode;
+      let inMode = modes.some(m => m[0] === saved) ? saved : modes[0][0];
+      const modeBtns = modes.map(([m, t]) => h('button', { class: 'cm-btn', onclick: () => { if (!finished) { sfx.tap(); setMode(m); } } }, t));
+      function setMode(m) {
+        inMode = m;
+        if (bi) { colMode = m; S.settings.colMode = m; } else S.settings.numMode = m;
+        save();
+        modeBtns.forEach((b, i) => b.classList.toggle('on', modes[i][0] === m));
+        pad.style.display = m === 'hand' ? 'none' : '';
+        if (handPad) { handPad.style.display = m === 'hand' ? '' : 'none'; handPad.clear(); }
+        label.textContent = m === 'box' ? 'Chạm vào ô rồi điền chữ số (bắt đầu từ hàng đơn vị)'
+          : m === 'hand' ? (bi ? 'Viết từng chữ số, bắt đầu từ hàng đơn vị (chạm ô để chọn chỗ viết)' : isFr ? 'Viết phân số' : 'Viết số')
+          : isFr ? 'Viết phân số' : 'Nhập số';
+        if (bi) { bi.enable(toBoxes()); bi.clear(); }
+        if (!isFr) { input = ''; setSlot(''); checkBtn.disabled = true; }
+        if (commaKey) commaKey.style.visibility = toBoxes() ? 'hidden' : '';
+      }
+      if (bi) bi.onChange(v => { if (!toBoxes()) return; input = v; setSlot(prettyInput(v)); checkBtn.disabled = !v; });
+      if (modes.length > 1) pane.append(h('div', { class: 'col-mode' + (modes.length === 3 ? ' three' : '') }, ...modeBtns));
       pane.append(pad);
+      if (handPad) pane.append(handPad);
+      setTimeout(() => setMode(inMode), 0);
+      // computer keyboard
+      qKeys = e => {
+        if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+        if (/^\d$/.test(e.key)) { e.preventDefault(); press(e.key); }
+        else if (e.key === 'Backspace') { e.preventDefault(); press('⌫'); }
+        else if ((e.key === ',' || e.key === '.') && !isFr) press(',');
+        else if ((e.key === '/' || e.key === 'Tab') && isFr) { e.preventDefault(); press('⇅'); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (!finished && !checkBtn.disabled) checkBtn.click(); else if (finished) nextBtn.click(); }
+      };
       if (isFr) {
         frNum.onclick = () => { fr.part = 'num'; refreshFraction(); };
         frDen.onclick = () => { fr.part = 'den'; refreshFraction(); };
@@ -777,6 +818,7 @@
         h('div', { class: 'topbar', style: { padding: '0' } }, dots),
         h('div', { class: 'stage' }, board, h('div', { class: 'answer-pane' }, pane))));
     if (window.Scratch) Scratch.attach('practice:' + run.seed);   // giấy nháp, kept for the whole run
+    keyHandler = qKeys;
     if (S.settings.autoRead) speak(q.speak || q.prompt, sayBtn);
   }
   function prettyInput(s) {
