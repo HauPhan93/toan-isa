@@ -94,5 +94,51 @@
   /** Vietnamese names / contexts for word problems (kid-friendly, local). */
   const NAMES = ['An', 'Bình', 'Chi', 'Dũng', 'Hà', 'Hùng', 'Lan', 'Mai', 'Minh', 'Nam', 'Ngọc', 'Phúc', 'Quân', 'Thảo', 'Trang', 'Tú', 'Việt', 'Vy'];
 
-  window.U = { NBSP, makeRng, rand, pick, shuffle, sample, round, fmt, parseNum, gcd, lcm, simplify, choices, near, NAMES };
+  /* ---- Language (Góc phụ huynh → Ngôn ngữ / Language) ----
+   * 'vi' (default) or 'en'. Read once when the app loads; changing it in Góc phụ huynh reloads the app, so
+   * content can pick its strings while it is built: L('Vietnamese', 'English'). `?lang=en` in the URL
+   * overrides it (tests). Maths notation stays as in the SGK in both languages (12 345 · 3,5 · × · :). */
+  let LANG = 'vi';
+  try {
+    const q = /[?&]lang=(en|vi)\b/.exec(location.search);
+    if (q) LANG = q[1];
+    else { const st = JSON.parse(localStorage.getItem('toanisa.v1') || '{}'); if (st && st.settings && st.settings.lang === 'en') LANG = 'en'; }
+  } catch (e) { /* private mode: Vietnamese */ }
+  const EN = LANG === 'en';
+  if (EN) document.documentElement.lang = 'en';
+  /** The string for the current language; falls back to Vietnamese when no English is given. */
+  function L(vi, en) { return EN && en != null ? en : vi; }
+
+  /** English number words (British style): 345 → "three hundred and forty-five", 3.25 → "three point two five". */
+  const EN_ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+    'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+  const EN_TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+  function en99(n) { return n < 20 ? EN_ONES[n] : EN_TENS[Math.floor(n / 10)] + (n % 10 ? '-' + EN_ONES[n % 10] : ''); }
+  function en999(n) {
+    const hd = Math.floor(n / 100), r = n % 100;
+    if (!hd) return en99(r);
+    return EN_ONES[hd] + ' hundred' + (r ? ' and ' + en99(r) : '');
+  }
+  function readEN(x) {
+    if (typeof x !== 'number' || !isFinite(x)) return String(x);
+    if (x < 0) return 'minus ' + readEN(-x);
+    const s = String(round(x, 6)), [ip, dp] = s.split('.');
+    let n = Number(ip), words;
+    if (n === 0) words = 'zero';
+    else {
+      const un = ['', ' thousand', ' million', ' billion'], g = [];
+      while (n > 0) { g.push(n % 1000); n = Math.floor(n / 1000); }
+      const parts = [];
+      for (let k = g.length - 1; k >= 0; k--) {
+        if (!g[k]) continue;
+        // "two thousand and five": the last group under 100 after a bigger group takes "and"
+        parts.push((k === 0 && g.length > 1 && g[k] < 100 ? 'and ' : '') + en999(g[k]) + un[k]);
+      }
+      words = parts.join(' ');
+    }
+    if (dp) words += ' point ' + dp.split('').map(d => EN_ONES[Number(d)]).join(' ');
+    return words;
+  }
+
+  window.U = { NBSP, makeRng, rand, pick, shuffle, sample, round, fmt, parseNum, gcd, lcm, simplify, choices, near, NAMES, LANG, EN, L, readEN };
 })();

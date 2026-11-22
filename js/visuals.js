@@ -56,6 +56,11 @@
 
   /* ---------- small utils ---------- */
   const fmt = (n, d) => (window.U && typeof U.fmt === 'function' ? U.fmt(n, d) : String(n));
+  /** i18n: U.L(vi, en) with a Vietnamese fallback when util.js is missing. (Not named L: many renderers use a local L.) */
+  const LL = (vi, en) => (window.U && typeof U.L === 'function' ? U.L(vi, en) : vi);
+  const isEN = () => !!(window.U && U.EN);
+  /** English only: font size that keeps text s inside maxW (Vietnamese keeps its size unchanged). */
+  const fitSize = (s, size, maxW) => (isEN() && tw(s, size) > maxW ? Math.max(10, Math.floor(size * maxW / tw(s, size))) : size);
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   const num = (v, def) => { const n = typeof v === 'string' ? Number(v.replace(',', '.')) : Number(v); return v != null && v !== '' && isFinite(n) ? n : def; };
   const int = (v, def, lo, hi) => clamp(Math.round(num(v, def)), lo, hi);
@@ -264,7 +269,7 @@
     injectCss();
     const d = document.createElement('div');
     d.className = 'viz viz-ph' + (board ? ' viz-board' : '');
-    d.textContent = msg || 'Hình minh hoạ';
+    d.textContent = msg || LL('Hình minh hoạ', 'Picture');
     return d;
   }
   function emit(ctx, root, v) {
@@ -366,7 +371,7 @@
     const sz = p.size != null ? p.size : ctx.size;
     const px = typeof sz === 'number' ? clamp(sz, 24, 800) : ({ sm: 72, md: 140, lg: 220 }[sz] || 140);
     root.classList.remove('viz-board');
-    const svg = mk('svg', { viewBox: '0 0 200 224', width: 200, height: 224, role: 'img', 'aria-label': 'Rô-bốt ISA' }, root);
+    const svg = mk('svg', { viewBox: '0 0 200 224', width: 200, height: 224, role: 'img', 'aria-label': LL('Rô-bốt ISA', 'ISA the robot') }, root);
     svg.style.height = px + 'px';
     drawRover(svg, mood, true);
   };
@@ -398,6 +403,7 @@
   R.blocks = (p, ctx, root) => {
     const cnt = [int(p.thousands, 0, 0, 12), int(p.hundreds, 0, 0, 15), int(p.tens, 0, 0, 20), int(p.ones, 0, 0, 30)];
     const names = ['nghìn', 'trăm', 'chục', 'đơn vị'];
+    const NAMES_EN = [['thousand', 'thousands'], ['hundred', 'hundreds'], ['ten', 'tens'], ['one', 'ones']];
     const cols = [K.purple, K.sky, K.leaf, K.sun];
     const u = 9, S = 90;
     const groups = [];
@@ -428,7 +434,7 @@
     const contentW = groups.reduce((s, g) => s + g.w, 0) + gap * (groups.length - 1);
     const H = Math.max(...groups.map(g => g.h)) + 24 + labH;
     const W = Math.max(contentW + 40, 320);
-    const g0 = svgIn(root, W, H, { aria: 'Khối biểu diễn số' });
+    const g0 = svgIn(root, W, H, { aria: LL('Khối biểu diễn số', 'Base-ten blocks') });
     let x = (W - contentW) / 2, n = 0;
     const base = H - labH;
     groups.forEach(gr => {
@@ -436,7 +442,7 @@
         const ag = A(g0, 'viz-drop', 80 + n++ * Math.max(25, 90 - n * 2));
         it.draw(ag, x + it.x, base - gr.h + it.y);
       });
-      if (p.labels) T(g0, x + gr.w / 2, base + 18, `${gr.c} ${names[gr.k]}`, { size: 16, fill: K.sub });
+      if (p.labels) T(g0, x + gr.w / 2, base + 18, `${gr.c} ${isEN() ? NAMES_EN[gr.k][gr.c === 1 ? 0 : 1] : names[gr.k]}`, { size: 16, fill: K.sub });
       x += gr.w + gap;
     });
   };
@@ -445,14 +451,24 @@
    * placeValue — bảng hàng / lớp
    * ===================================================================== */
   R.placeValue = (p, ctx, root) => {
-    const HDR = ['Đơn vị', 'Chục', 'Trăm', 'Nghìn', 'Chục nghìn', 'Trăm nghìn', 'Triệu', 'Chục triệu', 'Trăm triệu'];
-    const DEC = ['Phần mười', 'Phần trăm', 'Phần nghìn'];
+    const HDR_VI = ['Đơn vị', 'Chục', 'Trăm', 'Nghìn', 'Chục nghìn', 'Trăm nghìn', 'Triệu', 'Chục triệu', 'Trăm triệu'];
+    const DEC_VI = ['Phần mười', 'Phần trăm', 'Phần nghìn'];
+    const HDR_EN = ['Ones', 'Tens', 'Hundreds', 'Thousands', 'Ten thousands', 'Hundred thousands', 'Millions', 'Ten millions', 'Hundred millions'];
+    const DEC_EN = ['Tenths', 'Hundredths', 'Thousandths'];
+    const HDR = isEN() ? HDR_EN : HDR_VI, DEC = isEN() ? DEC_EN : DEC_VI;
+    // English: column names passed in Vietnamese by content are translated (unknown names are kept)
+    const colName = c => {
+      if (!isEN()) return c;
+      const k = c.trim().toLowerCase(), f = a => a.findIndex(x => x.toLowerCase() === k);
+      const i = f(HDR_VI), j = f(DEC_VI);
+      return i >= 0 ? HDR_EN[i] : j >= 0 ? DEC_EN[j] : c;
+    };
     let s = isStr(p.number) ? p.number.replace(/[\s  ]/g, '').replace('.', ',') : String(r6(Math.abs(num(p.number, 0)))).replace('.', ',');
     if (!/^\d+(,\d+)?$/.test(s)) s = '0';
     let [ip, dp] = s.split(',');
     dp = (dp || '').slice(0, 3);
     let hdr;
-    if (Array.isArray(p.columns) && p.columns.length) hdr = p.columns.map(String);
+    if (Array.isArray(p.columns) && p.columns.length) hdr = p.columns.map(String).map(colName);
     else hdr = HDR.slice(0, Math.min(9, Math.max(ip.length, 1))).reverse();
     const nI = hdr.length, nD = dp.length;
     const digits = ip.padStart(nI, ' ').slice(-nI).split('').concat(dp.split(''));
@@ -461,7 +477,7 @@
     const showClass = !p.columns && nI >= 4;
     const top = showClass ? 40 : 0;
     const TW = N * cw + (nD ? 24 : 0), W = Math.max(TW + 20, 500), H = top + hh + dh + 8;
-    const g = svgIn(root, W, H, { aria: 'Bảng hàng' });
+    const g = svgIn(root, W, H, { aria: LL('Bảng hàng', 'Place value table') });
     const x0 = (W - TW) / 2;
     const colX = i => x0 + i * cw + (nD && i >= nI ? 24 : 0);
     const clsCol = i => {            // colour per class (lớp) from the right
@@ -471,12 +487,14 @@
     };
     const hl = p.highlight != null ? int(p.highlight, -1, -10, 20) : null;
     if (showClass) {
-      const names = ['Lớp đơn vị', 'Lớp nghìn', 'Lớp triệu'];
+      const names = isEN() ? ['Ones class', 'Thousands class', 'Millions class'] : ['Lớp đơn vị', 'Lớp nghìn', 'Lớp triệu'];
       for (let c = 0; c * 3 < nI; c++) {
         const r = nI - 1 - c * 3, l = Math.max(0, r - 2);
         const col = [K.teal, K.orange, K.purple][c % 3];
         rect(g, colX(l) + 3, 4, (r - l + 1) * cw - 6, top - 10, 12, tint(col, 0.35), edge(col), 1.5);
-        T(g, (colX(l) + colX(r) + cw) / 2, 4 + (top - 10) / 2, names[c], { size: 16, fill: isBoard() ? col : edge(col) });
+        const bw = (r - l + 1) * cw - 14;
+        const nm = isEN() && tw(names[c], 16) > bw ? names[c].replace(' class', '') : names[c];   // narrow box: "Thousands"
+        T(g, (colX(l) + colX(r) + cw) / 2, 4 + (top - 10) / 2, nm, { size: fitSize(nm, 16, bw), fill: isBoard() ? col : edge(col) });
       }
     }
     for (let i = 0; i < N; i++) {
@@ -487,9 +505,10 @@
       const words = allH[i].split(' ');
       if (allH[i].length > 7 && words.length > 1) {
         const h1 = words.slice(0, Math.ceil(words.length / 2)).join(' '), h2 = words.slice(Math.ceil(words.length / 2)).join(' ');
-        T(g, x + cw / 2, top + hh / 2 - 10, h1, { size: 16, fill: K.ink });
-        T(g, x + cw / 2, top + hh / 2 + 11, h2, { size: 16, fill: K.ink });
-      } else T(g, x + cw / 2, top + hh / 2, allH[i], { size: 16, fill: K.ink });
+        const fs2 = Math.min(fitSize(h1, 16, cw - 4), fitSize(h2, 16, cw - 4));
+        T(g, x + cw / 2, top + hh / 2 - 10, h1, { size: fs2, fill: K.ink });
+        T(g, x + cw / 2, top + hh / 2 + 11, h2, { size: fs2, fill: K.ink });
+      } else T(g, x + cw / 2, top + hh / 2, allH[i], { size: fitSize(allH[i], 16, cw - 4), fill: K.ink });
       const d = digits[i];
       if (d && d !== ' ' && !p.hide) {
         const ag = A(g, 'viz-pop', 200 + i * 110);
@@ -531,7 +550,7 @@
     const roverH = 52;
     const topPad = hops.length ? maxArc + 34 : (inter || p.point != null || p.unknown != null ? roverH + 26 : 24);
     const ly = topPad + 10, H = ly + 52;
-    const g = svgIn(root, W, H, { aria: 'Tia số' });
+    const g = svgIn(root, W, H, { aria: LL('Tia số', 'Number line') });
     // label interval (in ticks)
     let L;
     const le = num(p.labelEvery, 0);
@@ -662,7 +681,7 @@
     const rowInfo = rows.map(r => ({ idx: r, w: r.reduce((s, i) => s + boxes[i].w, 0) + gap * (r.length - 1), h: Math.max(...r.map(i => boxes[i].h)) + labH }));
     const W = Math.max(300, Math.max(...rowInfo.map(r => r.w)) + 24);
     const H = rowInfo.reduce((s, r) => s + r.h, 0) + 18 * (rowInfo.length - 1) + 16;
-    const g = svgIn(root, W, H, { aria: 'Đồ vật' });
+    const g = svgIn(root, W, H, { aria: LL('Đồ vật', 'Objects') });
     let y = 8, k = 0, globalIdx = 0;
     const crossFrom = total - cross;
     rowInfo.forEach(r => {
@@ -698,7 +717,7 @@
     const emoji = String(p.emoji || '🍎');
     const cell = Math.min(50, 560 / cols, 300 / rows);
     const W = cols * cell + 40, H = rows * cell + 30;
-    const g = svgIn(root, Math.max(W, 260), H, { aria: 'Mảng' });
+    const g = svgIn(root, Math.max(W, 260), H, { aria: LL('Mảng', 'Array') });
     const x0 = (Math.max(W, 260) - cols * cell) / 2, y0 = 15;
     rect(g, x0 - 10, y0 - 8, cols * cell + 20, rows * cell + 16, 18, K.cream, isBoard() ? K.line : '#F1E3C8', 2);
     for (let r = 0; r < rows; r++) {
@@ -729,7 +748,7 @@
     const platesY = pileH + 46;
     const labH = p.plateLabel ? 28 : 6;
     const H = platesY + plateH + labH + 8;
-    const g = svgIn(root, W, H, { aria: 'Chia đều' });
+    const g = svgIn(root, W, H, { aria: LL('Chia đều', 'Sharing equally') });
     const px0 = (W - pileW) / 2;
     rect(g, px0, 8, pileW, pileH, 18, isBoard() ? 'none' : tint(K.sun, 0.35), isBoard() ? K.sun : mix(K.sun, '#C98A00', 0.3), 2, isBoard() ? { dash: '7 5' } : null);
     const pilePos = i => ({ x: px0 + 15 + (i % pcols) * isz + isz / 2, y: 8 + 11 + Math.floor(i / pcols) * isz + isz / 2 });
@@ -779,7 +798,7 @@
     if (rem && p.showRest !== false) {
       // leftover candies stay in the basket; small hint label appears afterwards
       const lg = A(g, 'viz-fade', 900 + dealt * per);
-      T(lg, px0 + pileW + 12, 8 + pileH / 2, 'còn lại', { size: 15, fill: K.sub, anchor: 'start' });
+      T(lg, px0 + pileW + 12, 8 + pileH / 2, LL('còn lại', 'left over'), { size: 15, fill: K.sub, anchor: 'start' });
     }
   };
 
@@ -806,24 +825,24 @@
       box.className = 'viz-steps';
       const cap = document.createElement('div');
       cap.className = 'viz-cap';
-      cap.textContent = intro || 'Bấm “Bước tiếp” để tính từng bước.';
+      cap.textContent = intro || LL('Bấm “Bước tiếp” để tính từng bước.', 'Tap “Next step” to work it out one step at a time.');
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'viz-btn';
-      btn.textContent = 'Bước tiếp ▶';
+      btn.textContent = LL('Bước tiếp ▶', 'Next step ▶');
       btn.addEventListener('click', () => {
         if (cur >= n) {
           cur = 0;
           for (let s = 1; s < groups.length; s++) if (groups[s]) groups[s].style.display = 'none';
-          cap.textContent = intro || 'Bấm “Bước tiếp” để tính từng bước.';
-          btn.textContent = 'Bước tiếp ▶';
+          cap.textContent = intro || LL('Bấm “Bước tiếp” để tính từng bước.', 'Tap “Next step” to work it out one step at a time.');
+          btn.textContent = LL('Bước tiếp ▶', 'Next step ▶');
           return;
         }
         cur++;
         const gr = groups[cur];
         if (gr) { gr.style.display = ''; gr.setAttribute('class', 'viz-fade'); }
         cap.textContent = captions[cur] || '';
-        if (cur >= n) btn.textContent = 'Làm lại ↺';
+        if (cur >= n) btn.textContent = LL('Làm lại ↺', 'Start again ↺');
       });
       box.appendChild(cap); box.appendChild(btn);
       root.appendChild(box);
@@ -860,7 +879,11 @@
         if (op === '+') {
           const x = ta + tb + carry, w = last ? String(x) : String(x % 10), nc = x >= 10 ? 1 : 0;
           let cap;
-          if (va != null && vb != null) cap = `${ta} cộng ${tb} bằng ${ta + tb}` + (carry ? `, thêm 1 bằng ${x}` : '') + `, viết ${w}` + (nc && !last ? ' nhớ 1' : '') + '.';
+          if (isEN()) {
+            if (va != null && vb != null) cap = `${ta} + ${tb} = ${ta + tb}` + (carry ? `, plus 1 carried makes ${x}` : '') + `, write ${w}` + (nc && !last ? ' and carry 1' : '') + '.';
+            else if (carry) cap = `${va != null ? ta : tb} plus 1 carried makes ${x}, write ${w}` + (nc && !last ? ' and carry 1' : '') + '.';
+            else cap = `Bring down ${va != null ? ta : tb}.`;
+          } else if (va != null && vb != null) cap = `${ta} cộng ${tb} bằng ${ta + tb}` + (carry ? `, thêm 1 bằng ${x}` : '') + `, viết ${w}` + (nc && !last ? ' nhớ 1' : '') + '.';
           else if (carry) cap = `${va != null ? ta : tb} thêm 1 bằng ${x}, viết ${w}` + (nc && !last ? ' nhớ 1' : '') + '.';
           else cap = `Hạ ${va != null ? ta : tb}.`;
           captions.push(cap);
@@ -873,11 +896,15 @@
           if (ta < sub) { r = ta + 10 - sub; nb = 1; } else r = ta - sub;
           let cap;
           if (vb != null || carry) {
-            cap = (carry && vb != null ? `${tb} thêm 1 bằng ${sub}; ` : '') +
-              (ta < sub ? `${ta} không trừ được ${sub}, lấy ${ta + 10} trừ ${sub} bằng ${r}` : `${ta} trừ ${sub} bằng ${r}`);
-          } else cap = `Hạ ${ta}`;
+            cap = isEN()
+              ? (carry && vb != null ? `${tb} plus 1 carried makes ${sub}; ` : '') +
+                (ta < sub ? `${ta} is smaller than ${sub}, so take ${ta + 10} − ${sub} = ${r}` : `${ta} − ${sub} = ${r}`)
+              : (carry && vb != null ? `${tb} thêm 1 bằng ${sub}; ` : '') +
+                (ta < sub ? `${ta} không trừ được ${sub}, lấy ${ta + 10} trừ ${sub} bằng ${r}` : `${ta} trừ ${sub} bằng ${r}`);
+          } else cap = LL(`Hạ ${ta}`, `Bring down ${ta}`);
           const leadingZero = c >= String(res).length && c >= D + 1 && r === 0;
-          cap += leadingZero ? ' (không cần viết số 0 ở đầu).' : (vb != null || carry ? `, viết ${r}` + (nb ? ' nhớ 1' : '') + '.' : '.');
+          cap += leadingZero ? LL(' (không cần viết số 0 ở đầu).', ' (no need to write a 0 at the front).')
+            : (vb != null || carry ? LL(`, viết ${r}` + (nb ? ' nhớ 1' : '') + '.', `, write ${r}` + (nb ? ' and carry 1' : '') + '.') : '.');
           captions.push(cap);
           if (!leadingZero) cells.push({ row: 2, c, ch: String(r), stage: st });
           if (nb) cells.push({ row: -2, c: c + 1, ch: '1', stage: st, kind: 'carry' });
@@ -885,7 +912,7 @@
         }
       }
       let nSt = len;
-      if (D > 0) { nSt++; captions.push('Viết dấu phẩy ở kết quả thẳng cột với các dấu phẩy ở trên.'); }
+      if (D > 0) { nSt++; captions.push(LL('Viết dấu phẩy ở kết quả thẳng cột với các dấu phẩy ở trên.', 'Write the decimal comma in the answer, in line with the commas above.')); }
       for (let k = 0; k < sa.length; k++) cells.push({ row: 0, c: shA + k, ch: sa[sa.length - 1 - k], stage: 0 });
       for (let k = 0; k < sb.length; k++) cells.push({ row: 1, c: shB + k, ch: sb[sb.length - 1 - k], stage: 0 });
       const commas = [];
@@ -918,7 +945,9 @@
           const da = Number(sa[sa.length - 1 - c]), last = c === sa.length - 1;
           const x = da * bk + carry, w = last ? String(x) : String(x % 10), nc = Math.floor(x / 10);
           st++;
-          captions.push((c === 0 && prefix ? prefix : '') + `${bk} nhân ${da} bằng ${da * bk}` + (carry ? `, thêm ${carry} bằng ${x}` : '') + `, viết ${w}` + (!last && nc ? ` nhớ ${nc}` : '') + '.');
+          captions.push((c === 0 && prefix ? prefix : '') + (isEN()
+            ? `${bk} × ${da} = ${da * bk}` + (carry ? `, plus ${carry} carried makes ${x}` : '') + `, write ${w}` + (!last && nc ? ` and carry ${nc}` : '') + '.'
+            : `${bk} nhân ${da} bằng ${da * bk}` + (carry ? `, thêm ${carry} bằng ${x}` : '') + `, viết ${w}` + (!last && nc ? ` nhớ ${nc}` : '') + '.'));
           w.split('').reverse().forEach((ch, k) => { cells.push({ row: rowIdx, c: shift + c + k, ch, stage: st }); });
           if (!last && nc && rowIdx === 2 && sb.length === 1) cells.push({ row: -1, c: c + 1, ch: String(nc), stage: st, kind: 'carry' });
           carry = nc;
@@ -934,9 +963,9 @@
         for (let c = sa.length + 1; c < fs.length; c++) boxes.push({ row: 2, c });
       } else {
         const m = sb.length;
-        for (let k = 0; k < m; k++) rowOf(Number(sb[m - 1 - k]), 2 + k, k, `Lượt ${k + 1} (nhân với ${sb[m - 1 - k]}): `);
+        for (let k = 0; k < m; k++) rowOf(Number(sb[m - 1 - k]), 2 + k, k, LL(`Lượt ${k + 1} (nhân với ${sb[m - 1 - k]}): `, `Row ${k + 1} (multiply by ${sb[m - 1 - k]}): `));
         st++;
-        captions.push(`Cộng các tích riêng, được ${String(prodAll)}.`);
+        captions.push(LL(`Cộng các tích riêng, được ${String(prodAll)}.`, `Add the rows together: ${String(prodAll)}.`));
         const fr = 2 + m;
         for (let c = 0; c < fs.length; c++) cells.push({ row: fr, c, ch: fs[fs.length - 1 - c], stage: st });
         for (let c = 0; c < Math.max(fs.length, sa.length + sb.length); c++) boxes.push({ row: fr, c });   // n × m digits → at most n + m
@@ -945,7 +974,8 @@
       const commas = [];
       if (dA) commas.push({ row: 0, at: dA, stage: 0 });
       if (dB) commas.push({ row: 1, at: dB, stage: 0 });
-      if (DD) { st++; captions.push(`Hai thừa số có tất cả ${DD} chữ số ở phần thập phân, ta dùng dấu phẩy tách ra ${DD} chữ số ở tích kể từ phải sang trái.`); commas.push({ row: rows - 1, at: DD, stage: st }); }
+      if (DD) { st++; captions.push(LL(`Hai thừa số có tất cả ${DD} chữ số ở phần thập phân, ta dùng dấu phẩy tách ra ${DD} chữ số ở tích kể từ phải sang trái.`,
+        `The factors have ${DD} decimal place${DD === 1 ? '' : 's'} altogether, so count ${DD} digit${DD === 1 ? '' : 's'} from the right of the product and put the comma there.`)); commas.push({ row: rows - 1, at: DD, stage: st }); }
       const N = Math.max(...cells.map(c => c.c), ...boxes.map(b => b.c)) + 1;
       model = { cells, commas, boxes, nSt: st, rows, lines, opRows: [0, 1], opSym: '×', N, plusRows: sb.length > 1 ? [2, rows - 2] : null };
     }
@@ -954,7 +984,7 @@
     const left = 64, topPad = 34;
     const W = left + N * CW + 26, H = topPad + model.rows * RH + 14;
     const Wv = Math.max(W, 400), off = (Wv - W) / 2;
-    const g = svgIn(root, Wv, H, { aria: 'Đặt tính' });
+    const g = svgIn(root, Wv, H, { aria: LL('Đặt tính', 'Column calculation') });
     const xR = off + left + N * CW;
     const cx = c => xR - c * CW - CW / 2;
     const ry = r => topPad + r * RH + RH / 2;
@@ -1109,9 +1139,16 @@
     let curRow = null;
     steps.forEach((st, k) => {
       const s = k + 1, last = k === steps.length - 1;
-      let cap = k === 0 ? `${String(st.cur).length > 1 ? 'Lấy ' : ''}${st.cur} chia ${b} được ${st.q}, viết ${st.q}.` : `Hạ ${st.brought}, được ${st.cur}; ${st.cur} chia ${b} được ${st.q}, viết ${st.q}.`;
-      if (st.q > 0) cap += ` ${st.q} nhân ${b} bằng ${st.prod}; ${st.cur} trừ ${st.prod} bằng ${st.rem}.`;
-      if (last) cap += ` Vậy ${fmt(a)} : ${fmt(b)} = ${fmt(Q)}` + (lastRem ? ` (dư ${lastRem})` : '') + '.';
+      let cap;
+      if (isEN()) {
+        cap = k === 0 ? `${String(st.cur).length > 1 ? `Start with ${st.cur}. ` : ''}${st.cur} divided by ${b} is ${st.q}, write ${st.q}.` : `Bring down ${st.brought} to make ${st.cur}; ${st.cur} divided by ${b} is ${st.q}, write ${st.q}.`;
+        if (st.q > 0) cap += ` ${st.q} × ${b} = ${st.prod}; ${st.cur} − ${st.prod} = ${st.rem}.`;
+        if (last) cap += ` So ${fmt(a)} : ${fmt(b)} = ${fmt(Q)}` + (lastRem ? ` remainder ${lastRem}` : '') + '.';
+      } else {
+        cap = k === 0 ? `${String(st.cur).length > 1 ? 'Lấy ' : ''}${st.cur} chia ${b} được ${st.q}, viết ${st.q}.` : `Hạ ${st.brought}, được ${st.cur}; ${st.cur} chia ${b} được ${st.q}, viết ${st.q}.`;
+        if (st.q > 0) cap += ` ${st.q} nhân ${b} bằng ${st.prod}; ${st.cur} trừ ${st.prod} bằng ${st.rem}.`;
+        if (last) cap += ` Vậy ${fmt(a)} : ${fmt(b)} = ${fmt(Q)}` + (lastRem ? ` (dư ${lastRem})` : '') + '.';
+      }
       captions.push(cap);
       if (k > 0 && curRow) curRow.cells.push({ i: st.end, ch: String(st.brought), stage: s });
       if (st.q > 0 || k === 0) {
@@ -1133,7 +1170,7 @@
     const W = barX + rightW + 10, topPad = 10;
     const rStep = RH * 0.9;
     const H = topPad + RH + rows.length * rStep + 14;
-    const g = svgIn(root, Math.max(W, 400), Math.max(H, topPad + 2 * RH + 14), { aria: 'Phép chia' });
+    const g = svgIn(root, Math.max(W, 400), Math.max(H, topPad + 2 * RH + 14), { aria: LL('Phép chia', 'Division') });
     const cx = i => x0 + i * CW + CW / 2;
     const y0 = topPad + RH / 2;
     const ry = r => y0 + (r + 1) * rStep;
@@ -1185,7 +1222,7 @@
     const strokeC = isBoard() ? K.ink : K.ink, sw = 3;
     if (shape === 'pie') {
       W = showL ? 420 : 300; H = 280;
-      g = svgIn(root, W, H, { aria: 'Phân số' });
+      g = svgIn(root, W, H, { aria: LL('Phân số', 'Fraction') });
       const cx = 150, cy = 140, r = 118;
       if (!isBoard()) circle(g, cx, cy + 5, r, K.shadow);
       for (let k = 0; k < den; k++) {
@@ -1197,7 +1234,7 @@
       const [rr, cc] = factorRect(den);
       const cs = Math.min(70, 400 / cc, 220 / rr);
       W = cc * cs + 40 + (showL ? 120 : 0); H = rr * cs + 40;
-      g = svgIn(root, Math.max(W, 240), H, { aria: 'Phân số' });
+      g = svgIn(root, Math.max(W, 240), H, { aria: LL('Phân số', 'Fraction') });
       const x0 = 20 + (Math.max(W, 240) - W) / 2;
       if (!isBoard()) rect(g, x0 + 4, 24, cc * cs, rr * cs, 10, K.shadow);
       for (let k = 0; k < den; k++) {
@@ -1210,7 +1247,7 @@
     } else {
       const bw = 560, bh = 76;
       W = bw + 40 + (showL ? 110 : 0); H = bh + 44;
-      g = svgIn(root, W, H, { aria: 'Phân số' });
+      g = svgIn(root, W, H, { aria: LL('Phân số', 'Fraction') });
       const pw = bw / den;
       if (!isBoard()) rect(g, 24, 26, bw, bh, 12, K.shadow);
       for (let k = 0; k < den; k++) {
@@ -1245,7 +1282,7 @@
     const fr = [fa, fb].map(f => { const d = int(f[1], 2, 1, 24); return [int(f[0], 0, 0, d * 3), d]; });
     const W = 680, bw = 530, bh = 62, x0 = 120;
     const H = 2 * bh + 70;
-    const g = svgIn(root, W, H, { aria: 'So sánh phân số' });
+    const g = svgIn(root, W, H, { aria: LL('So sánh phân số', 'Comparing fractions') });
     const cols = [K.orange, K.sky];
     fr.forEach(([n, d], i) => {
       const y = 18 + i * (bh + 34), pw = bw / d;
@@ -1272,7 +1309,7 @@
     let h = ((h24 % 12) + 12) % 12 || 12;       // 1..12
     const dig = !!p.digital;
     const W = 300, H = dig ? 384 : 300, cx = 150, cy = 150, Rr = 136;
-    const g = svgIn(root, W, H, { aria: 'Đồng hồ' });
+    const g = svgIn(root, W, H, { aria: LL('Đồng hồ', 'Clock') });
     if (!isBoard()) circle(g, cx, cy + 6, Rr, K.shadow);
     circle(g, cx, cy, Rr, isBoard() ? 'none' : K.teal, isBoard() ? K.ink : 'none', isBoard() ? 4 : 0);
     circle(g, cx, cy, Rr - 12, isBoard() ? 'rgba(244,247,242,.04)' : '#FFFFFF', isBoard() ? K.line : 'none', 1.5);
@@ -1359,18 +1396,19 @@
     const marks = p.marks && typeof p.marks === 'object' ? p.marks : {};
     const cw = 88, ch = 50, x0 = 10, hH = 58, wH = 40;
     const W = 7 * cw + 20, H = hH + wH + rows * ch + 16;
-    const g = svgIn(root, W, H, { aria: 'Lịch tháng' });
+    const g = svgIn(root, W, H, { aria: LL('Lịch tháng', 'Monthly calendar') });
     if (!isBoard()) rect(g, x0 + 3, 8, 7 * cw, H - 14, 18, K.shadow);
     rect(g, x0, 4, 7 * cw, H - 14, 18, isBoard() ? 'none' : '#FFFFFF', isBoard() ? K.ink : K.line, 2);
     path(g, `M${x0},${4 + hH} L${x0},22 Q${x0},4 ${x0 + 18},4 L${x0 + 7 * cw - 18},4 Q${x0 + 7 * cw},4 ${x0 + 7 * cw},22 L${x0 + 7 * cw},${4 + hH} Z`, isBoard() ? 'none' : K.teal);
     // rings
     [0.22, 0.78].forEach(t => { if (!isBoard()) { circle(g, x0 + 7 * cw * t, 4, 7, '#FFFFFF', K.ink, 2); } });
-    T(g, x0 + 3.5 * cw, 4 + hH / 2 + 2, `Tháng ${month} năm ${year}`, { size: 26, weight: 800, fill: isBoard() ? K.sun : '#FFFFFF' });
+    const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    T(g, x0 + 3.5 * cw, 4 + hH / 2 + 2, LL(`Tháng ${month} năm ${year}`, `${MONTHS_EN[month - 1]} ${year}`), { size: 26, weight: 800, fill: isBoard() ? K.sun : '#FFFFFF' });
     if (isBoard()) line(g, x0, 4 + hH, x0 + 7 * cw, 4 + hH, K.ink, 2);
-    const WD = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ nhật'];
+    const WD = isEN() ? ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] : ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ nhật'];
     const wy = 4 + hH;
     rect(g, x0, wy, 7 * cw, wH, 0, isBoard() ? 'rgba(244,247,242,.06)' : K.cream);
-    WD.forEach((d, i) => T(g, x0 + i * cw + cw / 2, wy + wH / 2, d, { size: 15, weight: 800, fill: i === 6 ? (isBoard() ? K.berry : '#E04B6A') : K.ink }));
+    WD.forEach((d, i) => T(g, x0 + i * cw + cw / 2, wy + wH / 2, d, { size: isEN() ? 14 : 15, weight: 800, fill: i === 6 ? (isBoard() ? K.berry : '#E04B6A') : K.ink }));
     line(g, x0, wy + wH, x0 + 7 * cw, wy + wH, K.line, 1.5);
     for (let d = 1; d <= days; d++) {
       const idx = first + d - 1, r = Math.floor(idx / 7), c = idx % 7;
@@ -1404,10 +1442,10 @@
     circle(g, ex, ey, 29, '#FFFFFF', null, 0, { opacity: 0.4 });
     for (let i = 0; i < 6; i++) mk('ellipse', { cx: ex, cy: ey - 12, rx: 6.5, ry: 13, fill: '#FFFFFF', opacity: 0.75, transform: `rotate(${i * 60} ${ex} ${ey})` }, g);
     circle(g, ex, ey, 6, mix(base, '#1E3A4C', 0.2));
-    mk('text', { x: x + 86, y: y + 21, 'font-size': 10, 'font-weight': 800, 'letter-spacing': 1.4, fill: ink, opacity: 0.65, 'dominant-baseline': 'central', text: 'TIỀN HỌC TẬP' }, g);
+    mk('text', { x: x + 86, y: y + 21, 'font-size': 10, 'font-weight': 800, 'letter-spacing': 1.4, fill: ink, opacity: 0.65, 'dominant-baseline': 'central', text: LL('TIỀN HỌC TẬP', 'PLAY MONEY') }, g);
     const s = fmt(v);
     T(g, x + w - 16, y + 50, s, { size: s.length > 6 ? 30 : 34, weight: 800, fill: ink, anchor: 'end' });
-    T(g, x + w - 16, y + 78, 'đồng', { size: 17, weight: 700, fill: ink, anchor: 'end' });
+    T(g, x + w - 16, y + 78, LL('đồng', 'dong'), { size: 17, weight: 700, fill: ink, anchor: 'end' });
     return { w, h };
   }
   function drawCoin(g, cx, cy, v) {
@@ -1416,7 +1454,7 @@
     circle(g, cx, cy, 40, isBoard() ? rgba(base, 0.5) : base, isBoard() ? '#FFFFFF' : mix(base, '#1E3A4C', 0.3), 2.5);
     circle(g, cx, cy, 32, 'none', '#FFFFFF', 1.6, { opacity: 0.7 });
     T(g, cx, cy - 4, fmt(v), { size: 22, weight: 800, fill: isBoard() ? '#FFFFFF' : '#1E3A4C' });
-    T(g, cx, cy + 16, 'đồng', { size: 12, fill: isBoard() ? '#FFFFFF' : '#1E3A4C' });
+    T(g, cx, cy + 16, LL('đồng', 'dong'), { size: 12, fill: isBoard() ? '#FFFFFF' : '#1E3A4C' });
   }
   R.money = (p, ctx, root) => {
     const notes = arr(p.notes).map(v => int(v, 0, 0, 1e7)).filter(v => v > 0).slice(0, 16);
@@ -1425,7 +1463,7 @@
     const cw = 240, chh = 124;
     const rows = Math.ceil(notes.length / per);
     const W = per * cw + 20, H = rows * chh + 16;
-    const g = svgIn(root, W, H, { aria: 'Tiền' });
+    const g = svgIn(root, W, H, { aria: LL('Tiền', 'Money') });
     notes.forEach((v, i) => {
       const r = Math.floor(i / per), c = i % per;
       const inRow = Math.min(per, notes.length - r * per);
@@ -1456,7 +1494,7 @@
       const tip = Math.min(30, L * 0.18);
       path(g, `M${x1 + 6},${yc - h / 2} L${x2 - tip},${yc - h / 2} L${x2 - tip},${yc + h / 2} L${x1 + 6},${yc + h / 2} Q${x1},${yc + h / 2} ${x1},${yc} Q${x1},${yc - h / 2} ${x1 + 6},${yc - h / 2} Z`, solid(K.sky), out, 2);
       rect(g, x1 + L * 0.2, yc - h / 2, L * 0.45, h, 0, isBoard() ? 'none' : '#FFFFFF', out, 1.5, { opacity: 0.85 });
-      T(g, x1 + L * 0.2 + L * 0.225, yc, 'BÚT SÁP', { size: 11, weight: 800, fill: K.sky });
+      T(g, x1 + L * 0.2 + L * 0.225, yc, LL('BÚT SÁP', 'CRAYON'), { size: 11, weight: 800, fill: K.sky });
       path(g, `M${x2 - tip},${yc - h / 2 + 4} L${x2},${yc} L${x2 - tip},${yc + h / 2 - 4} Z`, solid(K.sky), out, 2);
     } else if (kind === 'ribbon') {
       path(g, `M${x1},${yc - h / 2 + 2} L${x2},${yc - h / 2 + 2} L${x2 - 10},${yc} L${x2},${yc + h / 2 - 2} L${x1},${yc + h / 2 - 2} L${x1 + 10},${yc} Z`, solid(K.berry), out, 2);
@@ -1485,7 +1523,7 @@
     const ppc = (rw - pad * 2) / rulerCm;
     const X = cm => rx0 + pad + cm * ppc;
     const ry = 92, rh = 74, H = ry + rh + 12;
-    const g = svgIn(root, W, H, { aria: 'Thước' });
+    const g = svgIn(root, W, H, { aria: LL('Thước', 'Ruler') });
     if (!isBoard()) rect(g, rx0 + 3, ry + 4, rw, rh, 12, K.shadow);
     rect(g, rx0, ry, rw, rh, 12, isBoard() ? 'rgba(255,229,138,.1)' : '#FFE08A', isBoard() ? K.sun : '#E0A82E', 2.5);
     const tc = isBoard() ? K.ink : '#5A4A1E';
@@ -1538,7 +1576,7 @@
     let ang = 0;
     if (sl !== sr) ang = clamp(((sr - sl) / Math.max(sl, sr, 1)) * 22, -13, 13), ang = Math.sign(ang) * Math.max(6, Math.abs(ang));
     const W = 640, H = 360, px = 320, py = 100, BL = 205;
-    const g = svgIn(root, W, H, { aria: 'Cân đĩa' });
+    const g = svgIn(root, W, H, { aria: LL('Cân đĩa', 'Balance scale') });
     const metal = isBoard() ? 'none' : K.teal;
     // stand
     path(g, `M${px - 14},${py} L${px + 14},${py} L${px + 24},${H - 40} L${px - 24},${H - 40} Z`, metal, isBoard() ? K.ink : 'none', 2.5);
@@ -1581,7 +1619,7 @@
     const cap = Math.max(0.1, num(p.capacity, unit === 'ml' ? 1000 : 2));
     const amt = clamp(num(p.amount, cap / 2), 0, cap);
     const W = 340, H = 330;
-    const g = svgIn(root, W, H, { aria: 'Ca nước' });
+    const g = svgIn(root, W, H, { aria: LL('Ca nước', 'Measuring jug') });
     const top = 44, bot = 300, fullY = 64;
     const jugPath = 'M92,44 L232,44 L224,284 Q222,300 206,300 L118,300 Q102,300 100,284 Z';
     const cid = uid('clip');
@@ -1623,7 +1661,7 @@
     let mx = p.max != null ? num(p.max, 50) : Math.max(50, Math.ceil((v + 5) / 10) * 10);
     if (mx <= mn) mx = mn + 50;
     const W = 260, H = 360, cx = 150, t0 = 40, t1 = 280;
-    const g = svgIn(root, W, H, { aria: 'Nhiệt kế' });
+    const g = svgIn(root, W, H, { aria: LL('Nhiệt kế', 'Thermometer') });
     const Y = x => t1 - ((x - mn) / (mx - mn)) * (t1 - t0);
     const red = isBoard() ? K.berry : '#F0506E';
     rect(g, cx - 17, t0 - 22, 34, t1 - t0 + 50, 17, isBoard() ? 'none' : '#FFFFFF', isBoard() ? K.ink : '#B7C4CC', 3);
@@ -1744,7 +1782,7 @@
     const unit = dims.unit || 'cm';
     const showDims = p.showDims != null ? !!p.showDims : p.dims != null;
     const W = 460, H = 320, pad = 58;
-    const g = svgIn(root, W, H + (p.label && !/^[A-Z]+$/.test(p.label) ? 30 : 0), { aria: 'Hình' });
+    const g = svgIn(root, W, H + (p.label && !/^[A-Z]+$/.test(p.label) ? 30 : 0), { aria: LL('Hình', 'Shape') });
     const col = p.color && K[p.color] ? K[p.color] : K.teal;
     const res = drawShapeIn(g, kind, dims, pad, pad - 14, W - 2 * pad, H - 2 * pad + 10, { color: col, animate: true });
     if (!res) throw new Error('unknown kind');
@@ -1818,7 +1856,7 @@
     if (!items.length) items.push({ kind: 'square' }, { kind: 'circle' }, { kind: 'triangle' });
     const n = items.length, per = n <= 4 ? n : n <= 8 ? Math.ceil(n / 2) : 4, rows = Math.ceil(n / per);
     const cs = 132, W = per * cs + 16, H = rows * cs + 12;
-    const g = svgIn(root, Math.max(W, 300), H, { aria: 'Các hình' });
+    const g = svgIn(root, Math.max(W, 300), H, { aria: LL('Các hình', 'Shapes') });
     const x0 = (Math.max(W, 300) - per * cs) / 2;
     const inter = !!ctx.interactive;
     const sel = new Set();
@@ -1863,7 +1901,7 @@
     const kind = String(p.kind || 'cube'), d = p.dims || {}, unit = d.unit || 'cm';
     const showD = p.showDims != null ? !!p.showDims : p.dims != null;
     const W = 400, H = 300;
-    const g = svgIn(root, W, H, { aria: 'Hình khối' });
+    const g = svgIn(root, W, H, { aria: LL('Hình khối', '3D shape') });
     const col = p.color && K[p.color] ? K[p.color] : (kind === 'cylinder' ? K.orange : kind === 'sphere' ? K.berry : K.sky);
     const ec = isBoard() ? col : edge(col);
     const ag = A(g, 'viz-pop', 100);
@@ -1926,7 +1964,7 @@
     const w = int(p.w, 5, 1, 24), h = int(p.h, 3, 1, 16), unit = String(p.unit || 'cm');
     const c = Math.min(46, 520 / w, 230 / h);
     const W = w * c + 150, H = h * c + 96;
-    const g = svgIn(root, W, H, { aria: 'Ô vuông' });
+    const g = svgIn(root, W, H, { aria: LL('Ô vuông', 'Squares grid') });
     const x0 = 70, y0 = 40;
     const fillOn = p.fill !== false;
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
@@ -1962,7 +2000,7 @@
       };
       setXY(dot, x0, y0);
       whenLive(root, () => later(600, () => tween(2400, t => { const q = at(ease(t)); setXY(dot, q[0], q[1]); })));
-      T(g, x0 + w * c / 2, y0 + h * c + 26, `Chu vi: đi một vòng quanh hình`, { size: 15, fill: K.sub });
+      T(g, x0 + w * c / 2, y0 + h * c + 26, LL('Chu vi: đi một vòng quanh hình', 'Perimeter: once round the shape'), { size: 15, fill: K.sub });
     }
   };
 
@@ -1972,7 +2010,7 @@
   R.angle = (p, ctx, root) => {
     const deg = clamp(num(p.deg, 60), 0, 360);
     const W = 400, H = deg > 180 ? 360 : 250;
-    const g = svgIn(root, W, H, { aria: 'Góc' });
+    const g = svgIn(root, W, H, { aria: LL('Góc', 'Angle') });
     const wide = deg > 90 || p.protractor;
     const ox = wide ? 200 : 110, oy = deg > 180 ? 180 : 218, L = wide ? 168 : 200;
     const Lr = L;
@@ -2019,7 +2057,7 @@
     const kind = ['parallel', 'perpendicular', 'intersect'].includes(p.kind) ? p.kind : 'parallel';
     const labs = arr(p.labels).length ? p.labels.map(String) : null;
     const W = 440, H = 260;
-    const g = svgIn(root, W, H, { aria: 'Đường thẳng' });
+    const g = svgIn(root, W, H, { aria: LL('Đường thẳng', 'Lines') });
     const L1 = K.teal, L2 = K.orange;
     const seg = (x1, y1, x2, y2, c, dl) => { const pp = path(g, `M${x1},${y1} L${x2},${y2}`, 'none', c, 3.5, { pl: 1, cls: 'viz-draw' }); pp.style.animationDelay = dl + 'ms'; return pp; };
     const lg = A(g, 'viz-fade', 1300);
@@ -2055,7 +2093,7 @@
     const s = Math.min(46, 420 / ((l + w) * cos), 270 / ((l + w) * sin + h));
     const ex = [s * cos, s * sin], ey = [-s * cos, s * sin], ez = [0, -s];
     const W = (l + w) * s * cos + 80, H = (l + w) * s * sin + h * s + 60;
-    const g = svgIn(root, Math.max(W, 260), H, { aria: 'Hình lập phương nhỏ' });
+    const g = svgIn(root, Math.max(W, 260), H, { aria: LL('Hình lập phương nhỏ', 'Unit cubes') });
     const ox = (Math.max(W, 260) - (l + w) * s * cos) / 2 + w * s * cos, oy = 30 + h * s;
     const P = (i, j, k) => [ox + i * ex[0] + j * ey[0], oy + i * ex[1] + j * ey[1] + k * ez[1]];
     const list = [];
@@ -2131,7 +2169,7 @@
     const L = side(p.left), Rr = side(p.right);
     let sign = p.sign && ['<', '>', '='].includes(p.sign) ? p.sign : null;
     if (!sign && isFinite(L.val) && isFinite(Rr.val)) sign = L.val < Rr.val ? '<' : L.val > Rr.val ? '>' : '=';
-    const W = 640, H = 200, g = svgIn(root, W, H, { aria: 'So sánh' });
+    const W = 640, H = 200, g = svgIn(root, W, H, { aria: LL('So sánh', 'Comparing') });
     const drawSide = (s, cx, delay) => {
       const ag = A(g, 'viz-pop', delay);
       if (s.kind === 'pile') {
@@ -2181,7 +2219,7 @@
     const hasBot = (n > 1 && bars[n - 1].value != null) || bars[n - 1].braces.some(b => b.side === 'below');
     const top = hasTop ? 56 : 14;
     const H = top + n * bh + (n - 1) * gap + (hasBot ? 56 : 16);
-    const g = svgIn(root, W, H, { aria: 'Sơ đồ đoạn thẳng' });
+    const g = svgIn(root, W, H, { aria: LL('Sơ đồ đoạn thẳng', 'Bar model') });
     const by = i => top + i * (bh + gap);
     const lc = isBoard() ? K.sun : K.ink;
     const tickC = K.ink;
@@ -2241,7 +2279,7 @@
     const labels = arr(p.labels).map(String), values = arr(p.values).map(v => Math.max(0, num(v, 0)));
     const n = Math.max(1, Math.min(12, values.length));
     const W = 640, title = p.title ? 36 : 6, H = 300 + title;
-    const g = svgIn(root, W, H, { aria: 'Biểu đồ cột' });
+    const g = svgIn(root, W, H, { aria: LL('Biểu đồ cột', 'Bar chart') });
     if (p.title) T(g, W / 2, 20, String(p.title), { size: 22, fill: K.ink });
     const x0 = 70, x1 = W - 20, y0 = title + 26, y1 = H - 46;
     const mx = Math.max(1, ...values);
@@ -2280,7 +2318,7 @@
     const isz = Math.min(42, (660 - labW) / maxI);
     const rh = Math.max(46, isz + 8), legend = each !== 1 || p.unit ? 40 : 6;
     const W = labW + maxI * isz + 30, H = rows.length * rh + legend + 10;
-    const g = svgIn(root, Math.max(W, 360), H, { aria: 'Biểu đồ tranh' });
+    const g = svgIn(root, Math.max(W, 360), H, { aria: LL('Biểu đồ tranh', 'Pictogram') });
     rows.forEach((r, i) => {
       const y = 6 + i * rh;
       rect(g, 4, y + 2, Math.max(W, 360) - 8, rh - 4, 12, i % 2 ? 'none' : K.cream);
@@ -2312,7 +2350,7 @@
     const labels = arr(p.labels).map(String), per = arr(p.percents).map(v => Math.max(0, num(v, 0)));
     const n = Math.min(8, per.length);
     const W = 620, H = 300, cx = 150, cy = 150, r = 128;
-    const g = svgIn(root, W, H, { aria: 'Biểu đồ hình quạt' });
+    const g = svgIn(root, W, H, { aria: LL('Biểu đồ hình quạt', 'Pie chart') });
     if (!isBoard()) circle(g, cx, cy + 5, r, K.shadow);
     const tot = per.slice(0, n).reduce((s, v) => s + v, 0) || 1;
     const secs = [];
@@ -2377,7 +2415,7 @@
     const rng = seeded(balls.length * 31 + items.length * 7 + 3);
     for (let i = balls.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [balls[i], balls[j]] = [balls[j], balls[i]]; }
     const W = 420, H = 300;
-    const g = svgIn(root, W, H, { aria: 'Hộp bóng' });
+    const g = svgIn(root, W, H, { aria: LL('Hộp bóng', 'Box of balls') });
     const bx = 70, bw = 280, byTop = 70, byBot = 280;
     if (!isBoard()) rect(g, bx + 4, byTop + 6, bw, byBot - byTop, 22, K.shadow);
     rect(g, bx, byTop, bw, byBot - byTop, 22, isBoard() ? 'rgba(244,247,242,.05)' : '#F2FAFD', isBoard() ? K.ink : '#9FC7D6', 3.5);
@@ -2406,7 +2444,7 @@
     const labels = arr(p.labels).map(String);
     const blockMode = vals.every(v => Number.isInteger(v) && v <= 15);
     const W = Math.max(380, n * 90 + 80), H = 320;
-    const g = svgIn(root, W, H, { aria: 'Trung bình cộng' });
+    const g = svgIn(root, W, H, { aria: LL('Trung bình cộng', 'Average') });
     const base = H - 44, x0 = (W - n * 90) / 2 + 45;
     line(g, x0 - 50, base, x0 + (n - 1) * 90 + 50, base, K.ink, 3);
     labels.forEach((l, i) => i < n && T(g, x0 + i * 90, base + 22, l, { size: 16, fill: K.sub }));
@@ -2430,7 +2468,7 @@
       });
       const my = base - mean * bs;
       line(meanLine, x0 - 50, my, x0 + (n - 1) * 90 + 50, my, K.orange, 2.5, { dash: '8 6' });
-      if (p.showMean) T(meanLine, x0 + (n - 1) * 90 + 52, my - 14, `TB: ${fmt(r6(mean))}`, { size: 16, anchor: 'end', fill: K.orange });
+      if (p.showMean) T(meanLine, x0 + (n - 1) * 90 + 52, my - 14, LL(`TB: ${fmt(r6(mean))}`, `Average: ${fmt(r6(mean))}`), { size: 16, anchor: 'end', fill: K.orange });
       // moves: tallest → shortest until levelled (diff ≤ 1)
       const h = vals.slice(), moves = [];
       for (let guard = 0; guard < 80; guard++) {
@@ -2468,7 +2506,7 @@
       });
       const my = base - mean * sc;
       line(meanLine, x0 - 50, my, x0 + (n - 1) * 90 + 50, my, K.orange, 2.5, { dash: '8 6' });
-      if (p.showMean) T(meanLine, x0 + (n - 1) * 90 + 52, my - 14, `TB: ${fmt(r6(mean))}`, { size: 16, anchor: 'end', fill: K.orange });
+      if (p.showMean) T(meanLine, x0 + (n - 1) * 90 + 52, my - 14, LL(`TB: ${fmt(r6(mean))}`, `Average: ${fmt(r6(mean))}`), { size: 16, anchor: 'end', fill: K.orange });
       const set = e => bars.forEach(b => { const v = b.v + (mean - b.v) * e; b.r.setAttribute('y', base - v * sc); b.r.setAttribute('height', v * sc); b.t.setAttribute('y', base - v * sc - 14); b.t.setAttribute('opacity', 1 - e); });
       if (!doLevel) meanLine.setAttribute('opacity', p.showMean ? 1 : 0);
       else if (reduced()) { set(1); meanLine.setAttribute('opacity', 1); }
@@ -2494,7 +2532,7 @@
     const ng = inter ? 1 : Math.max(1, Math.ceil(total / 100));
     const cs = 29, gw = 10 * cs;
     const W = ng * gw + (ng - 1) * 24 + 24, H = gw + (p.showLabel ? 50 : 20);
-    const g = svgIn(root, Math.max(W, 320), H, { aria: 'Lưới 100 ô' });
+    const g = svgIn(root, Math.max(W, 320), H, { aria: LL('Lưới 100 ô', 'Hundred square') });
     const x0 = (Math.max(W, 320) - (ng * gw + (ng - 1) * 24)) / 2;
     const col = p.color && K[p.color] ? K[p.color] : K.sky;
     const cells = [];
@@ -2540,7 +2578,7 @@
   R.percent = (p, ctx, root) => {
     const pc = int(p.percent, 0, 0, 100);
     const cs = 29, gw = 10 * cs, W = gw + 40, H = gw + (p.showLabel ? 50 : 20);
-    const g = svgIn(root, Math.max(W, 320), H, { aria: 'Phần trăm' });
+    const g = svgIn(root, Math.max(W, 320), H, { aria: LL('Phần trăm', 'Percentage') });
     const ag = A(g, 'viz-pop', 100);
     hundredGrid(ag, (Math.max(W, 320) - gw) / 2, 10, cs, pc, p.color && K[p.color] ? K[p.color] : K.orange);
     if (p.showLabel) T(g, Math.max(W, 320) / 2, gw + 34, `${pc}%`, { size: 24, fill: K.ink });
@@ -2550,14 +2588,16 @@
    * motion — road with a moving vehicle
    * ===================================================================== */
   R.motion = (p, ctx, root) => {
-    const unit = isStr(p.unit) && p.unit.includes('/') ? p.unit : 'km/giờ';
+    const unit0 = isStr(p.unit) && p.unit.includes('/') ? p.unit : 'km/giờ';
+    // English: Vietnamese time words in the unit become symbols (km/giờ → km/h, m/phút → m/min, m/giây → m/s)
+    const unit = isEN() ? unit0.replace(/giờ/g, 'h').replace(/phút/g, 'min').replace(/giây/g, 's') : unit0;
     const [du, tu] = unit.split('/');
     const veh = ['car', 'bike', 'boat', 'walk'].includes(p.vehicle) ? p.vehicle : 'car';
     const emo = { car: '🚗', bike: '🚲', boat: '⛵', walk: '🚶' }[veh];
     const flip = veh === 'car' || veh === 'walk';
     const time = num(p.time, NaN);
     const W = 600, H = 250, ax = 46, bxp = 554, ry = 150;
-    const g = svgIn(root, W, H, { aria: 'Chuyển động' });
+    const g = svgIn(root, W, H, { aria: LL('Chuyển động', 'Motion') });
     if (veh === 'boat') {
       rect(g, 20, ry - 4, W - 40, 44, 22, isBoard() ? 'rgba(159,216,255,.15)' : '#BFE3FF', isBoard() ? K.sky : 'none', 2);
       for (let x = 50; x < W - 40; x += 60) path(g, `M${x},${ry + 18} q 10,-7 20,0 t 20,0`, 'none', isBoard() ? K.sky : '#FFFFFF', 2, { opacity: 0.8 });
@@ -2607,7 +2647,7 @@
   R.mapScale = (p, ctx, root) => {
     const sc = int(p.scale, 1000, 1, 1e9), cm = clamp(num(p.mapCm, 5), 0.5, 20);
     const W = 640, H = 250;
-    const g = svgIn(root, W, H, { aria: 'Bản đồ tỉ lệ' });
+    const g = svgIn(root, W, H, { aria: LL('Bản đồ tỉ lệ', 'Scale map') });
     rect(g, 10, 10, W - 20, H - 20, 20, isBoard() ? 'rgba(244,247,242,.04)' : '#FBF4E2', isBoard() ? K.ink : '#E8D9B0', 2.5);
     mk('ellipse', { cx: 520, cy: 62, rx: 80, ry: 30, fill: isBoard() ? 'rgba(184,240,168,.15)' : '#CDEBC0' }, g);
     mk('ellipse', { cx: 520, cy: 190, rx: 90, ry: 30, fill: isBoard() ? 'rgba(184,240,168,.15)' : '#CDEBC0' }, g);
@@ -2620,10 +2660,10 @@
     for (let i = 0; i <= Math.floor(cm + 1e-9); i++) line(ag, x1 + i * ppc, y - 7, x1 + i * ppc, y + 7, K.ink, 2);
     line(ag, x2, y - 9, x2, y + 9, K.ink, 2.5);
     T(ag, (x1 + x2) / 2, y + 26, `${fmt(cm)} cm`, { size: 22, fill: isBoard() ? K.sun : K.ink });
-    const txt = `Tỉ lệ 1 : ${fmt(sc)}`, w = tw(txt, 21) + 28;
+    const txt = LL(`Tỉ lệ 1 : ${fmt(sc)}`, `Scale 1 : ${fmt(sc)}`), w = tw(txt, 21) + 28;
     rect(g, W - 24 - w, H - 64, w, 40, 12, isBoard() ? 'none' : '#FFFFFF', K.ink, 2);
     T(g, W - 24 - w / 2, H - 44, txt, { size: 21, fill: K.ink });
-    if (p.real != null) T(g, 30, H - 44, `Thực tế: ${label(p.real)}`, { size: 21, anchor: 'start', fill: K.ink });
+    if (p.real != null) T(g, 30, H - 44, LL(`Thực tế: ${label(p.real)}`, `In real life: ${label(p.real)}`), { size: 21, anchor: 'start', fill: K.ink });
   };
 
   /* =====================================================================
@@ -2642,7 +2682,7 @@
     const widths = rs.split('').map(c => SW[c] || 60);
     const totW = widths.reduce((s, w) => s + w, 0) + 14 * (rs.length - 1);
     const W = Math.max(260, totW + 60), H = Hs + 40 + (p.showValue || p.showText ? 40 : 0);
-    const g = svgIn(root, W, H, { aria: 'Số La Mã' });
+    const g = svgIn(root, W, H, { aria: LL('Số La Mã', 'Roman numerals') });
     const stickC = isBoard() ? K.orange : K.orange, headC = isBoard() ? K.sun : K.berry;
     let x = (W - totW) / 2, k = 0;
     const stick = (gp, x1, y1, x2, y2) => {
@@ -2677,7 +2717,7 @@
     const board = ctx.theme === 'board';
     try { injectCss(); } catch (e) { /* no document head */ }
     const fn = Object.prototype.hasOwnProperty.call(R, type) ? R[type] : null;
-    if (!fn) return placeholder('Hình minh hoạ', board);
+    if (!fn) return placeholder(LL('Hình minh hoạ', 'Picture'), board);
     const prevK = K;
     K = board && type !== 'mascot' ? BOARD : LIGHT;
     try {
@@ -2688,7 +2728,7 @@
       return root;
     } catch (e) {
       if (window.console) console.warn('[V] render failed:', type, params, e);
-      return placeholder('Hình minh hoạ', board);
+      return placeholder(LL('Hình minh hoạ', 'Picture'), board);
     } finally {
       K = prevK;
     }

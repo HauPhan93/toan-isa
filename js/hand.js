@@ -379,17 +379,17 @@
     const root = el('div', 'hand');
     const area = el('div', 'hand-area');
     const canvas = document.createElement('canvas');
-    const hintTx = el('div', 'hand-hint', 'Viết cả số vào đây ✏️');
+    const hintTx = el('div', 'hand-hint', U.L('Viết cả số vào đây ✏️', 'Write the whole number here ✏️'));
     area.append(canvas, hintTx);
     const bar = el('div', 'hand-bar');
     const guess = el('div', 'hand-guess');
     const tools = el('div', 'hand-tools');
-    const back = el('button', 'key fn', '⌫'); back.type = 'button'; back.setAttribute('aria-label', 'Xóa nét vừa viết');
+    const back = el('button', 'key fn', '⌫'); back.type = 'button'; back.setAttribute('aria-label', U.L('Xóa nét vừa viết', 'Undo the last stroke'));
     back.onclick = () => { if (!strokes.length) return; strokes.pop(); redraw(); update(); };
-    const wipe = el('button', 'key fn', '🧹'); wipe.type = 'button'; wipe.setAttribute('aria-label', 'Xóa hết để viết lại');
+    const wipe = el('button', 'key fn', '🧹'); wipe.type = 'button'; wipe.setAttribute('aria-label', U.L('Xóa hết để viết lại', 'Clear and write again'));
     wipe.onclick = () => { root.clear(); emit(''); };
     if (opts.comma) {
-      const cm = el('button', 'key fn', ','); cm.type = 'button'; cm.setAttribute('aria-label', 'Dấu phẩy');
+      const cm = el('button', 'key fn', ','); cm.type = 'button'; cm.setAttribute('aria-label', U.L('Dấu phẩy', 'Decimal comma'));
       cm.onclick = () => { if (strokes.length) { commaAt = readNumber(strokes).parts.filter(p => !p.comma).length; update(); } };
       tools.append(cm);
     }
@@ -465,27 +465,27 @@
     function showGuess() {
       guess.innerHTML = '';
       if (!lastParts.length) { guess.classList.remove('show'); return; }
-      guess.append(el('span', 'hg-lbl', 'Bé viết:'));
+      guess.append(el('span', 'hg-lbl', U.L('Bé viết:', 'You wrote:')));
       lastParts.forEach(p => {
         if (p.comma) { guess.append(el('b', 'hg-comma', ',')); return; }
         const b = el('button', 'hg-dig', p.d); b.type = 'button';
-        b.setAttribute('aria-label', 'Sửa chữ số ' + p.d);
+        b.setAttribute('aria-label', U.L('Sửa chữ số ', 'Change the digit ') + p.d);
         b.onclick = () => showAlts(p);
         guess.append(b);
       });
-      guess.append(el('span', 'hg-lbl hg-tip', 'Sai số nào thì chạm vào số đó.'));
+      guess.append(el('span', 'hg-lbl hg-tip', U.L('Sai số nào thì chạm vào số đó.', 'Tap a digit to change it.')));
       guess.classList.add('show');
     }
     function showAlts(p) {
       guess.innerHTML = '';
-      guess.append(el('span', 'hg-lbl', 'Bé viết số'), el('b', 'hg-d', p.d), el('span', 'hg-lbl', 'hay là:'));
+      guess.append(el('span', 'hg-lbl', U.L('Bé viết số', 'You wrote')), el('b', 'hg-d', p.d), el('span', 'hg-lbl', U.L('hay là:', 'or is it:')));
       const opts2 = p.alts.concat(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']).filter((x, k, a) => x !== p.d && a.indexOf(x) === k).slice(0, 5);
       for (const a of opts2) {
         const b = el('button', 'hg-alt', a); b.type = 'button';
         b.onclick = () => { learn(p.strokes, a); fixes.set(p.strokes[0], a); update(); };
         guess.append(b);
       }
-      const no = el('button', 'hg-alt hg-ok', '✓'); no.type = 'button'; no.setAttribute('aria-label', 'Đúng rồi'); no.onclick = () => showGuess();
+      const no = el('button', 'hg-alt hg-ok', '✓'); no.type = 'button'; no.setAttribute('aria-label', U.L('Đúng rồi', 'That is right')); no.onclick = () => showGuess();
       guess.append(no);
       guess.classList.add('show');
     }

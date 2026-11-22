@@ -5,14 +5,17 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v50';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v51';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  // English mode (Góc phụ huynh → Ngôn ngữ): tx('Vietnamese', 'English'). The parent corner itself stays Vietnamese.
+  const EN = U.EN, tx = U.L;
+  const G = n => tx('Lớp ' + n, 'Grade ' + n), HK = k => tx('Học kì ' + k, 'Term ' + k);
 
   const GRADE_INFO = {
-    1: { color: '#F0A500', icon: '🐣', desc: 'Số đến 100 · Cộng, trừ trong phạm vi 10 · Hình, giờ, lịch' },
-    2: { color: '#3FB54A', icon: '🌱', desc: 'Số đến 1000 · Phép nhân, phép chia đầu tiên · Đồng hồ, tiền' },
-    3: { color: '#3A8EF0', icon: '🚀', desc: 'Số đến 100 000 · Bảng nhân chia · Chu vi, diện tích' },
-    4: { color: '#8A63F0', icon: '🦄', desc: 'Số lớp triệu · Phân số · Góc, đường thẳng' },
-    5: { color: '#F2547D', icon: '🌏', desc: 'Số thập phân · Tỉ số phần trăm · Hình khối, vận tốc' },
+    1: { color: '#F0A500', icon: '🐣', desc: tx('Số đến 100 · Cộng, trừ trong phạm vi 10 · Hình, giờ, lịch', 'Numbers to 100 · Adding and taking away within 10 · Shapes, time, calendar') },
+    2: { color: '#3FB54A', icon: '🌱', desc: tx('Số đến 1000 · Phép nhân, phép chia đầu tiên · Đồng hồ, tiền', 'Numbers to 1000 · First multiplication and division · Clocks, money') },
+    3: { color: '#3A8EF0', icon: '🚀', desc: tx('Số đến 100 000 · Bảng nhân chia · Chu vi, diện tích', 'Numbers to 100 000 · Times tables · Perimeter, area') },
+    4: { color: '#8A63F0', icon: '🦄', desc: tx('Số lớp triệu · Phân số · Góc, đường thẳng', 'Numbers to millions · Fractions · Angles, lines') },
+    5: { color: '#F2547D', icon: '🌏', desc: tx('Số thập phân · Tỉ số phần trăm · Hình khối, vận tốc', 'Decimals · Percentages · Solids, speed') },
   };
 
   // The blank in a prompt: "??", "…", "...", "__", or a lone "?" right after "=". The last form needs a regex
@@ -175,8 +178,8 @@
           : { left: cr.right - 16 - w, right: cr.right - 16, top, bottom: top + hgt };
         return texts.some(t => box.left < t.right + 2 && box.right > t.left - 2 && box.top < t.bottom && box.bottom > t.top);
       };
-      if (hits()) say.textContent = card.dataset.peekShort || 'Nè!';
-      if (hits()) say.textContent = 'Nè!';
+      if (hits()) say.textContent = card.dataset.peekShort || tx('Nè!', 'Hi!');
+      if (hits()) say.textContent = tx('Nè!', 'Hi!');
       if (hits()) say.style.display = 'none';
     }
     function up(card) {
@@ -188,7 +191,7 @@
       if (pk) pk.remove();
       pk = h('div', { class: 'peek', 'aria-hidden': 'true' },
         h('div', { class: 'peek-bot' }, mascot('happy')),
-        h('div', { class: 'peek-say' }, card.dataset.peek || 'Chọn mình nhé!'));
+        h('div', { class: 'peek-say' }, card.dataset.peek || tx('Chọn mình nhé!', 'Pick me!')));
       card.append(pk);
       place(card, pk);
       const icon = iconOf(card);
@@ -275,7 +278,7 @@
     const eyes = mood === 'oops'
       ? '<path d="M78 66 l10 6 M88 66 l-10 6 M112 66 l10 6 M122 66 l-10 6" stroke="#5CE4D3" stroke-width="4" stroke-linecap="round"/>'
       : '<circle cx="83" cy="69" r="7" fill="#5CE4D3"/><circle cx="117" cy="69" r="7" fill="#5CE4D3"/><circle cx="85" cy="67" r="2.2" fill="#fff"/><circle cx="119" cy="67" r="2.2" fill="#fff"/>';
-    return `<svg viewBox="0 0 200 200" width="100%" role="img" aria-label="Rô-bốt ISA">
+    return `<svg viewBox="0 0 200 200" width="100%" role="img" aria-label="${tx('Rô-bốt ISA', 'ISA the robot')}">
       <line x1="100" y1="30" x2="100" y2="12" stroke="#8DA2AE" stroke-width="4"/><circle cx="100" cy="10" r="7" fill="#F47A2A"/>
       ${arms}
       <rect x="40" y="96" width="120" height="66" rx="24" fill="#F47A2A"/>
@@ -351,19 +354,55 @@
   // Only the natural online voices (Edge: HoaiMy, NamMinh) stay clear when ISA raises the pitch for "Dễ thương".
   // Phone, iPad and old Windows voices garble the first word ("Bé ơi" → "mớ ơi"), so they speak at their natural pitch.
   const voiceId = v => v.voiceURI || v.name;   // two voices can share a name ("Linh"), never a voiceURI
-  const isPlainVoice = v => !!v && voiceRank(v) > 1;
-  const viVoices = () => speechSynthesis.getVoices().filter(v => /^vi/i.test(v.lang)).sort((a, b) => voiceRank(a) - voiceRank(b));
+  const isPlainVoice = v => !!v && !EN && voiceRank(v) > 1;
+  // English mode: the device's English voices, clearest first (natural online voices, then the good built-in
+  // ones — UK first, the SGK-style British English of the lessons); joke voices (Zarvox, Bubbles…) last.
+  const EN_JOKE = /Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Junior|Ralph|Fred|Kathy|Grandma|Grandpa|Eddy|Flo|Reed|Rocko|Sandy|Shelley/i;
+  const enRank = v => {
+    // ISA has a girl's voice in Vietnamese (HoaiMy, Linh): a female English voice comes first among equals
+    const n = v.name || '', s = n + ' ' + (v.voiceURI || '');
+    const uk = (/en[-_]GB/i.test(v.lang) ? 0 : 0.5) - (/Zira|Hazel|Susan|Libby|Sonia|Maisie|Aria|Jenny|Ava|Samantha|Kate|Serena|Stephanie|Martha|Karen|Moira|Tessa|Female/i.test(n) ? 0.25 : 0);
+    if (EN_JOKE.test(n)) return 20;
+    if (/Natural|Online|Neural/i.test(n)) return 0 + uk;
+    if (/Premium|Enhanced/i.test(s)) return 1 + uk;
+    if (/Google/i.test(n)) return 2 + uk;
+    if (/Daniel|Kate|Serena|Stephanie|Arthur|Martha|Samantha|Karen|Moira|Tessa|Ava|Allison|Susan|Siri/i.test(n)) return 3 + uk;
+    return 6 + uk;
+  };
+  const viVoices = () => speechSynthesis.getVoices().filter(v => (EN ? /^en/i : /^vi/i).test(v.lang)).sort((a, b) => (EN ? enRank(a) - enRank(b) : voiceRank(a) - voiceRank(b)));
   function pickVoice() {
     if (!('speechSynthesis' in window)) return;
     const vs = viVoices();
-    viVoice = vs.find(v => voiceId(v) === S.settings.voiceName) || vs.find(v => v.name === S.settings.voiceName) || vs[0] || null;
+    const want = EN ? S.settings.voiceNameEN : S.settings.voiceName;   // one pick per language
+    viVoice = vs.find(v => voiceId(v) === want) || vs.find(v => v.name === want) || vs[0] || null;
     // Without a Vietnamese voice the device would read Vietnamese text with a foreign accent:
     // stay silent and hide the read-aloud buttons instead.
     document.body.classList.toggle('no-voice', !viVoice);
   }
   if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
   else document.body.classList.add('no-voice');
+  // English mode: the same maths read in English words
+  function speakableEN(t) {
+    return String(t)
+      .replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}️‍⃣✓✗]/gu, ' ')
+      .replace(/(\d)\s*\/\s*(\d)/g, '$1 over $2')
+      .replace(/(\d)[\s\u202F](?=\d{3}\b)/g, '$1')
+      .replace(/(\d),(\d)/g, '$1 point $2')
+      .replace(/×/g, ' times ').replace(/(\d)\s*:\s*(\d)/g, '$1 divided by $2').replace(/\s:\s/g, ' divided by ')
+      .replace(/=\s*\?+/g, ' equals what')
+      .replace(/(\d)\s*\?\?\s*(?=\d)/g, '$1, compared with ')
+      .replace(/[−-](?=\s*[\d?])/g, ' minus ').replace(/\+/g, ' plus ').replace(/=/g, ' equals ')
+      .replace(/((?:plus|minus|times|divided by|equals)\s*)\?(?!\?)/g, '$1 what ').replace(/(^|\s)\?(?=\s*(?:plus|minus|times|divided|equals))/g, '$1what')
+      .replace(/</g, ' is less than ').replace(/>/g, ' is greater than ')
+      .replace(/\?\?|…|\.\.\./g, ' blank ')
+      .replace(/km²/g, ' square kilometres').replace(/dm²/g, ' square decimetres').replace(/cm²/g, ' square centimetres').replace(/mm²/g, ' square millimetres').replace(/m²/g, ' square metres')
+      .replace(/dm³/g, ' cubic decimetres').replace(/cm³/g, ' cubic centimetres').replace(/m³/g, ' cubic metres')
+      .replace(/\bkm\b/g, ' kilometres').replace(/\bdm\b/g, ' decimetres').replace(/\bcm\b/g, ' centimetres').replace(/\bmm\b/g, ' millimetres')
+      .replace(/\bkg\b/g, ' kilograms').replace(/\bml\b/g, ' millilitres').replace(/°C/g, ' degrees Celsius').replace(/%/g, ' percent')
+      .replace(/\n/g, '. ');
+  }
   function speakable(t) {
+    if (EN) return speakableEN(t);
     return String(t)
       // icons are for the eyes only: never read them aloud (user request)
       .replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}️‍⃣✓✗]/gu, ' ')
@@ -399,7 +438,7 @@
   const KID_REST = /(^|[^\p{L}])([Bb]é)(?![\p{L}])/gu;
   function kidSpeech(t, word) {
     const w = word || kidWord();
-    if (w === 'bé') return t;
+    if (w === 'bé' || EN) return t;
     const put = to => (m, a, b) => a + (b[0] === 'B' ? to[0].toUpperCase() + to.slice(1) : to);
     return t.replace(KID_SMALL, put('nhỏ')).replace(KID_CALL, put(w)).replace(KID_CALL2, put(w)).replace(KID_REST, put('nhỏ'));
   }
@@ -466,7 +505,7 @@
     // NFC: precomposed Vietnamese letters (é = U+00E9, not e + U+0301), which every voice reads correctly
     // no leading comma: on iPhone/iPad it made "Bé" come out as "mớ" (user test, way 3)
     const u = new SpeechSynthesisUtterance(kidSpeech(speakable(text)).trim().normalize('NFC'));
-    u.lang = 'vi-VN'; if (viVoice) u.voice = viVoice;
+    u.lang = viVoice ? viVoice.lang : EN ? 'en-GB' : 'vi-VN'; if (viVoice) u.voice = viVoice;
     const st = VOICE_STYLES[S.settings.voiceStyle] || VOICE_STYLES.cute;
     // Phone, iPad and old Windows voices garble the first word ("Bé" → "mớ") when slowed down or raised:
     // they speak at their natural pitch and speed. Edge's natural voices keep the "Dễ thương" style.
@@ -536,7 +575,7 @@
     if (queuedLine) { speak(queuedLine); queuedLine = null; return; }
     if (!('speechSynthesis' in window) || speechSynthesis.speaking) return;
     const u = new SpeechSynthesisUtterance(' ');
-    u.volume = 0; u.lang = 'vi-VN';
+    u.volume = 0; u.lang = EN ? 'en-GB' : 'vi-VN';
     speechSynthesis.speak(u);
   }
   if (!speechUnlocked) {
@@ -571,20 +610,20 @@
       ...(right || []));
   }
   const coinPill = () => h('div', { class: 'pill' }, h('span', { class: 'e' }, '⭐'), String(S.coins));
-  const homeBtn = () => h('button', { class: 'icon-btn', 'aria-label': 'Trang chủ', onclick: () => { sfx.tap(); showHome(); } }, '🏠');
-  const backBtn = fn => h('button', { class: 'icon-btn', 'aria-label': 'Quay lại', onclick: () => { sfx.tap(); stopSpeech(true); fn(); } }, '←');
+  const homeBtn = () => h('button', { class: 'icon-btn', 'aria-label': tx('Trang chủ', 'Home'), onclick: () => { sfx.tap(); showHome(); } }, '🏠');
+  const backBtn = fn => h('button', { class: 'icon-btn', 'aria-label': tx('Quay lại', 'Back'), onclick: () => { sfx.tap(); stopSpeech(true); fn(); } }, '←');
   const parentBtn = () => h('button', { class: 'icon-btn', 'aria-label': 'Góc phụ huynh', onclick: () => { sfx.tap(); parentGate(); } }, '⚙️');
 
   /* ---------- home ---------- */
   function showHome() {
     stopSpeech();
     if (!S.name && !S.askedName) return askName();
-    const hi = `Chào ${S.name || 'bé'}!`;   // only the home greeting uses the child's name (user request)
+    const hi = tx(`Chào ${S.name || 'bé'}!`, `Hi ${S.name || 'there'}!`);   // only the home greeting uses the child's name (user request)
     const d = daily();
     const pct = Math.min(1, d.count / d.goal);
     const ring = `<svg class="ring" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="7"/>
       <circle cx="27" cy="27" r="22" fill="none" stroke="#FFC93C" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(138.2 * pct).toFixed(1)} 200" transform="rotate(-90 27 27)"/></svg>`;
-    const greet = d.count >= d.goal ? 'Hôm nay bé đã làm đủ mục tiêu rồi nhé!' : 'Hôm nay bé cố gắng học tốt nhé!';
+    const greet = d.count >= d.goal ? tx('Hôm nay bé đã làm đủ mục tiêu rồi nhé!', 'You have reached today\'s goal!') : tx('Hôm nay bé cố gắng học tốt nhé!', 'Let\'s do our best today!');
     const grades = h('div', { class: 'grades' });
     for (const n of [1, 2, 3, 4, 5]) {
       const g = gradeOf(n), info = GRADE_INFO[n];
@@ -595,36 +634,36 @@
         const ready = ss.total > 0;
         return h('button', { class: 'sem-btn' + (ready ? '' : ' soon'), onclick: () => {
             sfx.tap();
-            if (!ready) return toast(`Lớp ${n} – Học kì ${sem} đang được soạn…`);
-            peekThen(card, () => { S.grade = n; S.sem = sem; save(); showMap(n, sem); }, 'Đi thôi!');
+            if (!ready) return toast(tx(`Lớp ${n} – Học kì ${sem} đang được soạn…`, `Grade ${n} – Term ${sem} is coming soon…`));
+            peekThen(card, () => { S.grade = n; S.sem = sem; save(); showMap(n, sem); }, tx('Đi thôi!', 'Let\'s go!'));
           } },
-          h('div', { class: 'sem-name' }, 'Học kì ' + sem),
+          h('div', { class: 'sem-name' }, HK(sem)),
           h('div', { class: 'bar' }, h('i', { style: { width: (ss.total ? ss.done / ss.total * 100 : 0) + '%' } })),
-          h('div', { class: 'sem-stat' }, ready ? `${ss.done}/${ss.total} bài · ⭐ ${ss.stars}` : 'Sắp có'));
+          h('div', { class: 'sem-stat' }, ready ? `${ss.done}/${ss.total}${tx(' bài', '')} · ⭐ ${ss.stars}` : tx('Sắp có', 'Coming soon')));
       };
-      const card = h('div', { class: 'grade-card', 'data-peek': `Lớp ${n} nè!`, 'data-say': `Bé ơi, lớp ${n} nè!`, 'data-peek-short': `Lớp ${n}!`, style: { '--gc': info.color } },
+      const card = h('div', { class: 'grade-card', 'data-peek': tx(`Lớp ${n} nè!`, `Grade ${n}!`), 'data-say': tx(`Bé ơi, lớp ${n} nè!`, `Here is Grade ${n}!`), 'data-peek-short': tx(`Lớp ${n}!`, `Grade ${n}!`), style: { '--gc': info.color } },
         h('div', { class: 'island' }), h('div', { class: 'gicon' }, info.icon),
-        h('div', null, h('div', { class: 'gnum' }, n), h('div', { class: 'glabel' }, 'Lớp ' + n), h('div', { class: 'gdesc' }, info.desc)),
+        h('div', null, h('div', { class: 'gnum' }, n), h('div', { class: 'glabel' }, G(n)), h('div', { class: 'gdesc' }, info.desc)),
         h('div', { class: 'sem-row' }, semBtn(1), semBtn(2)));
       grades.append(card);
     }
     // 6th card: Ôn tập & Kiểm tra (bộ đề theo mẫu của Bộ GD&ĐT)
     const nExams = [1, 2, 3, 4, 5].reduce((s, n) => s + (gradeOf(n) ? termsFor(n).length : 0), 0);
     const doneExams = Object.keys(S.exams || {}).length;
-    grades.append(h('button', { class: 'grade-card review-card', 'data-peek': 'Ôn tập nè!', 'data-say': 'Bé ơi, ôn tập nè!', 'data-peek-short': 'Làm đề!', style: { '--gc': '#0E8C88' }, onclick: e => { sfx.tap(); peekThen(e.currentTarget, showExamHome, 'Giải bài nào bạn ơi!'); } },
+    grades.append(h('button', { class: 'grade-card review-card', 'data-peek': tx('Ôn tập nè!', 'Tests!'), 'data-say': tx('Bé ơi, ôn tập nè!', 'Time for a review!'), 'data-peek-short': tx('Làm đề!', 'Tests!'), style: { '--gc': '#0E8C88' }, onclick: e => { sfx.tap(); peekThen(e.currentTarget, showExamHome, tx('Giải bài nào bạn ơi!', 'Let\'s solve some problems!')); } },
       h('div', { class: 'island' }), h('div', { class: 'gicon' }, '📝'),
-      h('div', null, h('div', { class: 'gnum' }, '✓'), h('div', { class: 'glabel' }, 'Ôn tập'),
-        h('div', { class: 'gdesc' }, `Kiểm tra giữa kì, cuối kì · Đề theo mẫu Bộ GD&ĐT` + (doneExams ? ` · đã làm ${doneExams} đề` : ''))),
-      h('span', { class: 'btn small review-go' }, 'Vào làm đề ▶')));
+      h('div', null, h('div', { class: 'gnum' }, '✓'), h('div', { class: 'glabel' }, tx('Ôn tập', 'Review')),
+        h('div', { class: 'gdesc' }, tx(`Kiểm tra giữa kì, cuối kì · Đề theo mẫu Bộ GD&ĐT`, `Mid-term and end-of-term tests · Ministry of Education style`) + (doneExams ? tx(` · đã làm ${doneExams} đề`, ` · ${doneExams} done`) : ''))),
+      h('span', { class: 'btn small review-go' }, tx('Vào làm đề ▶', 'Start a test ▶'))));
     const m = h('div', { class: 'mascot-wrap' }, mascot('happy'));
     screen(
-      topbar('Toán ISA', 'Kết nối tri thức với cuộc sống', null, [coinPill(), parentBtn()]),
+      topbar(tx('Toán ISA', 'ISA Maths'), tx('Kết nối tri thức với cuộc sống', 'Connecting Knowledge with Life'), null, [coinPill(), parentBtn()]),
       h('div', { class: 'home' },
         h('div', { class: 'hero' },
           h('div', { class: 'speech' }, `${hi} ${greet}`),
           m,
           h('div', null, h('h1', null, hi), h('p', null, greet),
-            h('div', { class: 'daily', html: ring + `<div>Mục tiêu hôm nay<br><b>${Math.min(d.count, d.goal)}/${d.goal} câu</b></div>` }))),
+            h('div', { class: 'daily', html: ring + `<div>${tx('Mục tiêu hôm nay', 'Today\'s goal')}<br><b>${Math.min(d.count, d.goal)}/${d.goal} ${tx('câu', 'questions')}</b></div>` }))),
         grades));
     m.addEventListener('click', () => speak(`${hi} ${greet}`));
     Peek.bind(grades, '.grade-card');
@@ -632,21 +671,21 @@
 
 
   function askName() {
-    const input = h('input', { class: 'text-input', placeholder: 'Tên của bé', maxlength: 16, autocomplete: 'off' });
+    const input = h('input', { class: 'text-input', placeholder: tx('Tên của bé', 'Your name'), maxlength: 16, autocomplete: 'off' });
     const go = () => { const v = input.value.trim(); if (!v) { input.focus(); return; } S.name = v; S.askedName = true; save(); sfx.good(); showHome(); };
     const skip = () => { S.askedName = true; save(); showHome(); };
     input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
     screen(
-      topbar('Toán ISA', 'Kết nối tri thức với cuộc sống'),
+      topbar(tx('Toán ISA', 'ISA Maths'), tx('Kết nối tri thức với cuộc sống', 'Connecting Knowledge with Life')),
       h('div', { class: 'result' },
         h('div', { class: 'card result-card' },
           h('div', { class: 'mascot-wrap' }, mascot('cheer')),
-          h('h2', null, 'Xin chào! Mình là Rô-bốt ISA'),
-          h('p', null, 'Bé tên là gì nhỉ?'),
+          h('h2', null, tx('Xin chào! Mình là Rô-bốt ISA', 'Hello! I am ISA the robot')),
+          h('p', null, tx('Bé tên là gì nhỉ?', 'What is your name?')),
           input,
           h('div', { class: 'result-actions' },
-            h('button', { class: 'btn ghost', onclick: skip }, 'Bỏ qua'),
-            h('button', { class: 'btn', onclick: go }, 'Bắt đầu 🚀')))));
+            h('button', { class: 'btn ghost', onclick: skip }, tx('Bỏ qua', 'Skip')),
+            h('button', { class: 'btn', onclick: go }, tx('Bắt đầu 🚀', 'Start 🚀'))))));
     setTimeout(() => input.focus(), 300);
   }
 
@@ -661,7 +700,7 @@
     const next = all.find(l => !(S.stars[l.id] > 0));
     const st = gradeStats(g, sem);
     const sc = h('div', { class: 'scroll' });
-    if (!all.length) sc.append(h('section', { class: 'card topic' }, h('div', { class: 'topic-title' }, `Học kì ${sem} của lớp ${n} đang được soạn…`)));
+    if (!all.length) sc.append(h('section', { class: 'card topic' }, h('div', { class: 'topic-title' }, tx(`Học kì ${sem} của lớp ${n} đang được soạn…`, `Term ${sem} of Grade ${n} is coming soon…`))));
     for (const t of topicsOf(g, sem)) {
       const doneT = t.lessons.filter(l => S.stars[l.id] > 0).length;
       const grid = h('div', { class: 'lessons' });
@@ -672,12 +711,12 @@
       }
       sc.append(h('section', { class: 'card topic', style: { '--gc': info.color } },
         h('div', { class: 'topic-head' }, h('div', { class: 'topic-icon' }, t.icon || '📘'),
-          h('div', null, h('div', { class: 'topic-title' }, t.title), h('div', { class: 'topic-meta' }, `${doneT}/${t.lessons.length} bài đã học`))),
+          h('div', null, h('div', { class: 'topic-title' }, t.title), h('div', { class: 'topic-meta' }, tx(`${doneT}/${t.lessons.length} bài đã học`, `${doneT}/${t.lessons.length} lessons done`)))),
         grid));
     }
     const tabs = h('div', { class: 'sem-tabs', style: { '--gc': info.color } },
-      [1, 2].map(k => h('button', { class: 'sem-tab' + (k === sem ? ' on' : ''), onclick: () => { if (k !== sem) { sfx.tap(); showMap(n, k); } } }, 'Học kì ' + k)));
-    screen(topbar(`Lớp ${n} · Học kì ${sem} ${info.icon}`, `${st.done}/${st.total} bài · ⭐ ${st.stars}/${st.max}`, homeBtn(), [tabs, coinPill(), parentBtn()]), sc);
+      [1, 2].map(k => h('button', { class: 'sem-tab' + (k === sem ? ' on' : ''), onclick: () => { if (k !== sem) { sfx.tap(); showMap(n, k); } } }, HK(k))));
+    screen(topbar(`${G(n)} · ${HK(sem)} ${info.icon}`, `${st.done}/${st.total} ${tx('bài', 'lessons')} · ⭐ ${st.stars}/${st.max}`, homeBtn(), [tabs, coinPill(), parentBtn()]), sc);
     const el = sc.querySelector('.next');
     if (el) setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 150);
   }
@@ -693,26 +732,26 @@
     stopSpeech();
     const L = rec.lesson, n = rec.grade.grade, cards = L.learn;
     const c = cards[k];
-    const sayBtn = h('button', { class: 'say-btn', 'aria-label': 'Đọc to' }, '🔊');
+    const sayBtn = h('button', { class: 'say-btn', 'aria-label': tx('Đọc to', 'Read aloud') }, '🔊');
     sayBtn.onclick = () => speak(c.speak || c.text, sayBtn);
     const dots = h('div', { class: 'dots' }, cards.map((_, i) => h('i', { class: i === k ? 'on' : '' })));
     const last = k === cards.length - 1;
     // mode 'learn': explore cards show the worked picture (e.g. the crocodile in `compare`), not the question form
     const vEl = viz(c.visual, { size: 'lg', theme: 'paper', mode: 'learn' });
     screen(
-      topbar(L.title, `${L.book || ''} · Lớp ${n} · Khám phá ${k + 1}/${cards.length}`, backBtn(() => showMap(n, lessonSem(L.id))),
-        [h('button', { class: 'btn ghost small', onclick: () => { sfx.tap(); showPractice(rec); } }, 'Luyện tập ngay ▶')]),
+      topbar(L.title, `${L.book || ''} · ${G(n)} · ${tx('Khám phá', 'Explore')} ${k + 1}/${cards.length}`, backBtn(() => showMap(n, lessonSem(L.id))),
+        [h('button', { class: 'btn ghost small', onclick: () => { sfx.tap(); showPractice(rec); } }, tx('Luyện tập ngay ▶', 'Practise now ▶'))]),
       h('div', { class: 'player' },
         k === 0 && L.story ? h('div', { class: 'story' }, h('div', { class: 'mini-mascot' }, mascot('happy')), L.story) : null,
         h('div', { class: 'card learn-card' },
-          h('div', { class: 'qhead' }, h('div', { class: 'learn-tag' }, '💡 Khám phá'), h('div', { style: { flex: 1 } }), sayBtn),
+          h('div', { class: 'qhead' }, h('div', { class: 'learn-tag' }, tx('💡 Khám phá', '💡 Explore')), h('div', { style: { flex: 1 } }), sayBtn),
           h('div', { class: 'learn-text' + ((c.text || '').length > 90 ? ' long' : '') }, c.text || ''),
           h('div', { class: 'learn-viz' }, vEl),
           h('div', { class: 'learn-nav' },
-            h('button', { class: 'btn ghost small', disabled: k === 0, onclick: () => { sfx.tap(); showLearn(rec, k - 1); } }, '◀ Trước'),
+            h('button', { class: 'btn ghost small', disabled: k === 0, onclick: () => { sfx.tap(); showLearn(rec, k - 1); } }, tx('◀ Trước', '◀ Back')),
             dots,
-            last ? h('button', { class: 'btn', onclick: () => { sfx.tap(); showPractice(rec); } }, 'Luyện tập ✏️')
-              : h('button', { class: 'btn teal', onclick: () => { sfx.tap(); showLearn(rec, k + 1); } }, 'Tiếp ▶')))));
+            last ? h('button', { class: 'btn', onclick: () => { sfx.tap(); showPractice(rec); } }, tx('Luyện tập ✏️', 'Practise ✏️'))
+              : h('button', { class: 'btn teal', onclick: () => { sfx.tap(); showLearn(rec, k + 1); } }, tx('Tiếp ▶', 'Next ▶'))))));
     if (S.settings.autoRead) speak(c.speak || c.text, sayBtn);
   }
 
@@ -729,7 +768,7 @@
   // and "= 2/1" at the end of a working becomes "= 2" — except where the lesson asks for the form n/1.
   function tidyQuestion(q) {
     if (!q || !q.answer) return q;
-    const keep = /mẫu số (là )?1(?!\d)|đảo ngược/.test(q.prompt);
+    const keep = /mẫu số (là )?1(?!\d)|đảo ngược|denominator (of |is )?1(?!\d)|reciprocal|upside down/i.test(q.prompt);
     if (keep) return q;
     const A = q.answer;
     if (A.kind === 'fraction' && A.den === 1) {
@@ -750,7 +789,7 @@
         if (q && q.prompt && q.answer && (HAS_V || q.answer.kind !== 'visual')) return q;
       } catch (e) { console.error('generator failed', L.id, e); }
     }
-    return { prompt: 'Câu này đang được sửa, bé bấm "Câu tiếp" nhé!', answer: { kind: 'choice', options: ['Câu tiếp'], correct: 0 }, explain: '' };
+    return { prompt: tx('Câu này đang được sửa, bé bấm "Câu tiếp" nhé!', 'This question is being fixed. Press "Next".'), answer: { kind: 'choice', options: [tx('Câu tiếp', 'Next')], correct: 0 }, explain: '' };
   }
 
   function fmtTime(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
@@ -773,8 +812,8 @@
     // chalkboard
     const timeEl = h('div', { class: 'bc chalk' }, fmtTime(Date.now() - run.t0));
     run.timer = setInterval(() => { timeEl.textContent = fmtTime(Date.now() - run.t0); }, 1000);
-    const scoreEl = h('div', { class: 'br chalk' }, 'Điểm: ' + fmtScore(run.score));
-    const sayBtn = h('button', { class: 'say-btn', 'aria-label': 'Đọc đề' }, '🔊');
+    const scoreEl = h('div', { class: 'br chalk' }, tx('Điểm: ', 'Score: ') + fmtScore(run.score));
+    const sayBtn = h('button', { class: 'say-btn', 'aria-label': tx('Đọc đề', 'Read aloud') }, '🔊');
     sayBtn.onclick = () => speak(q.speak || q.prompt, sayBtn);
     let visualEl = null;
     let visualValue;
@@ -811,7 +850,7 @@
     const tick = h('div', { class: 'tick' });
     tick.style.display = 'none';
     const board = h('div', { class: 'board' + (big ? ' big' : '') },
-      h('div', { class: 'board-head' }, h('div', { class: 'bl chalk' }, `Câu ${run.i + 1}/${QUESTIONS_PER_LESSON}`), timeEl, scoreEl),
+      h('div', { class: 'board-head' }, h('div', { class: 'bl chalk' }, `${tx('Câu', 'Question')} ${run.i + 1}/${QUESTIONS_PER_LESSON}`), timeEl, scoreEl),
       h('div', { class: 'qhead' }, qtext, sayBtn),
       h('div', { class: 'qvisual' }, visualEl),
       boardAnswer.childNodes.length ? boardAnswer : null,
@@ -820,8 +859,8 @@
 
     // answer pane
     const feedback = h('div', { class: 'feedback' });
-    const checkBtn = h('button', { class: 'btn', disabled: true }, 'Bé đã xong ✓');
-    const nextBtn = h('button', { class: 'btn teal' }, run.i === QUESTIONS_PER_LESSON - 1 ? 'Xem kết quả 🏆' : 'Câu tiếp ▶');
+    const checkBtn = h('button', { class: 'btn', disabled: true }, tx('Bé đã xong ✓', 'Done ✓'));
+    const nextBtn = h('button', { class: 'btn teal' }, run.i === QUESTIONS_PER_LESSON - 1 ? tx('Xem kết quả 🏆', 'See results 🏆') : tx('Câu tiếp ▶', 'Next ▶'));
     nextBtn.style.display = 'none';
     const pane = h('div', { class: 'card answer-card' });
     let input = '';
@@ -842,7 +881,7 @@
     if (A.kind === 'choice' || A.kind === 'text') {
       const sym = A.kind === 'text' && A.options.every(o => String(o).length <= 2);
       const long = A.options.some(o => String(o).length > 14);
-      pane.append(h('div', { class: 'answer-label' }, 'Chọn đáp án'));
+      pane.append(h('div', { class: 'answer-label' }, tx('Chọn đáp án', 'Choose the answer')));
       const grid = h('div', { class: 'choices' + (sym ? ' sym' : '') + (long ? ' col1' : '') });
       A.options.forEach((o, idx) => {
         const b = h('button', { class: 'choice' + (String(o).length > 8 ? ' txt' : '') }, String(o));
@@ -867,7 +906,7 @@
       };
     } else if (A.kind === 'number' || A.kind === 'fraction') {
       const isFr = A.kind === 'fraction';
-      const label = h('div', { class: 'answer-label' }, isFr ? 'Viết phân số' : 'Nhập số');
+      const label = h('div', { class: 'answer-label' }, isFr ? tx('Viết phân số', 'Write the fraction') : tx('Nhập số', 'Type the number'));
       pane.append(label);
       // How the child enters the number (remembered):
       //  đặt tính questions: ✍️ Điền vào ô (keypad → boxes, units first) · ⌨️ Gõ số (whole number) · ✏️ Viết tay (write each digit → boxes)
@@ -897,7 +936,7 @@
       const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', isFr ? '⇅' : ',', '0', '⌫'];
       const pad = h('div', { class: 'keypad' });
       for (const k of keys) {
-        const b = h('button', { class: 'key' + (k === '⌫' || k === '⇅' || k === ',' ? ' fn' : '') }, k === '⇅' ? 'Tử/Mẫu' : k);
+        const b = h('button', { class: 'key' + (k === '⌫' || k === '⇅' || k === ',' ? ' fn' : '') }, k === '⇅' ? tx('Tử/Mẫu', 'Top/Bottom') : k);
         if (k === ',') commaKey = b;
         b.onclick = () => { if (finished) return; sfx.tap(); press(k); };
         pad.append(b);
@@ -916,11 +955,11 @@
         checkBtn.disabled = input === '' || input.endsWith(',');
       }
       const handPad = hasHand ? Hand.pad({ comma: !isFr && !bi, onNumber: setWritten }) : null;
-      if (isFr && handPad) handPad.prepend(h('div', { class: 'hand-note' }, 'Viết tử số, rồi chạm vào mẫu số trên bảng và viết tiếp.'));
+      if (isFr && handPad) handPad.prepend(h('div', { class: 'hand-note' }, tx('Viết tử số, rồi chạm vào mẫu số trên bảng và viết tiếp.', 'Write the numerator, then tap the denominator on the board and write it.')));
       if (handPad && bi) bi.onSelect(() => { if (inMode === 'hand') handPad.clear(); });
       if (handPad) { flushHand = () => { if (inMode === 'hand') handPad.flush(); }; clearHand = () => handPad.clear(); }
-      const modes = bi ? [['box', '✍️ Điền vào ô'], ['type', '⌨️ Gõ số']] : [['keys', '⌨️ Bàn phím']];
-      if (handPad) modes.push(['hand', '✏️ Viết tay']);
+      const modes = bi ? [['box', tx('✍️ Điền vào ô', '✍️ Boxes')], ['type', tx('⌨️ Gõ số', '⌨️ Type')]] : [['keys', tx('⌨️ Bàn phím', '⌨️ Keypad')]];
+      if (handPad) modes.push(['hand', tx('✏️ Viết tay', '✏️ Write')]);
       const saved = bi ? S.settings.colMode : S.settings.numMode;
       let inMode = modes.some(m => m[0] === saved) ? saved : modes[0][0];
       const modeBtns = modes.map(([m, t]) => h('button', { class: 'cm-btn', onclick: () => { if (!finished) { sfx.tap(); setMode(m); } } }, t));
@@ -931,9 +970,9 @@
         modeBtns.forEach((b, i) => b.classList.toggle('on', modes[i][0] === m));
         pad.style.display = m === 'hand' ? 'none' : '';
         if (handPad) { handPad.style.display = m === 'hand' ? '' : 'none'; handPad.clear(); }
-        label.textContent = m === 'box' ? 'Chạm vào ô rồi điền chữ số (bắt đầu từ hàng đơn vị)'
-          : m === 'hand' ? (bi ? 'Viết cả số của hàng kết quả (chạm vào hàng khác để viết hàng đó)' : isFr ? 'Viết phân số' : 'Viết cả số')
-          : isFr ? 'Viết phân số' : 'Nhập số';
+        label.textContent = m === 'box' ? tx('Chạm vào ô rồi điền chữ số (bắt đầu từ hàng đơn vị)', 'Tap a box and write a digit (start with the ones)')
+          : m === 'hand' ? (bi ? tx('Viết cả số của hàng kết quả (chạm vào hàng khác để viết hàng đó)', 'Write the whole number of the answer row (tap another row to write there)') : isFr ? tx('Viết phân số', 'Write the fraction') : tx('Viết cả số', 'Write the whole number'))
+          : isFr ? tx('Viết phân số', 'Write the fraction') : tx('Nhập số', 'Type the number');
         if (bi) { bi.enable(toBoxes()); bi.clear(); boardAnswer.classList.toggle('in-boxes', toBoxes()); }
         if (!isFr) { input = ''; setSlot(''); checkBtn.disabled = true; }
         if (commaKey) commaKey.style.visibility = toBoxes() ? 'hidden' : '';
@@ -957,8 +996,8 @@
         frDen.onclick = () => { fr.part = 'den'; refreshFraction(); if (handPad && inMode === 'hand') handPad.clear(); };
       }
     } else if (A.kind === 'visual') {
-      pane.append(h('div', { class: 'answer-label' }, 'Làm trên bảng'),
-        h('div', { style: { fontSize: '18px', fontWeight: 700, color: 'var(--ink-2)' } }, 'Bé chạm hoặc kéo trên hình trên bảng, rồi bấm "Bé đã xong" nhé.'));
+      pane.append(h('div', { class: 'answer-label' }, tx('Làm trên bảng', 'Work on the board')),
+        h('div', { style: { fontSize: '18px', fontWeight: 700, color: 'var(--ink-2)' } }, tx('Bé chạm hoặc kéo trên hình trên bảng, rồi bấm "Bé đã xong" nhé.', 'Tap or drag on the picture on the board, then press "Done".')));
       if (visualEl && typeof visualEl.getValue === 'function') {
         // some visuals start with a valid value already (e.g. a clock) — allow checking at once
         checkBtn.disabled = false;
@@ -1002,12 +1041,12 @@
         settle(pts);
         sfx.good(); if (tries === 1) confetti(40);
         showTick(true);
-        showFeedback('good', tries === 1 ? pick(['Đúng rồi bé ơi!', 'Đúng rồi bé ơi! 🎉', 'Đúng rồi bé ơi! Bé làm tiếp nhé!']) : 'Đúng rồi bé ơi! Lần sau bé làm ngay từ đầu nhé!', q.explain);
-        speak('Đúng rồi bé ơi!');
+        showFeedback('good', tries === 1 ? pick(EN ? ['That\'s right!', 'That\'s right! 🎉', 'That\'s right! Keep going!'] : ['Đúng rồi bé ơi!', 'Đúng rồi bé ơi! 🎉', 'Đúng rồi bé ơi! Bé làm tiếp nhé!']) : tx('Đúng rồi bé ơi! Lần sau bé làm ngay từ đầu nhé!', 'That\'s right! Next time, try to get it the first time.'), q.explain);
+        speak(tx('Đúng rồi bé ơi!', 'That\'s right!'));
       } else if (tries === 1) {
         sfx.bad();
-        showFeedback('hint', 'Chưa đúng, bé thử lại nhé!', q.hint || '', q.hintVisual);
-        speak('Chưa đúng, bé thử lại nhé. ' + (q.hint || ''));
+        showFeedback('hint', tx('Chưa đúng, bé thử lại nhé!', 'Not quite. Try again!'), q.hint || '', q.hintVisual);
+        speak(tx('Chưa đúng, bé thử lại nhé. ', 'Not quite. Try again. ') + (q.hint || ''));
         // allow another try
         // a fresh pad for the next try, at once, so nothing the child starts writing now is wiped later
         if (A.kind === 'number' || A.kind === 'fraction') clearHand();
@@ -1018,14 +1057,14 @@
         reveal();
         settle(0);
         showTick(false);
-        showFeedback('bad', 'Mình cùng xem lời giải nhé:', q.explain || '', q.hintVisual);
+        showFeedback('bad', tx('Mình cùng xem lời giải nhé:', 'Let\'s look at the answer together:'), q.explain || '', q.hintVisual);
       }
     }
     function settle(pts) {
       finished = true;
       if (bi) bi.enable(false);
       run.score += pts; run.results[run.i] = pts;
-      scoreEl.textContent = 'Điểm: ' + fmtScore(run.score);
+      scoreEl.textContent = tx('Điểm: ', 'Score: ') + fmtScore(run.score);
       const d = daily(); d.count++; S.totals.answered++; if (pts === 1) S.totals.correct++; save();
       checkBtn.style.display = 'none'; nextBtn.style.display = '';
       const cur = dots.children[run.i]; if (cur) cur.className = pts === 1 ? 'ok' : pts ? 'half' : 'no';
@@ -1042,7 +1081,7 @@
     }
 
     screen(
-      topbar(L.title, `${L.book || ''} · Lớp ${n}`, backBtn(() => { clearInterval(run.timer); showMap(n, lessonSem(L.id)); }), []),
+      topbar(L.title, `${L.book || ''} · ${G(n)}`, backBtn(() => { clearInterval(run.timer); showMap(n, lessonSem(L.id)); }), []),
       h('div', { class: 'player' },
         h('div', { class: 'topbar', style: { padding: '0' } }, dots),
         h('div', { class: 'stage' }, board, h('div', { class: 'answer-pane' }, pane))));
@@ -1061,7 +1100,12 @@
 
   /* ---------- result ---------- */
   // Spoken encouragement by score (out of 10), shared by lessons and exams (user request).
-  const CHEERS = {
+  const CHEERS = EN ? {
+    top: ['Well done!', 'Well done! Keep working hard like this!', 'Well done! Let\'s go on to the next lesson!'],
+    good: ['Good work! Try a little more next time!', 'Good work! A little more and you will get 10!'],
+    ok: ['Keep trying! Let\'s look at the wrong answers together.', 'Keep trying! Do it once more and you will get better.'],
+    low: ['That\'s OK! Try hard next time!', 'Try hard next time! ISA is always here with you.'],
+  } : {
     top: ['Bé làm rất tốt!', 'Bé làm rất tốt! Bé cứ chăm chỉ như vậy nhé!', 'Bé làm rất tốt! Mình học tiếp bài sau nhé!'],
     good: ['Bé làm tốt lắm! Bé hãy cố gắng thêm chút nữa nhé!', 'Bé làm tốt lắm! Cố gắng thêm một chút là bé được 10 điểm nhé!'],
     ok: ['Bé hãy cố gắng nhé! Mình xem lại các câu sai cùng nhau nha.', 'Bé hãy cố gắng nhé! Làm lại một lần nữa là bé tiến bộ ngay.'],
@@ -1091,18 +1135,18 @@
     const bs = h('div', { class: 'big-stars' });
     for (let k = 0; k < 3; k++) bs.append(h('span', { class: k < stars ? '' : 'star-off' }, '⭐'));
     screen(
-      topbar(L.title, `${L.book || ''} · Lớp ${n}`, homeBtn(), [coinPill()]),
+      topbar(L.title, `${L.book || ''} · ${G(n)}`, homeBtn(), [coinPill()]),
       h('div', { class: 'result' },
         h('div', { class: 'card result-card' },
           h('div', { class: 'mascot-wrap' }, mascot(stars >= 2 ? 'cheer' : stars === 1 ? 'happy' : 'think')),
           h('h2', null, msg),
           bs,
-          h('p', null, `Đúng ${U.fmt(sc)}/${QUESTIONS_PER_LESSON} câu · thời gian ${fmtTime(Date.now() - run.t0)} · +${earned} ⭐`),
+          h('p', null, tx(`Đúng ${U.fmt(sc)}/${QUESTIONS_PER_LESSON} câu · thời gian ${fmtTime(Date.now() - run.t0)} · +${earned} ⭐`, `${U.fmt(sc)}/${QUESTIONS_PER_LESSON} correct · time ${fmtTime(Date.now() - run.t0)} · +${earned} ⭐`)),
           h('div', { class: 'result-actions' },
-            h('button', { class: 'btn ghost', onclick: () => { sfx.tap(); showPractice(run.rec); } }, '↻ Làm lại'),
-            stars === 0 && L.learn && L.learn.length ? h('button', { class: 'btn teal', onclick: () => { sfx.tap(); showLearn(run.rec, 0); } }, '💡 Xem lại') : null,
-            nextL ? h('button', { class: 'btn', onclick: () => { sfx.tap(); startLesson(nextL.id); } }, 'Bài tiếp ▶') : null,
-            h('button', { class: 'btn ghost', onclick: () => { sfx.tap(); showMap(n, lessonSem(L.id)); } }, '🗺️ Bản đồ')))));
+            h('button', { class: 'btn ghost', onclick: () => { sfx.tap(); showPractice(run.rec); } }, tx('↻ Làm lại', '↻ Try again')),
+            stars === 0 && L.learn && L.learn.length ? h('button', { class: 'btn teal', onclick: () => { sfx.tap(); showLearn(run.rec, 0); } }, tx('💡 Xem lại', '💡 Look again')) : null,
+            nextL ? h('button', { class: 'btn', onclick: () => { sfx.tap(); startLesson(nextL.id); } }, tx('Bài tiếp ▶', 'Next lesson ▶')) : null,
+            h('button', { class: 'btn ghost', onclick: () => { sfx.tap(); showMap(n, lessonSem(L.id)); } }, tx('🗺️ Bản đồ', '🗺️ Map'))))));
     setTimeout(() => speak(msg), 600);   // after the result sound
   }
 
@@ -1129,31 +1173,38 @@
         isPlainVoice(viVoice) ? h('div', { class: 'voice-note' }, 'Giọng của máy này bị méo chữ khi nâng cao giọng, nên ISA đọc ở giọng tự nhiên cho rõ chữ.') : null),
       ...Object.entries(VOICE_STYLES).map(([k, v]) => h('button', {
         class: 'btn small ' + (curStyle === k ? '' : 'ghost'),
-        onclick: () => { S.settings.voiceStyle = k; save(); sh.close(); parentCorner(); speak('Chào bé! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.'); },
+        onclick: () => { S.settings.voiceStyle = k; save(); sh.close(); parentCorner(); speak(tx('Chào bé! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.', 'Hello! I am ISA the robot. 3 + 4 = 7.')); },
       }, v.name)),
-      h('button', { class: 'btn ghost small', onclick: () => speak('Bé ơi, lớp 1 nè! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.') }, '🔊 Nghe thử'));
+      h('button', { class: 'btn ghost small', onclick: () => speak(tx('Bé ơi, lớp 1 nè! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.', 'Here is Grade 1! I am ISA the robot. 3 + 4 = 7.')) }, '🔊 Nghe thử'));
     // every Vietnamese voice on this device, clearest first; a tap picks it and plays the test line
     // short button names that still tell the voices apart: "Linh" · "Linh Nâng cao" · "Linh Cao cấp" · "HoaiMy"
     const voiceShort = v => {
       const n = v.name;
-      const base = n.replace(/^Microsoft\s+|^Google\s+/i, '').replace(/\s*[-–]\s*Vietnamese.*$/i, '').replace(/\s*\(.*?\)\s*/g, ' ')
+      const base = n.replace(/^Microsoft\s+|^Google\s+/i, '').replace(/\s*[-–]\s*(Vietnamese|English).*$/i, '').replace(/\s*\(.*?\)\s*/g, ' ')
         .replace(/\s*\b(Online|Natural|Enhanced|Premium)\b/gi, '').trim() || n;
       const tag = voiceTag(v);
+      if (EN) return base + (/GB/i.test(v.lang) ? ' 🇬🇧' : /US/i.test(v.lang) ? ' 🇺🇸' : /AU/i.test(v.lang) ? ' 🇦🇺' : '');
       return tag ? `${base} ${tag}` : base;
     };
     const vlist = 'speechSynthesis' in window ? viVoices() : [];
-    const voiceRow = vlist.length ? h('div', { class: 'row voice-row' }, h('div', { class: 'grow' }, 'Giọng máy', vlist.length > 1 ? h('div', { class: 'voice-note' }, 'Nghe chưa rõ (ví dụ "Bé" thành "mớ")? Chọn giọng khác.') : null),
-      ...vlist.map((v, i) => {
+    const voiceRow = vlist.length ? h('div', { class: 'row voice-row' }, h('div', { class: 'grow' }, 'Giọng máy', vlist.length > 1 ? h('div', { class: 'voice-note' }, EN ? 'Nghe chưa rõ? Chọn giọng khác.' : 'Nghe chưa rõ (ví dụ "Bé" thành "mớ")? Chọn giọng khác.') : null),
+      ...(EN ? vlist.slice(0, 8) : vlist).map((v, i) => {
         // same short name twice (e.g. two "Linh" on one device): number them so each button is distinct
         const nm = voiceShort(v), dup = vlist.filter(w => voiceShort(w) === nm);
         const label = (dup.length > 1 ? `${nm} ${dup.indexOf(v) + 1}` : nm) + (i === 0 && vlist.length > 1 ? ' ⭐' : '');
         return h('button', {
           class: 'btn small ' + (viVoice && voiceId(viVoice) === voiceId(v) ? '' : 'ghost'), title: v.name,
-          onclick: () => { S.settings.voiceName = voiceId(v); save(); pickVoice(); sh.close(); parentCorner(); speak('Bé ơi, lớp 1 nè! Mình là Rô-bốt ISA.'); },
+          onclick: () => { S.settings[EN ? 'voiceNameEN' : 'voiceName'] = voiceId(v); save(); pickVoice(); sh.close(); parentCorner(); speak(tx('Bé ơi, lớp 1 nè! Mình là Rô-bốt ISA.', 'Here is Grade 1! I am ISA the robot.')); },
         }, label);
       }),
       vlist.length > 1 ? h('div', { class: 'voice-note', style: { flexBasis: '100%' } }, '⭐ = giọng rõ nhất trên máy này') : null) : null;
-    const kidRow = h('div', { class: 'row voice-row' },
+    // The app's language (user request: English as an option the parent switches on). Changing it reloads the app.
+    const langRow = h('div', { class: 'row voice-row' }, h('div', { class: 'grow' }, 'Ngôn ngữ học / Language'),
+      ...[['vi', '🇻🇳 Tiếng Việt'], ['en', '🇬🇧 English']].map(([k, name]) => h('button', {
+        class: 'btn small ' + (U.LANG === k ? '' : 'ghost'),
+        onclick: () => { if (U.LANG === k) return; S.settings.lang = k; save(); stopSpeech(true); sh.close(); APP.innerHTML = ''; location.reload(); },
+      }, name)));
+    const kidRow = EN ? null : h('div', { class: 'row voice-row' },
       h('div', { class: 'grow' }, 'Khi đọc, ISA gọi bé là'),
       ...KID_WORDS.map(w => h('button', {
         class: 'btn small ' + (kidWord() === w ? '' : 'ghost'),
@@ -1211,7 +1262,8 @@
         h('div', { class: 'grow' }, `Lớp ${w.r.grade.grade} · ${w.r.lesson.book || ''} · ${w.r.lesson.title}`), h('b', null, U.fmt(w.best) + '/10'),
         h('button', { class: 'btn small', onclick: () => { sh.close(); startLesson(w.r.lesson.id); } }, 'Ôn')))) : h('p', null, 'Chưa có bài nào dưới 7 điểm. 👍'),
       h('h3', null, 'Cài đặt'),
-      toggle('voice', 'Giọng đọc tiếng Việt' + (viVoice ? '' : ' (máy này chưa có giọng tiếng Việt nên app không đọc)')), voiceRow, kidRow, styleRow, toggle('autoRead', 'Tự đọc đề bài'), toggle('sound', 'Âm thanh'), goalSel,
+      langRow,
+      toggle('voice', (EN ? 'Giọng đọc tiếng Anh' : 'Giọng đọc tiếng Việt') + (viVoice ? '' : EN ? ' (máy này chưa có giọng tiếng Anh nên app không đọc)' : ' (máy này chưa có giọng tiếng Việt nên app không đọc)')), voiceRow, kidRow, styleRow, toggle('autoRead', 'Tự đọc đề bài'), toggle('sound', 'Âm thanh'), goalSel,
       h('div', { class: 'row' }, h('div', { style: { width: '120px' } }, 'Tên bé'), nameIn),
       h('h3', null, 'Đặt lại ứng dụng'), resetProgress, resetAll,
       h('div', { class: 'result-actions', style: { marginTop: '14px' } }, h('button', { class: 'btn', onclick: () => { sh.close(); showHome(); } }, 'Xong')),
@@ -1222,21 +1274,34 @@
   /* ================================================================== exams (Ôn tập & Kiểm tra) */
   // Periodic tests per Thông tư 27/2020: lớp 1–3 cuối HK1 + cuối năm; lớp 4–5 also giữa HK1 + giữa HK2.
   const TERMS = {
-    'giua-hk1': { name: 'Giữa học kì I', title: 'BÀI KIỂM TRA GIỮA HỌC KÌ I' },
-    'cuoi-hk1': { name: 'Cuối học kì I', title: 'BÀI KIỂM TRA CUỐI HỌC KÌ I' },
-    'giua-hk2': { name: 'Giữa học kì II', title: 'BÀI KIỂM TRA GIỮA HỌC KÌ II' },
-    'cuoi-nam': { name: 'Cuối năm học', title: 'BÀI KIỂM TRA CUỐI NĂM HỌC' },
+    'giua-hk1': { name: tx('Giữa học kì I', 'Mid-Term 1'), title: tx('BÀI KIỂM TRA GIỮA HỌC KÌ I', 'MID-TERM 1 TEST') },
+    'cuoi-hk1': { name: tx('Cuối học kì I', 'End of Term 1'), title: tx('BÀI KIỂM TRA CUỐI HỌC KÌ I', 'END OF TERM 1 TEST') },
+    'giua-hk2': { name: tx('Giữa học kì II', 'Mid-Term 2'), title: tx('BÀI KIỂM TRA GIỮA HỌC KÌ II', 'MID-TERM 2 TEST') },
+    'cuoi-nam': { name: tx('Cuối năm học', 'End of Year'), title: tx('BÀI KIỂM TRA CUỐI NĂM HỌC', 'END OF YEAR TEST') },
   };
+  // The blueprints (dethi*.js) keep their Vietnamese titles, notes and labels: core.js matches on them
+  // (/TRẮC NGHIỆM/, label === 'Đặt tính rồi tính'). In English they are translated where they are shown.
+  const EX_EN = {
+    'Khoanh vào chữ đặt trước câu trả lời đúng.': 'Circle the letter of the correct answer.',
+    'Khoanh vào chữ đặt trước câu trả lời đúng (hoặc làm theo yêu cầu của câu hỏi).': 'Circle the letter of the correct answer (or do what the question asks).',
+    'Viết kết quả vào chỗ chấm.': 'Write the answer on the dotted line.',
+    'Đặt tính rồi tính': 'Set out and calculate', 'Giải bài toán': 'Solve the problem', 'Tính': 'Calculate', 'Tính nhẩm': 'Mental maths',
+    'Tính giá trị của biểu thức': 'Find the value of the expression', 'Tính bằng cách thuận tiện': 'Calculate in a convenient way',
+    'Viết phép tính thích hợp': 'Write a suitable calculation', 'Điền dấu >, <, =': 'Write >, < or =',
+  };
+  const exText = s => (EN && s ? EX_EN[s] || s.replace(/PHẦN II\./, 'PART II.').replace(/PHẦN I\./, 'PART I.').replace(/TRẮC NGHIỆM/, 'MULTIPLE CHOICE')
+    .replace(/TỰ LUẬN/, 'WRITTEN ANSWERS').replace(/\((\d+(?:,\d+)?) điểm\)/, (m, p) => `(${p} ${p === '1' ? 'mark' : 'marks'})`) : s);
+  const marks = p => tx(`${U.fmt(p)} điểm`, `${U.fmt(p)} ${p === 1 ? 'mark' : 'marks'}`);
   const termsFor = n => (n >= 4 ? ['giua-hk1', 'cuoi-hk1', 'giua-hk2', 'cuoi-nam'] : ['cuoi-hk1', 'cuoi-nam']);
   const EXAM_DATA = window.EXAMS || [];
   // Two kinds of paper per kì — Đề thường and Đề nâng cao. There is no list of numbered papers: a tap on the kì
   // builds a new paper on the same ma trận every time (user request). One mark record per kì and kind (paper
   // number 1); the numbered papers of earlier versions (1…20) still count towards the best mark.
   const OLD_PAPERS = 20;
-  const MODE_NAME = { thuong: 'Đề thường', nc: 'Đề nâng cao' };
+  const MODE_NAME = { thuong: tx('Đề thường', 'Standard test'), nc: tx('Đề nâng cao', 'Challenge test') };
   const examMode = m => (m === 'nc' ? 'nc' : 'thuong');
   const examKey = (n, term, no, mode) => `${n}-${term}${mode === 'nc' ? '-nc' : ''}-${no}`;
-  const paperName = (no, mode, term) => (/^cd-/.test(term || '') ? (mode === 'nc' ? 'Phiếu ôn tập nâng cao' : 'Phiếu ôn tập') : MODE_NAME[examMode(mode)]);
+  const paperName = (no, mode, term) => (/^cd-/.test(term || '') ? (mode === 'nc' ? tx('Phiếu ôn tập nâng cao', 'Challenge review sheet') : tx('Phiếu ôn tập', 'Review sheet')) : MODE_NAME[examMode(mode)]);
   // best mark and number of attempts for a kì (or chủ đề) in one kind, or in both when mode is omitted
   function examRecord(n, term, mode) {
     let best = -1, tries = 0;
@@ -1297,7 +1362,7 @@
     return EXAM_DATA.find(e => e.grade === n && e.term === term) || autoBlueprint(g, term);
   }
   // Names that differ between a kì's paper and a chủ đề sheet
-  const termName = (n, term) => { if (!isSheet(term)) return TERMS[term].name; const g = gradeOf(n), t = g && topicOfTerm(g, term); return t ? t.title : 'Ôn tập theo chủ đề'; };
+  const termName = (n, term) => { if (!isSheet(term)) return TERMS[term].name; const g = gradeOf(n), t = g && topicOfTerm(g, term); return t ? t.title : tx('Ôn tập theo chủ đề', 'Review by topic'); };
   const backToList = (n, term) => (isSheet(term) ? showTopicList(n) : showExamHome());
 
   function choiceFromAnswer(rng, q) {
@@ -1480,24 +1545,24 @@
         const best = bp ? examRecord(n, term, mode).best : -1;
         const nQ = bp ? bp.parts.reduce((t, part) => t + part.items.length, 0) : 0;
         // one tap on the kì → the start panel → a new paper (no list of papers)
-        terms.append(h('button', { class: 'exam-term' + (bp ? '' : ' soon'), onclick: e => { sfx.tap(); if (!bp) return toast(`Đề lớp ${n} đang được soạn…`); peekThen(e.currentTarget.closest('.exam-grade'), () => confirmStart(n, term), 'Cố lên nào!'); } },
+        terms.append(h('button', { class: 'exam-term' + (bp ? '' : ' soon'), onclick: e => { sfx.tap(); if (!bp) return toast(tx(`Đề lớp ${n} đang được soạn…`, `Grade ${n} tests are coming soon…`)); peekThen(e.currentTarget.closest('.exam-grade'), () => confirmStart(n, term), tx('Cố lên nào!', 'You can do it!')); } },
           h('span', { class: 'et-name' }, TERMS[term].name),
-          h('span', { class: 'et-best' }, bp ? (best >= 0 ? `Cao nhất: ${best} điểm` : `${nQ} câu · ${bp.minutes} phút`) : 'Sắp có')));
+          h('span', { class: 'et-best' }, bp ? (best >= 0 ? tx(`Cao nhất: ${best} điểm`, `Best: ${best}/10`) : tx(`${nQ} câu · ${bp.minutes} phút`, `${nQ} questions · ${bp.minutes} min`)) : tx('Sắp có', 'Coming soon'))));
       }
       if (g) {
         const tps = g.topics.filter(t => t.lessons.length && topicCode(t));
         const bestT = Math.max(-1, ...tps.map(t => examRecord(n, 'cd-' + topicCode(t), mode).best));
-        terms.append(h('button', { class: 'exam-term wide', onclick: e => { sfx.tap(); peekThen(e.currentTarget.closest('.exam-grade'), () => showTopicList(n), 'Cố lên nào!'); } },
-          h('span', { class: 'et-name' }, '📚 Ôn tập theo chủ đề'),
-          h('span', { class: 'et-best' }, bestT >= 0 ? `Cao nhất: ${bestT} điểm` : `${tps.length} chủ đề`)));
+        terms.append(h('button', { class: 'exam-term wide', onclick: e => { sfx.tap(); peekThen(e.currentTarget.closest('.exam-grade'), () => showTopicList(n), tx('Cố lên nào!', 'You can do it!')); } },
+          h('span', { class: 'et-name' }, tx('📚 Ôn tập theo chủ đề', '📚 Review by topic')),
+          h('span', { class: 'et-best' }, bestT >= 0 ? tx(`Cao nhất: ${bestT} điểm`, `Best: ${bestT}/10`) : tx(`${tps.length} chủ đề`, `${tps.length} topics`))));
       }
-      grid.append(h('section', { class: 'card exam-grade', 'data-peek': `Lớp ${n} nè!`, 'data-say': `Bé ơi, đề lớp ${n} nè!`, style: { '--gc': info.color } },
-        h('div', { class: 'topic-head' }, h('div', { class: 'topic-icon' }, info.icon), h('div', null, h('div', { class: 'topic-title' }, 'Lớp ' + n), h('div', { class: 'topic-meta' }, n >= 4 ? 'Giữa kì, cuối kì và ôn tập theo chủ đề' : 'Cuối học kì I, cuối năm và ôn tập theo chủ đề'))),
+      grid.append(h('section', { class: 'card exam-grade', 'data-peek': tx(`Lớp ${n} nè!`, `Grade ${n}!`), 'data-say': tx(`Bé ơi, đề lớp ${n} nè!`, `Here are the Grade ${n} tests!`), style: { '--gc': info.color } },
+        h('div', { class: 'topic-head' }, h('div', { class: 'topic-icon' }, info.icon), h('div', null, h('div', { class: 'topic-title' }, G(n)), h('div', { class: 'topic-meta' }, n >= 4 ? tx('Giữa kì, cuối kì và ôn tập theo chủ đề', 'Mid-term and end-of-term tests, review by topic') : tx('Cuối học kì I, cuối năm và ôn tập theo chủ đề', 'End of Term 1 and end-of-year tests, review by topic')))),
         terms));
     }
     wrap.append(h('div', { class: 'exam-intro' }, h('div', { class: 'mini-mascot' }, mascot('happy')),
-      h('div', null, h('b', null, 'Ôn tập & Kiểm tra'), h('div', null, 'Đề kiểm tra định kì môn Toán theo mẫu đề của Bộ GD&ĐT (Thông tư 27): Phần I Trắc nghiệm, Phần II Tự luận, chấm thang điểm 10. Chọn đề thường hoặc đề nâng cao, rồi bấm vào một kì là có ngay một đề mới.'))), grid);
-    screen(topbar('Ôn tập & Kiểm tra', 'Chọn lớp và kì kiểm tra', homeBtn(), [swap, coinPill(), parentBtn()]), wrap);
+      h('div', null, h('b', null, tx('Ôn tập & Kiểm tra', 'Review & Tests')), h('div', null, tx('Đề kiểm tra định kì môn Toán theo mẫu đề của Bộ GD&ĐT (Thông tư 27): Phần I Trắc nghiệm, Phần II Tự luận, chấm thang điểm 10. Chọn đề thường hoặc đề nâng cao, rồi bấm vào một kì là có ngay một đề mới.', 'Maths tests in the style of Vietnam\'s Ministry of Education: Part I Multiple choice, Part II Written answers, marked out of 10. Choose a standard or a challenge test, then tap a term to get a new test.')))), grid);
+    screen(topbar(tx('Ôn tập & Kiểm tra', 'Review & Tests'), tx('Chọn lớp và kì kiểm tra', 'Choose a grade and a test'), homeBtn(), [swap, coinPill(), parentBtn()]), wrap);
     Peek.bind(grid, '.exam-grade');
   }
 
@@ -1516,17 +1581,17 @@
         k++;
         const term = 'cd-' + topicCode(t), rec = examRecord(n, term, mode);
         list.append(h('button', { class: 'lesson-tile' + (rec.best >= 0 ? ' done' : ''), onclick: () => { sfx.tap(); confirmStart(n, term); } },
-          h('div', { class: 'lb' }, `${t.icon || '📘'} Chủ đề ${k}`), h('div', { class: 'lt' }, t.title),
-          h('div', { class: 'paper-score' }, rec.best >= 0 ? `Điểm cao nhất: ${rec.best}/10` : `${t.lessons.length} bài`)));
+          h('div', { class: 'lb' }, `${t.icon || '📘'} ${tx('Chủ đề', 'Topic')} ${k}`), h('div', { class: 'lt' }, t.title),
+          h('div', { class: 'paper-score' }, rec.best >= 0 ? tx(`Điểm cao nhất: ${rec.best}/10`, `Best: ${rec.best}/10`) : tx(`${t.lessons.length} bài`, `${t.lessons.length} lessons`))));
       }
       if (!list.children.length) continue;
       sc.append(h('section', { class: 'card topic', style: { '--gc': info.color } },
         h('div', { class: 'topic-head' }, h('div', { class: 'topic-icon' }, '📚'),
-          h('div', null, h('div', { class: 'topic-title' }, `Học kì ${sem} · Lớp ${n}`),
-            h('div', { class: 'topic-meta' }, `${mode === 'nc' ? 'Phiếu nâng cao' : 'Phiếu thường'} · bấm vào một chủ đề để làm phiếu 10 câu; mỗi lần là một phiếu mới`))),
+          h('div', null, h('div', { class: 'topic-title' }, `${HK(sem)} · ${G(n)}`),
+            h('div', { class: 'topic-meta' }, tx(`${mode === 'nc' ? 'Phiếu nâng cao' : 'Phiếu thường'} · bấm vào một chủ đề để làm phiếu 10 câu; mỗi lần là một phiếu mới`, `${mode === 'nc' ? 'Challenge sheets' : 'Standard sheets'} · tap a topic for a 10-question sheet; you get a new sheet every time`)))),
         list));
     }
-    screen(topbar(`Lớp ${n} · Ôn tập theo chủ đề`, `${mode === 'nc' ? 'Phiếu nâng cao' : 'Phiếu thường'} · chọn một chủ đề để ôn`, backBtn(showExamHome), [coinPill()]), sc);
+    screen(topbar(tx(`Lớp ${n} · Ôn tập theo chủ đề`, `Grade ${n} · Review by topic`), tx(`${mode === 'nc' ? 'Phiếu nâng cao' : 'Phiếu thường'} · chọn một chủ đề để ôn`, `${mode === 'nc' ? 'Challenge sheets' : 'Standard sheets'} · choose a topic to review`), backBtn(showExamHome), [coinPill()]), sc);
   }
 
   // The start panel of a kì's paper or a chủ đề sheet, in the kind chosen on the Ôn tập & Kiểm tra screen.
@@ -1534,18 +1599,19 @@
     const bp = blueprintFor(n, term); if (!bp) return;
     mode = examMode(mode || S.settings.examMode);
     const nQ = bp.parts.reduce((t, part) => t + part.items.length, 0);
-    const kind = m => (bp.sheet ? (m === 'nc' ? 'Phiếu nâng cao' : 'Phiếu thường') : MODE_NAME[m]);
+    const kind = m => (bp.sheet ? (m === 'nc' ? tx('Phiếu nâng cao', 'Challenge sheet') : tx('Phiếu thường', 'Standard sheet')) : MODE_NAME[m]);
     const rec = examRecord(n, term, mode);
     const sh = sheet(
       h('h2', null, `${bp.sheet ? '📚' : '📝'} ${termName(n, term)}`),
-      h('p', { style: { fontSize: '19px', fontWeight: 600 } }, `${bp.sheet ? 'Phiếu ôn tập' : 'Đề kiểm tra'} · Lớp ${n} · ${nQ} câu · ${bp.minutes} phút`),
+      h('p', { style: { fontSize: '19px', fontWeight: 600 } }, tx(`${bp.sheet ? 'Phiếu ôn tập' : 'Đề kiểm tra'} · Lớp ${n} · ${nQ} câu · ${bp.minutes} phút`, `${bp.sheet ? 'Review sheet' : 'Test'} · Grade ${n} · ${nQ} questions · ${bp.minutes} minutes`)),
       h('div', { class: 'exam-kind' + (mode === 'nc' ? ' nc' : '') }, (mode === 'nc' ? '🚀 ' : '📝 ') + kind(mode)),
-      h('p', null, (mode === 'nc' ? 'Đề nâng cao có nhiều câu vận dụng hơn. ' : '') + `Mỗi lần làm là một ${bp.sheet ? 'phiếu' : 'đề'} mới: ISA xáo câu hỏi trong nội dung ${bp.sheet ? 'của chủ đề' : 'của kì này'} và tránh những câu bé đã gặp.`),
-      rec.best >= 0 ? h('p', { class: 'exam-rec' }, `Điểm cao nhất: ${rec.best}/10 · đã làm ${rec.tries} lần`) : null,
-      h('p', null, 'Bé đọc kĩ từng câu, làm xong hết thì bấm "Nộp bài". Đồng hồ sẽ đếm ngược, hết giờ bài tự nộp.'),
+      h('p', null, EN ? (mode === 'nc' ? 'A challenge test has more problem-solving questions. ' : '') + `Every time you get a new ${bp.sheet ? 'sheet' : 'test'}: ISA mixes questions from ${bp.sheet ? 'this topic' : 'this term'} and avoids the ones you have already seen.`
+        : (mode === 'nc' ? 'Đề nâng cao có nhiều câu vận dụng hơn. ' : '') + `Mỗi lần làm là một ${bp.sheet ? 'phiếu' : 'đề'} mới: ISA xáo câu hỏi trong nội dung ${bp.sheet ? 'của chủ đề' : 'của kì này'} và tránh những câu bé đã gặp.`),
+      rec.best >= 0 ? h('p', { class: 'exam-rec' }, tx(`Điểm cao nhất: ${rec.best}/10 · đã làm ${rec.tries} lần`, `Best: ${rec.best}/10 · done ${rec.tries} ${rec.tries === 1 ? 'time' : 'times'}`)) : null,
+      h('p', null, tx('Bé đọc kĩ từng câu, làm xong hết thì bấm "Nộp bài". Đồng hồ sẽ đếm ngược, hết giờ bài tự nộp.', 'Read each question carefully. When you have finished, press "Hand in". The clock counts down; when time is up, your test is handed in by itself.')),
       h('div', { class: 'result-actions', style: { marginTop: '14px' } },
-        h('button', { class: 'btn ghost small', onclick: () => sh.close() }, 'Để sau'),
-        h('button', { class: 'btn', onclick: () => { sh.close(); startExam(n, term, 1, mode); } }, 'Bắt đầu làm bài ✏️')));
+        h('button', { class: 'btn ghost small', onclick: () => sh.close() }, tx('Để sau', 'Later')),
+        h('button', { class: 'btn', onclick: () => { sh.close(); startExam(n, term, 1, mode); } }, tx('Bắt đầu làm bài ✏️', 'Start ✏️'))));
   }
 
   /* ---------- the paper ---------- */
@@ -1564,24 +1630,24 @@
     let submitted = false;
 
     const clock = h('div', { class: 'pill exam-clock' }, '⏱ ', h('span', null, fmtTime(limit)));
-    const submitBtn = h('button', { class: 'btn small' }, 'Nộp bài ✓');
-    const scoreBox = h('div', { class: 'ep-score' }, h('div', { class: 'ep-lbl' }, 'Điểm'), h('div', { class: 'ep-num' }, ''));
-    const commentBox = h('div', { class: 'ep-comment' }, h('div', { class: 'ep-lbl' }, 'Nhận xét của giáo viên'), h('div', { class: 'ep-cmt' }, ''));
+    const submitBtn = h('button', { class: 'btn small' }, tx('Nộp bài ✓', 'Hand in ✓'));
+    const scoreBox = h('div', { class: 'ep-score' }, h('div', { class: 'ep-lbl' }, tx('Điểm', 'Mark')), h('div', { class: 'ep-num' }, ''));
+    const commentBox = h('div', { class: 'ep-comment' }, h('div', { class: 'ep-lbl' }, tx('Nhận xét của giáo viên', 'Teacher\'s comment')), h('div', { class: 'ep-cmt' }, ''));
     const paper = h('div', { class: 'exam-paper' },
       h('div', { class: 'ep-head' },
-        h('div', { class: 'ep-school' }, h('div', null, 'TRƯỜNG TIỂU HỌC ISA'), h('div', null, 'Họ và tên: ................'), h('div', null, `Lớp: ${n}`)),
-        h('div', { class: 'ep-title' }, h('div', { class: 'ep-t1' }, bp.title || TERMS[term].title), bp.sheet ? h('div', { class: 'ep-t2' }, termName(n, term)) : null, h('div', null, `NĂM HỌC ${schoolYear()}`),
-          h('div', { class: 'ep-t2' }, `Môn: Toán – Lớp ${n}`), h('div', { class: 'ep-t3' }, `Thời gian làm bài: ${bp.minutes} phút` + (mode === 'nc' ? ' · Nâng cao' : '')))),
+        h('div', { class: 'ep-school' }, h('div', null, tx('TRƯỜNG TIỂU HỌC ISA', 'ISA PRIMARY SCHOOL')), h('div', null, tx('Họ và tên: ................', 'Name: ................')), h('div', null, tx(`Lớp: ${n}`, `Grade: ${n}`))),
+        h('div', { class: 'ep-title' }, h('div', { class: 'ep-t1' }, EN ? (bp.sheet ? 'REVIEW SHEET' : TERMS[term].title) : bp.title || TERMS[term].title), bp.sheet ? h('div', { class: 'ep-t2' }, termName(n, term)) : null, h('div', null, `${tx('NĂM HỌC', 'SCHOOL YEAR')} ${schoolYear()}`),
+          h('div', { class: 'ep-t2' }, tx(`Môn: Toán – Lớp ${n}`, `Subject: Maths – Grade ${n}`)), h('div', { class: 'ep-t3' }, tx(`Thời gian làm bài: ${bp.minutes} phút`, `Time: ${bp.minutes} minutes`) + (mode === 'nc' ? tx(' · Nâng cao', ' · Challenge') : '')))),
       h('div', { class: 'ep-boxes' }, scoreBox, commentBox));
 
     const states = [];
     for (const part of parts) {
       const pts = part.items.reduce((s, it) => s + it.points, 0);
-      paper.append(h('div', { class: 'ep-part' }, /điểm/i.test(part.title) ? part.title : `${part.title} (${U.fmt(pts)} điểm)`));
-      if (part.note) paper.append(h('div', { class: 'ep-note' }, part.note));
+      paper.append(h('div', { class: 'ep-part' }, /điểm/i.test(part.title) ? exText(part.title) : `${exText(part.title)} (${marks(pts)})`));
+      if (part.note) paper.append(h('div', { class: 'ep-note' }, exText(part.note)));
       for (const it of part.items) states.push(renderItem(it, paper));
     }
-    paper.append(h('div', { class: 'ep-end' }, '— HẾT —'));
+    paper.append(h('div', { class: 'ep-end' }, tx('— HẾT —', '— END —')));
 
     // bottom keypad shared by every "input" câu
     const pad = makeExamPad();
@@ -1589,8 +1655,9 @@
     function renderItem(it, host) {
       const A = it.answer, q = it.q;
       const st = { it, sel: null, input: '', fr: { num: '', den: '', part: 'num' }, vEl: null, el: null, mark: null };
-      const head = h('div', { class: 'ep-q' }, h('b', null, `Câu ${it.no} `), h('span', { class: 'ep-pts' }, `(${U.fmt(it.points)} điểm)`), h('b', null, ': '),
-        it.label && !q.prompt.toLowerCase().startsWith(it.label.toLowerCase().replace(/[.:]\s*$/, '')) ? h('span', { class: 'ep-label' }, it.label + '. ') : null, h('span', { class: 'ep-prompt' }, q.prompt));
+      const lbl = exText(it.label);
+      const head = h('div', { class: 'ep-q' }, h('b', null, `${tx('Câu', 'Question')} ${it.no} `), h('span', { class: 'ep-pts' }, `(${marks(it.points)})`), h('b', null, ': '),
+        lbl && !q.prompt.toLowerCase().startsWith(lbl.toLowerCase().replace(/[.:]\s*$/, '')) ? h('span', { class: 'ep-label' }, lbl + '. ') : null, h('span', { class: 'ep-prompt' }, q.prompt));
       const box = h('div', { class: 'ep-item' }, head);
       if (q.visual) {
         st.vEl = viz(q.visual, { size: 'md', theme: 'paper', interactive: A.kind === 'visual' });
@@ -1608,10 +1675,10 @@
         const slot = h('button', { class: 'ep-slot empty' }, '…………');
         slot.onclick = () => { if (!submitted) pad.open(st, slot); };
         st.slot = slot;
-        ans.append(h('span', { class: 'ep-say' }, 'Trả lời: '), slot);
+        ans.append(h('span', { class: 'ep-say' }, tx('Trả lời: ', 'Answer: ')), slot);
         if (A.unit) ans.append(h('span', { class: 'ep-unit' }, A.unit));
       } else if (A.kind === 'visual') {
-        ans.append(h('span', { class: 'ep-say' }, 'Bé làm trực tiếp trên hình.'));
+        ans.append(h('span', { class: 'ep-say' }, tx('Bé làm trực tiếp trên hình.', 'Work on the picture.')));
       }
       box.append(ans);
       st.el = box;
@@ -1661,14 +1728,15 @@
           if (st.sel != null && st.sel !== A.correct && opts[st.sel]) opts[st.sel].classList.add('miss');
         }
         st.el.append(h('div', { class: 'ep-review ' + (ok ? 'ok' : 'no') },
-          h('b', null, ok ? `✓ Đúng · +${U.fmt(st.it.points)} điểm` : `✗ Chưa đúng · 0 điểm`),
-          !ok && correctText(A) ? h('div', null, 'Đáp án: ' + correctText(A)) : null,
+          h('b', null, ok ? `✓ ${tx('Đúng', 'Correct')} · +${marks(st.it.points)}` : tx(`✗ Chưa đúng · 0 điểm`, `✗ Not correct · 0 marks`)),
+          !ok && correctText(A) ? h('div', null, tx('Đáp án: ', 'Answer: ') + correctText(A)) : null,
           st.it.q.explain ? h('div', { class: 'ep-explain' }, st.it.q.explain) : null));
       }
       const raw = U.round(got * 10 / (total || 10), 2);
       const final = roundScore(raw);
       scoreBox.querySelector('.ep-num').textContent = final;
-      const cmt = final >= 9 ? 'Hoàn thành tốt, bé làm rất tốt!' : final >= 7 ? 'Bài làm tốt, cố gắng thêm chút nữa nhé.' : final >= 5 ? 'Hoàn thành. Bé xem lại các câu sai nhé.' : 'Bé ôn lại các bài sau rồi làm lại đề nhé.';
+      const cmt = EN ? (final >= 9 ? 'Very good work!' : final >= 7 ? 'Good work. Try a little more.' : final >= 5 ? 'Completed. Look again at the wrong answers.' : 'Review these lessons, then try the test again.')
+        : final >= 9 ? 'Hoàn thành tốt, bé làm rất tốt!' : final >= 7 ? 'Bài làm tốt, cố gắng thêm chút nữa nhé.' : final >= 5 ? 'Hoàn thành. Bé xem lại các câu sai nhé.' : 'Bé ôn lại các bài sau rồi làm lại đề nhé.';
       commentBox.querySelector('.ep-cmt').textContent = cmt;
       const key = examKey(n, term, no, mode);
       const prev = S.exams[key] || {};
@@ -1683,37 +1751,38 @@
       const summary = h('div', { class: 'card exam-summary' },
         h('div', { class: 'mini-mascot' }, mascot(final >= 7 ? 'cheer' : 'think')),
         h('div', { class: 'es-body' },
-          h('div', { class: 'es-score' }, `${final}`, h('small', null, '/10 điểm')),
+          h('div', { class: 'es-score' }, `${final}`, h('small', null, tx('/10 điểm', '/10'))),
           h('div', { class: 'es-cheer' }, cheer),
-          h('div', null, auto ? 'Hết giờ, bài đã tự nộp. ' : '', `${cmt} (đúng ${U.fmt(got)}/${U.fmt(total)} điểm` + (raw !== final ? `, làm tròn ${U.fmt(raw)} → ${final}` : '') + `) · +${final} ⭐`),
-          weak.length ? h('div', { class: 'es-weak' }, 'Nên ôn lại: ', ...weak.slice(0, 4).map(r => h('button', { class: 'chip', onclick: () => { sfx.tap(); startLesson(r.lesson.id); } }, `${r.lesson.book || ''} ${r.lesson.title}`))) : null,
+          h('div', null, auto ? tx('Hết giờ, bài đã tự nộp. ', 'Time is up, so your test was handed in. ') : '', EN ? `${cmt} (${U.fmt(got)}/${U.fmt(total)} marks` + (raw !== final ? `, rounded ${U.fmt(raw)} → ${final}` : '') + `) · +${final} ⭐`
+            : `${cmt} (đúng ${U.fmt(got)}/${U.fmt(total)} điểm` + (raw !== final ? `, làm tròn ${U.fmt(raw)} → ${final}` : '') + `) · +${final} ⭐`),
+          weak.length ? h('div', { class: 'es-weak' }, tx('Nên ôn lại: ', 'Review: '), ...weak.slice(0, 4).map(r => h('button', { class: 'chip', onclick: () => { sfx.tap(); startLesson(r.lesson.id); } }, `${r.lesson.book || ''} ${r.lesson.title}`))) : null,
           h('div', { class: 'result-actions', style: { justifyContent: 'flex-start' } },
-            h('button', { class: 'btn small', onclick: () => { sfx.tap(); startExam(n, term, 1, mode); } }, bp.sheet ? '↻ Làm phiếu mới' : '↻ Làm đề mới'),
-            h('button', { class: 'btn ghost small', onclick: () => { sfx.tap(); backToList(n, term); } }, bp.sheet ? 'Chọn chủ đề khác' : 'Về Ôn tập & Kiểm tra'))));
+            h('button', { class: 'btn small', onclick: () => { sfx.tap(); startExam(n, term, 1, mode); } }, bp.sheet ? tx('↻ Làm phiếu mới', '↻ New sheet') : tx('↻ Làm đề mới', '↻ New test')),
+            h('button', { class: 'btn ghost small', onclick: () => { sfx.tap(); backToList(n, term); } }, bp.sheet ? tx('Chọn chủ đề khác', 'Choose another topic') : tx('Về Ôn tập & Kiểm tra', 'Back to Review & Tests')))));
       sc.prepend(summary);
       sc.scrollTo({ top: 0, behavior: 'smooth' });
       submitBtn.style.display = 'none';
       clock.querySelector('span').textContent = fmtTime(Date.now() - t0);
-      clock.firstChild.textContent = '⏱ đã làm ';
+      clock.firstChild.textContent = tx('⏱ đã làm ', '⏱ took ');
     }
 
     submitBtn.onclick = () => {
       const left = states.filter(st => !isAnswered(st)).length;
       if (!left) return submit(false);
-      const sh = sheet(h('h2', null, 'Nộp bài?'), h('p', { style: { fontSize: '19px' } }, `Bé còn ${left} câu chưa làm. Bé muốn nộp bài luôn không?`),
+      const sh = sheet(h('h2', null, tx('Nộp bài?', 'Hand in?')), h('p', { style: { fontSize: '19px' } }, tx(`Bé còn ${left} câu chưa làm. Bé muốn nộp bài luôn không?`, `You still have ${left} ${left === 1 ? 'question' : 'questions'} to do. Do you want to hand in now?`)),
         h('div', { class: 'result-actions', style: { marginTop: '14px' } },
-          h('button', { class: 'btn ghost small', onclick: () => sh.close() }, 'Làm tiếp'),
-          h('button', { class: 'btn small', onclick: () => { sh.close(); submit(false); } }, 'Nộp bài')));
+          h('button', { class: 'btn ghost small', onclick: () => sh.close() }, tx('Làm tiếp', 'Keep going')),
+          h('button', { class: 'btn small', onclick: () => { sh.close(); submit(false); } }, tx('Nộp bài', 'Hand in'))));
     };
     const quit = () => {
       if (submitted) { clearInterval(examTimer); pad.close(); return backToList(n, term); }
-      const sh = sheet(h('h2', null, 'Thoát bài kiểm tra?'), h('p', { style: { fontSize: '19px' } }, 'Bài làm sẽ không được lưu.'),
+      const sh = sheet(h('h2', null, tx('Thoát bài kiểm tra?', 'Leave the test?')), h('p', { style: { fontSize: '19px' } }, tx('Bài làm sẽ không được lưu.', 'Your answers will not be saved.')),
         h('div', { class: 'result-actions', style: { marginTop: '14px' } },
-          h('button', { class: 'btn ghost small', onclick: () => sh.close() }, 'Làm tiếp'),
-          h('button', { class: 'btn small', onclick: () => { sh.close(); clearInterval(examTimer); pad.close(); backToList(n, term); } }, 'Thoát')));
+          h('button', { class: 'btn ghost small', onclick: () => sh.close() }, tx('Làm tiếp', 'Keep going')),
+          h('button', { class: 'btn small', onclick: () => { sh.close(); clearInterval(examTimer); pad.close(); backToList(n, term); } }, tx('Thoát', 'Leave'))));
     };
     const sc = h('div', { class: 'scroll exam-scroll' }, paper);
-    screen(topbar(`Lớp ${n} · ${termName(n, term)}`, paperName(no, mode, term), backBtn(quit), [clock, submitBtn]), sc);
+    screen(topbar(`${G(n)} · ${termName(n, term)}`, paperName(no, mode, term), backBtn(quit), [clock, submitBtn]), sc);
     if (window.Scratch) Scratch.attach('exam:' + t0);   // giấy nháp for this sitting
     examTimer = setInterval(() => {
       const left = limit - (Date.now() - t0);
@@ -1728,7 +1797,7 @@
     let st = null, slot = null;
     const disp = h('div', { class: 'display' });
     const keysEl = h('div', { class: 'keypad' });
-    const panel = h('div', { class: 'exam-pad card' }, h('div', { class: 'ep-pad-row' }, disp, h('button', { class: 'btn small teal', onclick: () => close() }, 'Xong')), keysEl);
+    const panel = h('div', { class: 'exam-pad card' }, h('div', { class: 'ep-pad-row' }, disp, h('button', { class: 'btn small teal', onclick: () => close() }, tx('Xong', 'Done'))), keysEl);
     panel.hidden = true;
     document.body.append(panel);
     function show() {
@@ -1760,7 +1829,7 @@
           else if (k === ',') { if (!st.input.includes(',')) st.input = (st.input || '0') + ','; }
           else if (st.input.replace(',', '').length < 9) st.input = (st.input === '0' ? '' : st.input) + k;
           show();
-        } }, k === '⇅' ? 'Tử/Mẫu' : k));
+        } }, k === '⇅' ? tx('Tử/Mẫu', 'Top/Bottom') : k));
       }
     }
     function open(s, sl) {

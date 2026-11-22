@@ -68,7 +68,7 @@
 }
 @media (prefers-reduced-motion: reduce) { .scr-panel { transition: none; } .scr-tip { animation: none; opacity: 0; } }
 `;
-  const COLORS = [['#1D4ED8', 'Bút xanh'], ['#E0313B', 'Bút đỏ'], ['#1F2933', 'Bút đen']];
+  const COLORS = [['#1D4ED8', U.L('Bút xanh', 'Blue pen')], ['#E0313B', U.L('Bút đỏ', 'Red pen')], ['#1F2933', U.L('Bút đen', 'Black pen')]];
   const bottomMode = () => matchMedia('(orientation: portrait), (max-width: 900px) and (min-height: 541px)').matches;
 
   let root, panel, handle, sheet, canvas, ctx;
@@ -83,12 +83,12 @@
     if (root) return;
     const st = el('style'); st.id = 'scratch-css'; st.textContent = CSS; document.head.append(st);
     root = el('div', 'scr-root'); root.hidden = true;
-    handle = el('button', 'scr-handle', '<span class="scr-ic">✏️</span><span class="scr-tx">Nháp</span>');
-    handle.setAttribute('aria-label', 'Giấy nháp');
+    handle = el('button', 'scr-handle', '<span class="scr-ic">✏️</span><span class="scr-tx">' + U.L('Nháp', 'Notes') + '</span>');
+    handle.setAttribute('aria-label', U.L('Giấy nháp', 'Scrap paper'));
     panel = el('div', 'scr-panel');
     const head = el('div', 'scr-head');
-    head.append(el('div', 'scr-title', 'Giấy nháp nè bé yêu 💕'));
-    const close = el('button', 'scr-btn close', 'Thu lại ✓'); close.onclick = () => setOpen(false);
+    head.append(el('div', 'scr-title', U.L('Giấy nháp nè bé yêu 💕', 'Your scrap paper 💕')));
+    const close = el('button', 'scr-btn close', U.L('Thu lại ✓', 'Close ✓')); close.onclick = () => setOpen(false);
     head.append(close);
     const tools = el('div', 'scr-tools');
     for (const [c, name] of COLORS) {
@@ -97,12 +97,12 @@
       b.onclick = () => { tool.color = c; tool.erase = false; paintTools(); };
       btns[c] = b; tools.append(b);
     }
-    btns.erase = el('button', 'scr-btn', '🧽 Tẩy'); btns.erase.onclick = () => { tool.erase = true; paintTools(); };
+    btns.erase = el('button', 'scr-btn', U.L('🧽 Tẩy', '🧽 Rubber')); btns.erase.onclick = () => { tool.erase = true; paintTools(); };
     tools.append(btns.erase, el('div', 'sep'));
-    const undo = el('button', 'scr-btn', '↶'); undo.setAttribute('aria-label', 'Hoàn tác');
+    const undo = el('button', 'scr-btn', '↶'); undo.setAttribute('aria-label', U.L('Hoàn tác', 'Undo'));
     // ↶ also brings back a page wiped with "Xóa hết" (in case it was tapped by mistake)
     undo.onclick = () => { if (!strokes.length && cleared) { strokes = cleared; cleared = null; } else strokes.pop(); redraw(); };
-    const clear = el('button', 'scr-btn wipe', '🧹 Xóa hết'); clear.setAttribute('aria-label', 'Xóa hết giấy nháp');
+    const clear = el('button', 'scr-btn wipe', U.L('🧹 Xóa hết', '🧹 Clear')); clear.setAttribute('aria-label', U.L('Xóa hết giấy nháp', 'Clear the scrap paper'));
     clear.onclick = () => { if (!strokes.length) return; cleared = strokes; strokes = []; redraw(); };
     tools.append(undo, clear);
     sheet = el('div', 'scr-sheet');
@@ -234,7 +234,7 @@
     document.body.classList.add('scratch-on');   // portrait: the app keeps room above the bottom "Nháp" tab
     if (!tipShown) {
       tipShown = true;
-      const tip = el('div', 'scr-tip', 'Giấy nháp nè bé yêu! ✏️');
+      const tip = el('div', 'scr-tip', U.L('Giấy nháp nè bé yêu! ✏️', 'Here is your scrap paper! ✏️'));
       root.append(tip);
       setTimeout(() => tip.remove(), 3600);
     }
