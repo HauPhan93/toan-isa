@@ -160,7 +160,8 @@
       if (f === 0) return Q(`${n} × ${k} = ?`, vz('array', { rows: k, cols: n, emoji: P(rng, ['🍎', '🌸', '⭐', '🍬']) }), num(p), `${n} được lấy ${k} lần.`, `${n} × ${k} = ${p}.`);
       if (f === 1) {
         const c = P(rng, ctxs);
-        return Q(`${c.per} Hỏi ${k} ${c.who} có bao nhiêu ${c.what}?`, vz('objects', { groups: Array.from({ length: Math.min(k, 10) }, () => ({ emoji: c.e, count: n })) }), num(p), `${n} được lấy ${k} lần, em làm phép nhân ${n} × ${k}.`, `${n} × ${k} = ${p} (${c.what}).`);
+        // draw the k groups being counted (k hens, k hands…); the per-group amount is in c.per
+        return Q(`${c.per} Hỏi ${k} ${c.who} có bao nhiêu ${c.what}?`, vz('objects', { groups: [{ emoji: c.e, count: k }] }), num(p), `${n} được lấy ${k} lần, em làm phép nhân ${n} × ${k}.`, `${n} × ${k} = ${p} (${c.what}).`);
       }
       if (f === 2) {
         const start = R(rng, 1, 6), miss = R(rng, 1, 3);
@@ -185,7 +186,11 @@
       if (f === 0) return Q(`${p} : ${n} = ?`, vz('share', { total: p, groups: n, emoji: P(rng, ['🍬', '🍪', '🍎']) }), num(k), `Chia đều ${p} vào ${n} phần. Nhớ bảng nhân ${n}: ${n} × ? = ${p}.`, `${p} : ${n} = ${k}.`);
       if (f === 1) {
         const c = P(rng, ctxs);
-        return Q(c.q(p, n), vz('share', { total: p, groups: n, emoji: c.e, plateLabel: c.plate }), num(k), `Em làm phép chia ${p} : ${n}.`, `${p} : ${n} = ${k} (${c.unit}).`);
+        // "mỗi nhóm n" stories (c.bySize) are drawn as k groups of n (objects draws at most 6 groups, so
+        // more groups become k rows of n); sharing stories as n plates
+        const v = !c.bySize ? vz('share', { total: p, groups: n, emoji: c.e, plateLabel: c.plate })
+          : k <= 6 ? vz('objects', { groups: Array.from({ length: k }, () => ({ emoji: c.e, count: n })) }) : vz('array', { rows: k, cols: n, emoji: c.e });
+        return Q(c.q(p, n), v, num(k), `Em làm phép chia ${p} : ${n}.`, `${p} : ${n} = ${k} (${c.unit}).`);
       }
       if (f === 2) return Q(`Biết ${n} × ${k} = ${p}. Vậy ${p} : ${n} = ?`, vz('array', { rows: k, cols: n }), ch(rng, k, [k + 1, k - 1, p, n].filter(x => x > 0)), 'Từ một phép nhân ta viết được phép chia: lấy tích chia cho một thừa số được thừa số kia.', `${p} : ${n} = ${k}.`);
       if (f === 3) {
@@ -336,12 +341,13 @@
           if (f === 1) return Q(`${a} + ${b} = ?`, vz('objects', { groups: [{ emoji: it.e, count: a }, { emoji: it.e, count: b }] }), ch(rng, s, [s - 1, s + 1, s - 10, s + 2].filter(x => x > 0)), `Tách ${b} = ${10 - a} + ${b - (10 - a)} để ${a} + ${10 - a} = 10.`, `${a} + ${b} = ${a} + ${10 - a} + ${b - (10 - a)} = ${s}.`, { hintVisual: hv });
           if (f === 2) return Q(`Số thích hợp ở ô ?:\n${a} + ${b} = ${a} + ${10 - a} + ?`, hv, num(b - (10 - a)), `${b} tách thành ${10 - a} và mấy?`, `${b} = ${10 - a} + ${b - (10 - a)}.`);
           if (f === 3) {
-            const t = P(rng, [
-              `Trong chuồng có ${a} con gà, mẹ mua thêm ${b} con gà. Hỏi trong chuồng có tất cả bao nhiêu con gà?`,
-              `${nm(rng)} có ${a} viên bi, được bạn cho thêm ${b} viên bi. Hỏi bạn ấy có tất cả bao nhiêu viên bi?`,
-              `Trên cành có ${a} con chim, có thêm ${b} con chim bay đến. Hỏi trên cành có tất cả bao nhiêu con chim?`,
+            // each story carries its own picture emoji so the drawing matches the noun
+            const [t, e] = P(rng, [
+              [`Trong chuồng có ${a} con gà, mẹ mua thêm ${b} con gà. Hỏi trong chuồng có tất cả bao nhiêu con gà?`, '🐔'],
+              [`${nm(rng)} có ${a} quả cam, được bạn cho thêm ${b} quả cam. Hỏi bạn ấy có tất cả bao nhiêu quả cam?`, '🍊'],
+              [`Trên cành có ${a} con chim, có thêm ${b} con chim bay đến. Hỏi trên cành có tất cả bao nhiêu con chim?`, '🐦'],
             ]);
-            return Q(t, vz('objects', { groups: [{ emoji: it.e, count: a }, { emoji: it.e, count: b }] }), num(s), 'Thêm vào thì làm phép cộng.', `${a} + ${b} = ${s}.`);
+            return Q(t, vz('objects', { groups: [{ emoji: e, count: a }, { emoji: e, count: b }] }), num(s), 'Thêm vào thì làm phép cộng.', `${a} + ${b} = ${s}.`);
           }
           const d = [`${a} + ${b - 1}`, `${a + 1} + ${b}`, `${a - 1} + ${b}`].filter(x => !/\b0\b/.test(x));
           return Q(`Phép tính nào có kết quả bằng ${s}?`, null, ch(rng, `${a} + ${b}`, d), 'Tính nhẩm từng phép tính.', `${a} + ${b} = ${s}.`);
@@ -381,7 +387,8 @@
               `${who} có ${a} ${it.n}, mẹ cho thêm ${b} ${it.n}. Hỏi ${who} có tất cả bao nhiêu ${it.n}?`,
               `Trong rổ có ${a} ${it.n}, bà bỏ thêm vào ${b} ${it.n}. Hỏi trong rổ có bao nhiêu ${it.n}?`,
             ]);
-            if (f === 2) return Q(t + '\nEm chọn phép tính đúng:', vz('objects', { groups: [{ emoji: it.e, count: a }, { emoji: it.e, count: b }] }), ch(rng, `${a} + ${b} = ${a + b}`, [`${a + b} ${M} ${b} = ${a}`, `${a} + ${b} = ${a + b + 1}`]), 'Thêm thì làm phép cộng.', `${a} + ${b} = ${a + b} (${it.n}).`);
+            // distractors: the wrong operation on the story's two numbers, and a wrong sum (never "total − part = part")
+            if (f === 2) return Q(t + '\nEm chọn phép tính giải bài toán:', vz('objects', { groups: [{ emoji: it.e, count: a }, { emoji: it.e, count: b }] }), ch(rng, `${a} + ${b} = ${a + b}`, [`${Math.max(a, b)} ${M} ${Math.min(a, b)} = ${Math.abs(a - b)}`, `${a} + ${b} = ${a + b + 1}`]), 'Thêm thì làm phép cộng.', `${a} + ${b} = ${a + b} (${it.n}).`);
             return Q(t, vz('objects', { groups: [{ emoji: it.e, count: a }, { emoji: it.e, count: b }] }), num(a + b), 'Thêm thì làm phép cộng.', `${a} + ${b} = ${a + b} (${it.n}).`);
           }
           const [a, b] = lv(i) === 0 ? [R(rng, 5, 10), R(rng, 1, 4)] : subOver10(rng);
@@ -389,7 +396,7 @@
             `${who} có ${a} ${it.n}, ${who} cho bạn ${b} ${it.n}. Hỏi ${who} còn lại bao nhiêu ${it.n}?`,
             `Trên bàn có ${a} ${it.n}, em lấy đi ${b} ${it.n}. Hỏi trên bàn còn bao nhiêu ${it.n}?`,
           ]);
-          if (f === 3) return Q(t + '\nEm chọn phép tính đúng:', vz('objects', { groups: [{ emoji: it.e, count: a }], crossOut: b }), ch(rng, `${a} ${M} ${b} = ${a - b}`, [`${a} + ${b} = ${a + b}`, `${a} ${M} ${b} = ${a - b + 1}`]), 'Bớt đi thì làm phép trừ.', `${a} ${M} ${b} = ${a - b} (${it.n}).`);
+          if (f === 3) return Q(t + '\nEm chọn phép tính giải bài toán:', vz('objects', { groups: [{ emoji: it.e, count: a }], crossOut: b }), ch(rng, `${a} ${M} ${b} = ${a - b}`, [`${a} + ${b} = ${a + b}`, `${a} ${M} ${b} = ${a - b + 1}`]), 'Bớt đi thì làm phép trừ.', `${a} ${M} ${b} = ${a - b} (${it.n}).`);
           return Q(t, vz('objects', { groups: [{ emoji: it.e, count: a }], crossOut: b }), num(a - b), 'Bớt đi thì làm phép trừ.', `${a} ${M} ${b} = ${a - b} (${it.n}).`);
         }),
 
@@ -465,7 +472,7 @@
 
   // ============ CHỦ ĐỀ 3. LÀM QUEN VỚI KHỐI LƯỢNG, DUNG TÍCH ============
   function weightsFor(w) { const out = []; let x = w; for (const k of [5, 2, 1]) while (x >= k) { out.push({ label: k + ' kg', kg: k }); x -= k; } return out; }
-  const FRUIT = [{ n: 'quả dưa hấu', e: '🍉' }, { n: 'quả bí ngô', e: '🎃' }, { n: 'túi gạo', e: '🌾' }, { n: 'quả mít', e: '🍈' }, { n: 'túi cam', e: '🍊' }];
+  const FRUIT = [{ n: 'quả dưa hấu', e: '🍉' }, { n: 'quả bí ngô', e: '🎃' }, { n: 'túi gạo', e: '🌾' }, { n: 'quả dưa lưới', e: '🍈' }, { n: 'túi cam', e: '🍊' }];
   const c3 = {
     id: 'g2-c3', semester: 1, title: 'Làm quen với khối lượng, dung tích', icon: '⚖️', lessons: [
       lesson(3, 15, 'Ki-lô-gam',
@@ -580,12 +587,13 @@
             const k = P(rng, ['triangle', 'quad', 'rect', 'square']);
             const n = k === 'triangle' ? 3 : 4;
             const nameK = { triangle: 'hình tam giác', quad: 'hình tứ giác', rect: 'hình chữ nhật', square: 'hình vuông' }[k];
-            return Q(`Hình này (${nameK}) có mấy cạnh?`, vz('shape', { kind: k }), ch(rng, n, [2, 3, 4, 5].filter(x => x !== n)), 'Đếm các đoạn thẳng tạo thành hình.', `${nameK[0].toUpperCase() + nameK.slice(1)} có ${n} cạnh.`);
+            return Q('Hình này có mấy cạnh?', vz('shape', { kind: k }), ch(rng, n, [2, 3, 4, 5].filter(x => x !== n)), 'Đếm các đoạn thẳng tạo thành hình.', `${nameK[0].toUpperCase() + nameK.slice(1)} có ${n} cạnh.`);
           }
           if (f === 2) {
             const a = R(rng, 2, 9), b = R(rng, 2, 9);
             const [p1, p2, p3] = P(rng, [['A', 'B', 'C'], ['M', 'N', 'P'], ['D', 'E', 'G']]);
-            return Q(`Đoạn thẳng ${p1}${p2} dài ${a} cm, đoạn thẳng ${p2}${p3} dài ${b} cm. Tổng độ dài hai đoạn thẳng là bao nhiêu xăng-ti-mét?`, vz('ruler', { length: a + b, unit: 'cm', object: 'ribbon' }), num(a + b, 'cm'), 'Cộng hai độ dài.', `${a} + ${b} = ${a + b} (cm).`);
+            // picture: the two named segments with their end points lettered and their lengths marked
+            return Q(`Đoạn thẳng ${p1}${p2} dài ${a} cm, đoạn thẳng ${p2}${p3} dài ${b} cm. Tổng độ dài hai đoạn thẳng là bao nhiêu xăng-ti-mét?`, vz('shape', { kind: 'polyline', dims: { segments: [a, b] }, showDims: true, label: p1 + p2 + p3 }), num(a + b, 'cm'), 'Cộng hai độ dài.', `${a} + ${b} = ${a + b} (cm).`);
           }
           const qs = [
             ['Ba điểm cùng nằm trên một đường thẳng gọi là ba điểm …', 'thẳng hàng', ['thẳng đứng', 'cong', 'tròn']],
@@ -687,16 +695,16 @@
   const MUL2 = [
     { per: 'Mỗi con gà có 2 chân.', who: 'con gà', what: 'cái chân', e: '🐔' },
     { per: 'Mỗi đôi đũa có 2 chiếc.', who: 'đôi đũa', what: 'chiếc đũa', e: '🥢' },
-    { per: 'Mỗi bạn có 2 bàn tay.', who: 'bạn', what: 'bàn tay', e: '🙌' },
+    { per: 'Mỗi bạn có 2 bàn tay.', who: 'bạn', what: 'bàn tay', e: '🧒' },
   ];
   const MUL5 = [
     { per: 'Mỗi bàn tay có 5 ngón tay.', who: 'bàn tay', what: 'ngón tay', e: '🖐️' },
     { per: 'Mỗi bông hoa có 5 cánh.', who: 'bông hoa', what: 'cánh hoa', e: '🌸' },
-    { per: 'Mỗi hộp có 5 cái bánh.', who: 'hộp', what: 'cái bánh', e: '🧁' },
+    { per: 'Mỗi hộp có 5 cái bánh.', who: 'hộp', what: 'cái bánh', e: '📦' },
   ];
   const DIV2 = [
     { q: (p, n) => `Có ${p} cái kẹo chia đều cho ${n} bạn. Mỗi bạn được mấy cái kẹo?`, e: '🍬', unit: 'cái kẹo', plate: 'bạn' },
-    { q: (p, n) => `Có ${p} chiếc đũa, mỗi đôi có ${n} chiếc. Có mấy đôi đũa?`, e: '🥢', unit: 'đôi đũa' },
+    { q: (p, n) => `Có ${p} chiếc đũa, mỗi đôi có ${n} chiếc. Có mấy đôi đũa?`, e: '🥢', unit: 'đôi đũa', bySize: true },
   ];
   const DIV5 = [
     { q: (p, n) => `Có ${p} quả cam xếp đều vào ${n} đĩa. Mỗi đĩa có mấy quả cam?`, e: '🍊', unit: 'quả cam', plate: 'đĩa' },
@@ -732,7 +740,7 @@
           if (f === 0) return Q(`Trong phép nhân ${a} × ${b} = ${p}, số ${p} gọi là gì?`, null, ch(rng, 'Tích', ['Thừa số', 'Tổng', 'Hiệu']), 'Kết quả của phép nhân gọi là tích.', `${p} là tích.`);
           if (f === 1) return Q(`Các thừa số là ${a} và ${b}. Tích là bao nhiêu?`, vz('array', { rows: b, cols: a }), num(p), `${a} được lấy ${b} lần.`, `${a} × ${b} = ${p}.`);
           if (f === 2) return Q(`Các thừa số của phép nhân ${a} × ${b} = ${p} là:`, null, ch(rng, `${a} và ${b}`, [`${a} và ${p}`, `${b} và ${p}`, `${p}`]), 'Các số đứng hai bên dấu × là thừa số.', `Thừa số là ${a} và ${b}.`);
-          return Q(`Viết phép nhân, biết thừa số thứ nhất là ${a}, thừa số thứ hai là ${b}. Tích bằng bao nhiêu?`, vz('objects', { groups: Array.from({ length: b }, () => ({ emoji: '🔵', count: a })) }), num(p), `Cộng ${b} lần số ${a}.`, `${a} × ${b} = ${p}.`);
+          return Q(`Viết phép nhân, biết thừa số thứ nhất là ${a}, thừa số thứ hai là ${b}. Tích bằng bao nhiêu?`, b <= 6 ? vz('objects', { groups: Array.from({ length: b }, () => ({ emoji: '🔵', count: a })) }) : vz('array', { rows: b, cols: a, emoji: '🔵' }), num(p), `Cộng ${b} lần số ${a}.`, `${a} × ${b} = ${p}.`);
         }),
 
       lesson(8, 39, 'Bảng nhân 2',
@@ -746,7 +754,7 @@
         'Rô-bốt ISA cùng bạn Ngọc đếm cánh những bông hoa mai ngày Tết.',
         [
           { text: '5 × 1 = 5, 5 × 2 = 10, 5 × 3 = 15, … Đếm thêm 5.', visual: vz('numberLine', { min: 0, max: 50, step: 5, labelEvery: 1, hops: [{ from: 0, to: 5, label: '+5' }, { from: 5, to: 10, label: '+5' }, { from: 10, to: 15, label: '+5' }] }) },
-          { text: 'Mỗi bàn tay có 5 ngón. 3 bàn tay có 5 × 3 = 15 ngón.', visual: vz('array', { rows: 3, cols: 5, emoji: '🌼' }) },
+          { text: 'Mỗi bàn tay có 5 ngón. 3 bàn tay có 5 × 3 = 15 ngón.', visual: vz('objects', { groups: [{ emoji: '🖐️', count: 3 }] }) },
         ],
         mulTableGen(5, MUL5)),
 
@@ -770,7 +778,8 @@
           { text: 'Trong 10 : 2 = 5: 10 là số bị chia, 2 là số chia, 5 là thương. 10 : 2 cũng gọi là thương.', visual: vz('share', { total: 10, groups: 2, emoji: '🍊' }) },
         ],
         function (rng, i) {
-          const n = P(rng, [2, 5]), k = R(rng, 2, lv(i) === 0 ? 5 : 9), p = n * k, f = i % 4;
+          // số chia ≠ thương (no 4 : 2 = 2 or 25 : 5 = 5), so each number has only one name
+          const n = P(rng, [2, 5]), k0 = R(rng, 2, lv(i) === 0 ? 5 : 9), k = k0 === n ? n + 1 : k0, p = n * k, f = i % 4;
           const names = ['Số bị chia', 'Số chia', 'Thương'];
           if (f === 0) { const j = R(rng, 0, 2), v = [p, n, k][j]; return Q(`Trong phép chia ${p} : ${n} = ${k}, số ${v} gọi là gì?`, null, ch(rng, names[j], names.concat(['Tích']).filter(x => x !== names[j])), 'Số bị chia : số chia = thương.', `${v} là ${names[j].toLowerCase()}.`); }
           if (f === 1) return Q(`Số bị chia là ${p}, số chia là ${n}. Thương là bao nhiêu?`, vz('share', { total: p, groups: n }), num(k), `Tính ${p} : ${n}.`, `${p} : ${n} = ${k}.`);
@@ -989,14 +998,17 @@
             notes.sort((x, y) => y - x);
             return Q('Có tất cả bao nhiêu tiền?', vz('money', { notes }), num(s, 'đồng'), 'Cộng giá trị các tờ tiền.', `${notes.join(' + ')} = ${s} (đồng).`);
           }
-          if (f === 1) { const [big, small] = P(rng, [[1000, 500], [1000, 200], [1000, 100], [500, 100], [200, 100]]); return Q(`Đổi 1 tờ ${big} đồng được mấy tờ ${small} đồng?`, vz('money', { notes: [big] }), num(big / small), `${small} + ${small} + … = ${big}.`, `${big} : ${small} = ${big / small}. Đổi được ${big / small} tờ.`); }
+          if (f === 1) {
+            // lớp 2 only divides by 2 and 5: explain with repeated addition
+            const [big, small] = P(rng, [[1000, 500], [1000, 200], [1000, 100], [500, 100], [200, 100]]), k = big / small;
+            return Q(`Đổi 1 tờ ${big} đồng được mấy tờ ${small} đồng?`, vz('money', { notes: [big] }), num(k), `${small} + ${small} + … = ${big}.`, `${big} đồng = ${Array(k).fill(small).join(' + ')} (đồng), nên đổi được ${k} tờ ${small} đồng.`); }
           if (f === 2) { const price = R(rng, 1, 9) * 100; const pay = 1000; return Q(`${nm(rng)} mua một cái bút giá ${price} đồng, đưa cô bán hàng tờ 1000 đồng. Cô trả lại bao nhiêu tiền?`, vz('money', { notes: [1000] }), num(pay - price, 'đồng'), 'Lấy số tiền đưa trừ giá tiền.', `1000 ${M} ${price} = ${pay - price} (đồng).`); }
           const target = R(rng, 3, 10) * 100;
           const combos = [[500, 200, 100], [500, 500], [200, 200, 100], [500, 200], [200, 100], [500, 100], [500, 200, 200], [500, 200, 200, 100], [200, 200, 200], [500, 500, 100]];
           const good = combos.filter(c => c.reduce((x, y) => x + y, 0) === target);
           const bad = combos.filter(c => c.reduce((x, y) => x + y, 0) !== target);
           const str = c => c.map(x => x + ' đồng').join(' + ');
-          if (!good.length) { const n = target / 100; return Q(`Cần bao nhiêu tờ 100 đồng để được ${target} đồng?`, vz('money', { notes: [100] }), num(n), 'Đếm thêm 100.', `${target} : 100 = ${n}.`); }
+          if (!good.length) { const n = target / 100; return Q(`Cần bao nhiêu tờ 100 đồng để được ${target} đồng?`, vz('money', { notes: [100] }), num(n), 'Đếm thêm 100.', `${target} đồng = ${Array(n).fill(100).join(' + ')} (đồng), nên cần ${n} tờ 100 đồng.`); }
           return Q(`Chọn các tờ tiền có tổng là ${target} đồng:`, null, ch(rng, str(good[0]), U.sample(rng, bad, 3).map(str)), 'Cộng giá trị các tờ tiền trong mỗi đáp án.', `${good[0].join(' + ')} = ${target} (đồng).`);
         }, [
           [0, 6, rng => {
@@ -1090,22 +1102,38 @@
           { text: 'Biểu đồ tranh: mỗi hình vẽ là 1 bạn. Hàng "Mèo" có 5 hình nên 5 bạn thích mèo.', visual: vz('pictograph', { rows: [{ label: 'Mèo', count: 5 }, { label: 'Chó', count: 4 }, { label: 'Thỏ', count: 2 }], emoji: '🙂' }) },
         ],
         function (rng, i) {
+          // every prompt says what the chart shows and names the counted thing with its unit
+          const lc = s => s.toLowerCase();
           const sets = [
-            { labels: ['Mèo', 'Chó', 'Thỏ', 'Cá vàng'], what: 'bạn thích', emoji: '🙂' },
-            { labels: ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm'], what: 'cây trồng được vào', emoji: '🌱' },
-            { labels: ['Táo', 'Cam', 'Xoài', 'Chuối'], what: 'quả', emoji: '🍎' },
+            { labels: ['Mèo', 'Chó', 'Thỏ', 'Cá vàng'], emoji: '🙂', u: 'bạn',
+              intro: 'Biểu đồ cho biết số bạn lớp 2A thích mỗi con vật. Mỗi hình vẽ là 1 bạn.',
+              row: l => `Có bao nhiêu bạn thích ${lc(l)}?`,
+              most: big => `Con vật nào được ${big ? 'nhiều' : 'ít'} bạn thích nhất?`,
+              diff: (h, l) => `Số bạn thích ${lc(h)} nhiều hơn số bạn thích ${lc(l)} bao nhiêu bạn?`,
+              total: 'Có tất cả bao nhiêu bạn được hỏi?' },
+            { labels: ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm'], emoji: '🌱', u: 'cây',
+              intro: 'Biểu đồ cho biết số cây lớp 2A trồng được mỗi ngày. Mỗi hình vẽ là 1 cây.',
+              row: l => `Ngày ${lc(l[0]) + l.slice(1)}, lớp 2A trồng được bao nhiêu cây?`,
+              most: big => `Ngày nào lớp 2A trồng được ${big ? 'nhiều' : 'ít'} cây nhất?`,
+              diff: (h, l) => `Ngày ${lc(h[0]) + h.slice(1)} trồng được nhiều hơn ngày ${lc(l[0]) + l.slice(1)} bao nhiêu cây?`,
+              total: 'Lớp 2A trồng được tất cả bao nhiêu cây?' },
+            { labels: ['Táo', 'Cam', 'Xoài', 'Chuối'], emoji: '🍎', u: 'quả',
+              intro: 'Biểu đồ cho biết số quả mỗi loại trong giỏ. Mỗi hình vẽ là 1 quả.',
+              row: l => `Trong giỏ có bao nhiêu quả ${lc(l)}?`,
+              most: big => `Loại quả nào có ${big ? 'nhiều' : 'ít'} quả nhất?`,
+              diff: (h, l) => `Số quả ${lc(h)} nhiều hơn số quả ${lc(l)} bao nhiêu quả?`,
+              total: 'Trong giỏ có tất cả bao nhiêu quả?' },
           ];
           const st = P(rng, sets), k = lv(i) === 0 ? 3 : 4;
           const labels = st.labels.slice(0, k);
           const counts = U.sample(rng, [1, 2, 3, 4, 5, 6, 7, 8], k);
           const pv = vz('pictograph', { rows: labels.map((l, j) => ({ label: l, count: counts[j] })), emoji: st.emoji });
           const f = i % 4;
-          const desc = st.what === 'bạn thích' ? 'Mỗi hình là 1 bạn.' : st.what === 'quả' ? 'Mỗi hình là 1 quả.' : 'Mỗi hình là 1 cây.';
-          if (f === 0) { const j = R(rng, 0, k - 1); return Q(`${desc} Hàng "${labels[j]}" có bao nhiêu?`, pv, num(counts[j]), 'Đếm số hình ở hàng đó.', `Có ${counts[j]}.`); }
-          if (f === 1) { const big = R(rng, 0, 1), v = big ? Math.max(...counts) : Math.min(...counts); return Q(`${desc} Hàng nào có ${big ? 'nhiều' : 'ít'} hình nhất?`, pv, ch(rng, labels[counts.indexOf(v)], labels), 'So sánh độ dài các hàng.', `"${labels[counts.indexOf(v)]}" có ${v}.`); }
-          if (f === 2) { const [a, b] = U.sample(rng, labels.map((_, j) => j), 2); const hi = counts[a] > counts[b] ? a : b, lo = hi === a ? b : a; return Q(`${desc} Hàng "${labels[hi]}" nhiều hơn hàng "${labels[lo]}" bao nhiêu?`, pv, num(counts[hi] - counts[lo]), 'Lấy số lớn trừ số bé.', `${counts[hi]} ${M} ${counts[lo]} = ${counts[hi] - counts[lo]}.`); }
+          if (f === 0) { const j = R(rng, 0, k - 1); return Q(`${st.intro}\n${st.row(labels[j])}`, pv, num(counts[j], st.u), 'Đếm số hình ở hàng đó.', `Hàng "${labels[j]}" có ${counts[j]} hình, tức là ${counts[j]} ${st.u}.`); }
+          if (f === 1) { const big = R(rng, 0, 1), v = big ? Math.max(...counts) : Math.min(...counts); return Q(`${st.intro}\n${st.most(big)}`, pv, ch(rng, labels[counts.indexOf(v)], labels), 'So sánh độ dài các hàng.', `"${labels[counts.indexOf(v)]}" có ${v} ${st.u}.`); }
+          if (f === 2) { const [a, b] = U.sample(rng, labels.map((_, j) => j), 2); const hi = counts[a] > counts[b] ? a : b, lo = hi === a ? b : a; return Q(`${st.intro}\n${st.diff(labels[hi], labels[lo])}`, pv, num(counts[hi] - counts[lo], st.u), 'Lấy số lớn trừ số bé.', `${counts[hi]} ${M} ${counts[lo]} = ${counts[hi] - counts[lo]} (${st.u}).`); }
           const s = counts.reduce((x, y) => x + y, 0);
-          return Q(`${desc} Tất cả có bao nhiêu?`, pv, num(s), 'Cộng số hình của tất cả các hàng.', `${counts.join(' + ')} = ${s}.`);
+          return Q(`${st.intro}\n${st.total}`, pv, num(s, st.u), 'Cộng số hình của tất cả các hàng.', `${counts.join(' + ')} = ${s} (${st.u}).`);
         }),
 
       lesson(13, 66, 'Chắc chắn, có thể, không thể',

@@ -88,6 +88,8 @@
       [seg(0.3, 0, 0.3, 1)],
       [cat(seg(0.08, 0.28, 0.32, 0), seg(0.32, 0, 0.32, 1))],
       [cat(seg(0.08, 0.28, 0.32, 0), seg(0.32, 0, 0.32, 1)), seg(0.08, 1, 0.56, 1)],
+      [cat(seg(0.0, 0.55, 0.42, 0), seg(0.42, 0, 0.42, 1))],                     // long flag from low on the left (iPad sample)
+      [cat(seg(0.02, 0.4, 0.4, 0), seg(0.4, 0, 0.38, 1))],
     ],
     2: [
       [cat(arc(0.3, 0.28, 0.28, 0.28, 200, 380), seg(0.56, 0.38, 0.02, 1), seg(0.02, 1, 0.62, 1))],
@@ -128,6 +130,8 @@
       [cat(arc(0.3, 0.28, 0.27, 0.28, 0, -360), seg(0.57, 0.28, 0.52, 1))],
       [cat(arc(0.3, 0.28, 0.27, 0.28, 10, -350), poly([[0.57, 0.3], [0.5, 0.75], [0.3, 1]]))],
       [arc(0.3, 0.28, 0.27, 0.28, 0, 360), seg(0.57, 0.1, 0.55, 1)],
+      [cat(arc(0.3, 0.3, 0.3, 0.3, -10, -370), seg(0.59, 0.25, 0.56, 1))],      // round loop, long straight stem
+      [cat(arc(0.32, 0.32, 0.3, 0.32, 20, -340), poly([[0.6, 0.38], [0.6, 0.7], [0.5, 1]]))],
     ],
   };
   const shear = (strokes, k) => strokes.map(st => st.map(q => ({ x: q.x + k * (0.5 - q.y), y: q.y })));
@@ -162,6 +166,7 @@
       if (best[t.d] == null || s < best[t.d]) best[t.d] = s;
     }
     let list = Object.keys(best).map(d => ({ d, score: best[d] })).sort((a, b) => a.score - b.score);
+    list = disambiguate(list, strokes);
     // a very thin, tall shape is a 1 whatever the clouds say (a straight line normalises to a point column)
     if (c.aspect < 0.18) list = [{ d: '1', score: 0 }, ...list.filter(x => x.d !== '1')];
     return list;
@@ -220,6 +225,31 @@
     }
     while (parts.length && parts[parts.length - 1].comma) parts.pop();   // a comma needs digits after it
     return { text: parts.map(p => (p.comma ? ',' : p.d)).join(''), parts };
+  }
+  // Point clouds blur a few pairs; look at the ink itself to tell them apart:
+  //  1 vs 4 — a 4 has a horizontal bar across its lower half; a 1 with a long flag has none
+  //  0 vs 9 / 6 — a 9 ends in a narrow stem below its loop, a 6 starts with a narrow stroke above it
+  function disambiguate(list, strokes) {
+    if (list.length < 2) return list;
+    const b = bounds(strokes), w = Math.max(b.w, 1), hgt = Math.max(b.h, 1);
+    const pts = strokes.map(st => st.map(q => ({ x: (q.x - b.x) / w, y: (q.y - b.y) / hgt })));
+    const top = list[0].d, rank = d => list.findIndex(x => x.d === d), near = d => { const k = rank(d); return k > 0 && k <= 3 && list[k].score - list[0].score < 0.45; };
+    const promote = d => [list[rank(d)], ...list.filter(x => x.d !== d)];
+    if (top === '4' && near('1')) {
+      // length of near-horizontal ink in the lower 35–90 % of the height, as a share of the width
+      let bar = 0;
+      for (const st of pts) for (let i = 1; i < st.length; i++) {
+        const dx = Math.abs(st[i].x - st[i - 1].x) * w, dy = Math.abs(st[i].y - st[i - 1].y) * hgt, y = (st[i].y + st[i - 1].y) / 2;
+        if (y > 0.35 && y < 0.9 && dy < 0.45 * dx) bar += dx / w;
+      }
+      if (bar < 0.3) return promote('1');
+    }
+    if (top === '0' && (near('9') || near('6'))) {
+      const xs = band => { const v = pts.flat().filter(q => band(q.y)).map(q => q.x); return v.length ? Math.max(...v) - Math.min(...v) : 1; };
+      if (near('9') && xs(y => y > 0.72) < 0.4) return promote('9');
+      if (near('6') && xs(y => y < 0.28) < 0.4) return promote('6');
+    }
+    return list;
   }
   function learn(strokes, d) {
     const mine = own();

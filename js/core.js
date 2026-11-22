@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v47';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v48';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
 
   const GRADE_INFO = {
     1: { color: '#F0A500', icon: '🐣', desc: 'Số đến 100 · Cộng, trừ trong phạm vi 10 · Hình, giờ, lịch' },
@@ -1009,8 +1009,9 @@
         showFeedback('hint', 'Chưa đúng, bé thử lại nhé!', q.hint || '', q.hintVisual);
         speak('Chưa đúng, bé thử lại nhé. ' + (q.hint || ''));
         // allow another try
-        if (A.kind === 'number' || A.kind === 'fraction') setTimeout(clearHand, 700);   // a fresh pad for the next try
-        if (A.kind === 'number') { input = ''; setTimeout(() => { setSlot(''); slot.classList.remove('wrong'); checkBtn.disabled = true; if (bi) { bi.mark(null); bi.clear(); } }, 700); }
+        // a fresh pad for the next try, at once, so nothing the child starts writing now is wiped later
+        if (A.kind === 'number' || A.kind === 'fraction') clearHand();
+        if (A.kind === 'number') { input = ''; setTimeout(() => { slot.classList.remove('wrong'); if (bi) bi.mark(null); if (!input) { setSlot(''); checkBtn.disabled = true; if (bi) bi.clear(); } }, 700); }
         if (A.kind === 'fraction') { fr.num = ''; fr.den = ''; fr.part = 'num'; setTimeout(refreshFraction, 700); }
       } else {
         sfx.bad();
@@ -1310,7 +1311,10 @@
         const spread = v < 20 ? 3 : v < 200 ? 12 : Math.max(10, Math.round(v * 0.08));
         ds = U.near(rng, v, spread, 3).concat(v >= 10 ? [v + 10, v - 10] : [], v >= 100 ? [v + 100, v - 100] : []);
       }
-      ds = ds.filter(x => x >= 0 && x !== v);
+      // distractors stay in the answer's range: a two-digit answer never gets "101", one within 10 never "12"
+      const cap = !Number.isInteger(v) ? Infinity : v <= 10 ? 10 : v < 100 ? 99 : Infinity;
+      ds = ds.filter(x => x >= 0 && x !== v && x <= cap);
+      if (ds.length < 3) ds = ds.concat([v - 1, v - 2, v - 3, v + 1].filter(x => x >= 0 && x <= cap && x !== v && !ds.includes(x))).slice(0, 5);
       return U.choices(rng, v, ds, x => U.fmt(x) + unit);
     }
     if (A.kind === 'fraction') {

@@ -682,9 +682,9 @@
           if (f === 2) {
             const add = L < 2 || R(rng, 0, 1) === 1;
             let a, b;
-            if (L === 0) { a = R(rng, 1, 6); b = R(rng, 1, 10 - a); }
-            else if (add) [a, b] = pairWhere(rng, [10, 60], [1, 30], (p1, q) => noCarry(p1, q) && p1 + q <= 99, [12, 5]);
-            else [a, b] = pairWhere(rng, [15, 99], [1, 40], (p1, q) => q < p1 && noBorrow(p1, q), [18, 5]);
+            // chủ đề 7 comes before two-digit + / − (chủ đề 8): keep cm arithmetic within 10
+            if (add) { a = R(rng, L === 0 ? 1 : 2, L === 0 ? 6 : 8); b = R(rng, 1, 10 - a); }
+            else { a = R(rng, 5, 10); b = R(rng, 1, a - 1); }
             const r = add ? a + b : a - b;
             const tv = add ? vz('tape', { bars: [{ label: 'Đoạn 1', units: a, value: cm(a) }, { label: 'Đoạn 2', units: b, value: cm(b) }], total: '?' })
               : vz('tape', { bars: [{ label: 'Có', units: a, value: cm(a) }, { label: 'Cắt đi', units: b, value: cm(b) }], diff: '?' });
@@ -745,7 +745,7 @@
     (a, b) => `Xe buýt có ${a} người. Đến bến, thêm ${b} người lên xe. Trên xe có bao nhiêu người?`,
   ];
   const SUB100 = [
-    (a, b) => `Đàn vịt có ${a} con. ${b} con xuống ao. Trên bờ còn bao nhiêu con vịt?`,
+    (a, b) => `Trên bờ có ${a} con vịt. ${b} con xuống ao. Trên bờ còn lại bao nhiêu con vịt?`,
     (a, b) => `Cửa hàng có ${a} chiếc bánh chưng. Đã bán ${b} chiếc. Còn lại bao nhiêu chiếc bánh chưng?`,
     (a, b, n) => `${n} có ${a} viên bi. ${n} cho bạn ${b} viên. ${n} còn bao nhiêu viên bi?`,
     (a, b) => `Vườn có ${a} cây hoa. Bác nông dân nhổ đi ${b} cây. Vườn còn bao nhiêu cây hoa?`,
@@ -958,7 +958,15 @@
   };
   [c1, c2, c3, c4, c6, c7, c8, c9].forEach(t => t.lessons.forEach(L => {
     const map = EXAM_IDX[L.id];
-    if (map) L.exam = (rng, level) => L.gen(rng, P(rng, map[level] || map[2]));
+    if (!map) return;
+    // A trắc nghiệm exam slot turns a typed number answer v into A B C D with distractors up to v + 12
+    // (v + 3 below 20), so redraw answers that could push a distractor past 99 (lớp 1 numbers stop at 100).
+    const tooHigh = q => q && q.answer && q.answer.kind === 'number' && q.answer.value + (q.answer.value < 20 ? 3 : 12) > 99;
+    L.exam = (rng, level) => {
+      let q;
+      for (let t = 0; t < 30; t++) { q = L.gen(rng, P(rng, map[level] || map[2])); if (!tooHigh(q)) break; }
+      return q;
+    };
   }));
 
   CURRICULUM.push({

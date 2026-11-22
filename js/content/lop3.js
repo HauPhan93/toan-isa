@@ -102,16 +102,23 @@
     (a, b) => `Một con đường dài ${F(a)} m, đội công nhân đã trải nhựa ${F(b)} m. Còn bao nhiêu mét đường chưa trải nhựa?`,
     (a, b, x) => `${x} có ${F(a)} đồng, ${x} mua sách hết ${F(b)} đồng. Hỏi ${x} còn lại bao nhiêu tiền?`,
   ];
+  // Each template says which sizes it suits (a = first number, r = result), so the story stays believable.
   const MUL_T = [
-    (a, b) => `Mỗi thùng có ${F(a)} hộp sữa. Hỏi ${b} thùng như thế có bao nhiêu hộp sữa?`,
-    (a, b) => `Mỗi chuyến xe chở được ${F(a)} kg hàng. Hỏi ${b} chuyến xe như thế chở được bao nhiêu ki-lô-gam hàng?`,
-    (a, b) => `Mỗi kho chứa ${F(a)} kg thóc. Hỏi ${b} kho như thế chứa bao nhiêu ki-lô-gam thóc?`,
+    { ok: a => a <= 48, t: (a, b) => `Mỗi thùng có ${F(a)} hộp sữa. Hỏi ${b} thùng như thế có bao nhiêu hộp sữa?` },
+    { ok: a => a <= 5000, t: (a, b) => `Mỗi chuyến xe chở được ${F(a)} kg hàng. Hỏi ${b} chuyến xe như thế chở được bao nhiêu ki-lô-gam hàng?` },
+    { ok: a => a >= 500, t: (a, b) => `Mỗi kho chứa ${F(a)} kg thóc. Hỏi ${b} kho như thế chứa bao nhiêu ki-lô-gam thóc?` },
+    { ok: () => true, t: (a, b) => `Một nhà máy mỗi ngày may được ${F(a)} cái áo. Hỏi trong ${b} ngày nhà máy may được bao nhiêu cái áo?` },
   ];
   const DIV_T = [
-    (a, b) => `Có ${F(a)} kg gạo chia đều vào ${b} túi. Hỏi mỗi túi có bao nhiêu ki-lô-gam gạo?`,
-    (a, b) => `Có ${F(a)} quyển vở chia đều cho ${b} lớp. Hỏi mỗi lớp được bao nhiêu quyển vở?`,
-    (a, b) => `Một sợi dây dài ${F(a)} cm được cắt thành ${b} đoạn bằng nhau. Mỗi đoạn dài bao nhiêu xăng-ti-mét?`,
+    { ok: (a, b, r) => r <= 50, t: (a, b) => `Có ${F(a)} kg gạo chia đều vào ${b} túi. Hỏi mỗi túi có bao nhiêu ki-lô-gam gạo?` },
+    { ok: (a, b, r) => r <= 200, t: (a, b) => `Có ${F(a)} quyển vở chia đều cho ${b} lớp. Hỏi mỗi lớp được bao nhiêu quyển vở?` },
+    { ok: (a, b, r) => r <= 300, t: (a, b) => `Một sợi dây dài ${F(a)} cm được cắt thành ${b} đoạn bằng nhau. Mỗi đoạn dài bao nhiêu xăng-ti-mét?` },
+    { ok: (a, b, r) => r >= 100, t: (a, b) => `Có ${F(a)} kg thóc chia đều vào ${b} kho. Hỏi mỗi kho chứa bao nhiêu ki-lô-gam thóc?` },
+    { ok: (a, b, r) => r >= 100, t: (a, b) => `Có ${F(a)} cây giống chia đều cho ${b} xã. Hỏi mỗi xã nhận được bao nhiêu cây giống?` },
+    { ok: (a, b, r) => r >= 100, t: (a, b) => `Một con đường dài ${F(a)} m được chia thành ${b} đoạn bằng nhau để sửa. Mỗi đoạn dài bao nhiêu mét?` },
   ];
+  // a plain function, or { ok, t }: pick among those that suit these numbers
+  const pickT = (rng, T, a, b, r) => { const fit = T.filter(x => typeof x === 'function' || !x.ok || x.ok(a, b, r)); const x = P(rng, fit.length ? fit : T); return typeof x === 'function' ? x : x.t; };
 
   // Several column operations in one lesson (op chosen by i); exam picks one at random.
   function mixCol(list, opts) {
@@ -138,7 +145,7 @@
       if (k === 2) {
         const [x, y] = two(rng);
         const T = op === '+' ? ADD_T : op === M ? SUB_T : op === '×' ? MUL_T : DIV_T;
-        const p = P(rng, T)(a, b, x, y);
+        const p = pickT(rng, T, a, b, r)(a, b, x, y);
         let tape;
         const mx = Math.max(a, op === '×' ? r : a);
         if (op === '+') tape = vz('tape', { bars: [{ label: '', units: units(a, Math.max(a, b)), value: F(a) }, { label: '', units: units(b, Math.max(a, b)), value: F(b) }], total: '?' });
@@ -550,7 +557,10 @@
           if (f === 1) return Q(`Tìm số dư của phép chia ${a} : ${b}.`, vz('columnCalc', { a, b, op: ':', reveal: 'none' }), num(r), `${b} × ${q} = ${b * q}.`, `${a} : ${b} = ${q} (dư ${r}).`);
           if (f === 2) { const ex = b * R(rng, 2, 9); const d = [1, 2, 3].map(() => { const bb = R(rng, 2, 9); return [bb * R(rng, 1, 9) + R(rng, 1, bb - 1), bb]; }); return Q('Phép chia nào là phép chia hết?', null, ch(rng, `${ex} : ${b}`, d.map(([x, y]) => `${x} : ${y}`)), 'Phép chia hết khi số bị chia có trong bảng nhân của số chia.', `${ex} : ${b} = ${ex / b}, không dư.`); }
           if (f === 3) return Q(`Trong phép chia có dư với số chia là ${b}, số dư lớn nhất có thể là bao nhiêu?`, null, num(b - 1), 'Số dư luôn bé hơn số chia.', `Số dư lớn nhất là ${b} ${M} 1 = ${b - 1}.`);
-          return Q(`Lớp có ${a} học sinh, mỗi bàn ngồi ${b} bạn. Cần ít nhất bao nhiêu bàn để tất cả các bạn đều có chỗ ngồi?`, vz('columnCalc', { a, b, op: ':', reveal: 'none' }), num(q + 1), `${a} : ${b} = ${q} (dư ${r}). ${r} bạn còn lại cũng cần 1 bàn.`, `${a} : ${b} = ${q} (dư ${r}); cần ${q} + 1 = ${q + 1} (bàn).`);
+          { // a class of 20–40 pupils, 2–4 to a desk
+            const bb = P(rng, [2, 3, 4]), qq = R(rng, Math.ceil(20 / bb), Math.floor(38 / bb)), rr = R(rng, 1, bb - 1), aa = bb * qq + rr;
+            return Q(`Lớp có ${aa} học sinh, mỗi bàn ngồi ${bb} bạn. Cần ít nhất bao nhiêu bàn để tất cả các bạn đều có chỗ ngồi?`, vz('columnCalc', { a: aa, b: bb, op: ':', reveal: 'none' }), num(qq + 1), `${aa} : ${bb} = ${qq} (dư ${rr}). ${rr} bạn còn lại cũng cần 1 bàn.`, `${aa} : ${bb} = ${qq} (dư ${rr}); cần ${qq} + 1 = ${qq + 1} (bàn).`);
+          }
         }),
 
       lesson(4, 26, 'Chia số có hai chữ số cho số có một chữ số',
@@ -648,14 +658,14 @@
           const f = i % 4;
           if (f === 0) { const cap = P(rng, [500, 1000]), a = R(rng, 1, cap / 100) * 100; return Q('Trong bình có bao nhiêu mi-li-lít nước?', vz('jug', { capacity: cap, amount: a, unit: 'ml' }), num(a, 'ml'), 'Đọc vạch ngang với mặt nước.', `Bình có ${a} ml nước.`); }
           if (f === 1) { const a = R(rng, 1, 5); const [p, v, u] = P(rng, [[`${a} l = ? ml`, a * 1000, 'ml'], [`${a * 1000} ml = ? l`, a, 'l']]); return Q(p, null, num(v, u), 'Nhớ: 1 l = 1000 ml.', `${p.replace('?', F(v))}.`); }
-          if (f === 2) { const c = R(rng, 2, 5) * 50, n = R(rng, 2, 4); return Q(`Mỗi cốc chứa ${c} ml sữa. Rót đầy ${n} cốc thì cần bao nhiêu mi-li-lít sữa?`, vz('jug', { capacity: 1000, amount: c * n, unit: 'ml' }), num(c * n, 'ml'), 'Nhân số mi-li-lít một cốc với số cốc.', `${c} × ${n} = ${c * n} (ml).`); }
-          const a = R(rng, 1, 4) * 250; return Q(`Chai nước có 1 l, bạn ${nm(rng)} đã uống ${a} ml. Trong chai còn lại bao nhiêu mi-li-lít nước?`, vz('jug', { capacity: 1000, amount: 1000 - a, unit: 'ml' }), num(1000 - a, 'ml'), 'Đổi 1 l = 1000 ml rồi trừ.', `1000 ${M} ${a} = ${1000 - a} (ml).`);
+          if (f === 2) { const c = R(rng, 2, 5) * 50, n = R(rng, 2, 4); return Q(`Mỗi cốc chứa ${c} ml sữa. Rót đầy ${n} cốc thì cần bao nhiêu mi-li-lít sữa?`, vz('jug', { capacity: 500, amount: c, unit: 'ml' }), num(c * n, 'ml'), 'Nhân số mi-li-lít một cốc với số cốc.', `${c} × ${n} = ${c * n} (ml).`); }
+          const a = R(rng, 1, 4) * 250; return Q(`Chai nước có 1 l, bạn ${nm(rng)} đã uống ${a} ml. Trong chai còn lại bao nhiêu mi-li-lít nước?`, vz('jug', { capacity: 1000, amount: 1000, unit: 'ml' }), num(1000 - a, 'ml'), 'Đổi 1 l = 1000 ml rồi trừ.', `1000 ${M} ${a} = ${1000 - a} (ml).`);
         }, [
           [0, 6, rng => { const a = R(rng, 1, 9) * 50, b = R(rng, 1, 9) * 50, sub = R(rng, 0, 1) === 1 && a !== b; const x = sub ? Math.max(a, b) : a, y = sub ? Math.min(a, b) : b, r = sub ? x - y : x + y; return Q(`${x} ml ${sub ? M : '+'} ${y} ml = ?`, null, num(r, 'ml'), `${sub ? 'Trừ' : 'Cộng'} các số rồi ghi đơn vị ml.`, `${x} ml ${sub ? M : '+'} ${y} ml = ${r} ml.`); }],
           [0, 9, rng => { const [t, u] = P(rng, [['Một thìa nước khoảng 5', 'ml'], ['Một xô nước khoảng 10', 'l'], ['Một lọ thuốc nhỏ mắt khoảng 10', 'ml'], ['Một can nước mắm khoảng 5', 'l'], ['Một cốc sữa khoảng 200', 'ml'], ['Một bể cá nhỏ khoảng 30', 'l'], ['Một chai nước khoáng nhỏ khoảng 500', 'ml']]); return Q(`Chọn đơn vị thích hợp:\n${t} …`, null, ch(rng, u, [u === 'ml' ? 'l' : 'ml']), 'Lượng nước ít thì đo bằng ml, nhiều thì đo bằng l.', `${t} ${u}.`); }],
           [3, 9, rng => { const a = R(rng, 1, 3), b = a * 1000 + P(rng, [-200, -100, 0, 100, 300]); return Q(`So sánh: ${a} l … ${F(b)} ml`, vz('compare', { left: `${a} l`, right: `${F(b)} ml` }), cmpAns(a * 1000, b), 'Đổi lít ra mi-li-lít: 1 l = 1000 ml.', `${a} l = ${a * 1000} ml; ${a * 1000} ${sign(a * 1000, b)} ${F(b)}.`); }],
           [3, 9, rng => { const a = R(rng, 2, 6) * 100, b = R(rng, 1, 4) * 100; return Q(`Bình thứ nhất có ${a} ml nước, bình thứ hai có ${b} ml nước. Hỏi cả hai bình có bao nhiêu mi-li-lít nước?`, vz('jug', { capacity: 1000, amount: a, unit: 'ml' }), num(a + b, 'ml'), 'Cộng số mi-li-lít của hai bình.', `${a} + ${b} = ${a + b} (ml).`); }],
-          [6, 9, rng => { const c = P(rng, [100, 150, 200, 250]), n = R(rng, 2, Math.floor(1000 / c) - 1), x = nm(rng); return Q(`Bình có 1 l nước. ${x} rót ra ${n} cốc, mỗi cốc ${c} ml. Hỏi trong bình còn lại bao nhiêu mi-li-lít nước?`, vz('jug', { capacity: 1000, amount: 1000 - c * n, unit: 'ml' }), num(1000 - c * n, 'ml'), 'Bước 1: tính lượng nước đã rót ra. Bước 2: đổi 1 l = 1000 ml rồi trừ.', `Đã rót: ${c} × ${n} = ${c * n} (ml). Còn lại: 1000 ${M} ${c * n} = ${1000 - c * n} (ml).`); }],
+          [6, 9, rng => { const c = P(rng, [100, 150, 200, 250]), n = R(rng, 2, Math.floor(1000 / c) - 1), x = nm(rng); return Q(`Bình có 1 l nước. ${x} rót ra ${n} cốc, mỗi cốc ${c} ml. Hỏi trong bình còn lại bao nhiêu mi-li-lít nước?`, vz('jug', { capacity: 1000, amount: 1000, unit: 'ml' }), num(1000 - c * n, 'ml'), 'Bước 1: tính lượng nước đã rót ra. Bước 2: đổi 1 l = 1000 ml rồi trừ.', `Đã rót: ${c} × ${n} = ${c * n} (ml). Còn lại: 1000 ${M} ${c * n} = ${1000 - c * n} (ml).`); }],
         ])),
 
       lesson(5, 33, 'Nhiệt độ. Đơn vị đo nhiệt độ',
@@ -667,7 +677,7 @@
         function (rng, i) {
           const f = i % 4;
           if (f === 0) { const v = R(rng, lv(i) === 0 ? 2 : 1, lv(i) === 0 ? 9 : 45) * (lv(i) === 0 ? 5 : 1); return Q('Nhiệt kế chỉ bao nhiêu độ C?', vz('thermometer', { value: v, min: 0, max: 50 }), num(v, '°C'), 'Đọc số ở vạch ngang với đỉnh cột chất lỏng.', `Nhiệt kế chỉ ${v} °C.`); }
-          if (f === 1) { const a = R(rng, 15, 25), d = R(rng, 3, 10); return Q(`Buổi sáng nhiệt độ là ${a} °C, đến trưa nhiệt độ tăng thêm ${d} °C. Hỏi buổi trưa nhiệt độ là bao nhiêu?`, vz('thermometer', { value: a + d, min: 0, max: 50 }), num(a + d, '°C'), 'Tăng thêm thì cộng.', `${a} + ${d} = ${a + d} (°C).`); }
+          if (f === 1) { const a = R(rng, 15, 25), d = R(rng, 3, 10); return Q(`Buổi sáng nhiệt độ là ${a} °C, đến trưa nhiệt độ tăng thêm ${d} °C. Hỏi buổi trưa nhiệt độ là bao nhiêu?`, vz('thermometer', { value: a, min: 0, max: 50 }), num(a + d, '°C'), 'Tăng thêm thì cộng.', `${a} + ${d} = ${a + d} (°C).`); }
           if (f === 2) { const [p, c, d] = P(rng, [['Nhiệt độ cơ thể người khỏe mạnh khoảng', '37 °C', ['17 °C', '73 °C', '0 °C']], ['Nước đá đang tan có nhiệt độ', '0 °C', ['37 °C', '100 °C', '10 °C']], ['Một ngày hè nóng ở Hà Nội có thể lên tới', '38 °C', ['8 °C', '83 °C', '0 °C']]]); return Q(`${p} …`, null, ch(rng, c, d), 'Nhớ lại những nhiệt độ quen thuộc.', `${p} ${c}.`); }
           const a = R(rng, 15, 35), b = R(rng, 15, 35); return Q(`Hà Nội: ${a} °C, Đà Lạt: ${b} °C. So sánh nhiệt độ: ${a} °C … ${b} °C`, vz('thermometer', { value: Math.max(a, b), min: 0, max: 50 }), cmpAns(a, b), 'So sánh hai số đo.', `${a} °C ${sign(a, b)} ${b} °C.`);
         }),
@@ -722,7 +732,7 @@
           { text: 'Muốn biết số lớn gấp mấy lần số bé, ta lấy số lớn chia cho số bé. 12 gấp 3 lần 4 vì 12 : 4 = 3.', visual: vz('tape', { bars: [{ label: 'Số lớn', parts: 3, units: 3, value: '12' }, { label: 'Số bé', parts: 1, units: 1, value: '4' }] }) },
         ],
         function (rng, i) {
-          const b = R(rng, 2, lv(i) === 0 ? 9 : 50), k = R(rng, 2, 9), a = b * k, f = i % 3;
+          const b = R(rng, 2, 9), k = R(rng, 2, 9), a = b * k, f = i % 3;   // lớp 3: chia cho số có một chữ số
           const tape = vz('tape', { bars: [{ label: 'Số lớn', parts: k, units: k, value: String(a) }, { label: 'Số bé', parts: 1, units: 1, value: String(b) }] });
           if (f === 0) return Q(`${a} gấp mấy lần ${b}?`, tape, num(k), 'Lấy số lớn chia cho số bé.', `${a} : ${b} = ${k}. Vậy ${a} gấp ${k} lần ${b}.`);
           if (f === 1) {
@@ -733,7 +743,9 @@
             ]);
             return Q(t[0], tape, num(k), 'Lấy số lớn chia cho số bé.', `${a} : ${b} = ${k} (lần).`);
           }
-          return Q(`Số bé bằng một phần mấy số lớn? Số lớn là ${a}, số bé là ${b}.`, tape, ch(rng, `1/${k}`, [`1/${k + 1}`, `1/${k - 1 > 1 ? k - 1 : k + 2}`, `${k}/1`]), `${a} gấp ${b} mấy lần thì ${b} bằng 1 phần bấy nhiêu của ${a}.`, `${a} : ${b} = ${k}, vậy số bé bằng 1/${k} số lớn.`);
+          // "gấp mấy lần" (chia) against "hơn bao nhiêu" (trừ), the usual mix-up
+          const wrong = [a - b, k + 1, k > 2 ? k - 1 : k + 2].filter((x, j, arr) => x !== k && arr.indexOf(x) === j);
+          return Q(`Số lớn là ${a}, số bé là ${b}. Số lớn gấp mấy lần số bé?`, tape, ch(rng, `${k} lần`, wrong.map(x => `${x} lần`)), 'Lấy số lớn chia cho số bé (không phải trừ).', `${a} : ${b} = ${k}. Vậy ${a} gấp ${k} lần ${b}.`);
         }),
     ],
   };
@@ -746,7 +758,7 @@
       const n = R(rng, lo, hi), f = i % 5, d = String(n).split('').map(Number);
       if (f === 0) return Q(`Số "${readVN(n)}" viết là:`, null, num(n), 'Viết lần lượt từ hàng cao nhất.', `"${readVN(n)}" viết là ${F(n)}.`);
       if (f === 1) { const sw = Number(String(n).split('').reverse().join('')); return Q(`Số ${F(n)} đọc là:`, null, ch(rng, readVN(n), [readVN(n + Math.pow(10, R(rng, 0, 2)) <= hi ? n + Math.pow(10, R(rng, 0, 2)) : n - 10), readVN(sw >= lo && sw <= hi ? sw : n - 1), readVN(n + 1000 <= hi ? n + 1000 : n - 1000)]), 'Đọc theo từng lớp, từ trái sang phải.', `${F(n)} đọc là "${readVN(n)}".`); }
-      if (f === 2) { const pl = R(rng, 0, d.length - 1); return Q(`Trong số ${F(n)}, chữ số ${d[pl]} thuộc hàng nào?`, vz('placeValue', { number: n, columns: cols }), ch(rng, 'Hàng ' + cols[pl].toLowerCase(), cols.filter((_, j) => j !== pl).map(c => 'Hàng ' + c.toLowerCase())), 'Đếm từ phải sang trái: đơn vị, chục, trăm, nghìn, chục nghìn.', `Chữ số ${d[pl]} thuộc hàng ${cols[pl].toLowerCase()}.`); }
+      if (f === 2) { const once = d.map((x, j) => j).filter(j => d.filter(x => x === d[j]).length === 1); if (!once.length) return numberLessonGen(lo, hi, cols)(rng, i); const pl = P(rng, once); return Q(`Trong số ${F(n)}, chữ số ${d[pl]} thuộc hàng nào?`, vz('placeValue', { number: n, columns: cols }), ch(rng, 'Hàng ' + cols[pl].toLowerCase(), cols.filter((_, j) => j !== pl).map(c => 'Hàng ' + c.toLowerCase())), 'Đếm từ phải sang trái: đơn vị, chục, trăm, nghìn, chục nghìn.', `Chữ số ${d[pl]} thuộc hàng ${cols[pl].toLowerCase()}.`); }
       if (f === 3) { const e = expand(n); return Q(`Viết số ${F(n)} thành tổng:`, vz('placeValue', { number: n, columns: cols }), ch(rng, e.map(F).join(' + '), [e.map((x, j) => F(j === e.length - 1 ? x * 10 : x)).join(" + "), expand(n + 100 <= hi ? n + 100 : n - 100).map(F).join(' + '), d.filter(x => x).join(' + ')]), 'Mỗi chữ số nhân với giá trị hàng của nó.', `${F(n)} = ${e.map(F).join(' + ')}.`); }
       const step = cols.length === 4 ? 1000 : 10000, a0 = Math.floor(n / step) * step;
       const sub = step / 10, u = a0 + R(rng, 1, 9) * sub;
@@ -1004,7 +1016,7 @@
   };
 
   // ============ CHỦ ĐỀ 15. LÀM QUEN VỚI YẾU TỐ THỐNG KÊ, XÁC SUẤT ============
-  const COL = [{ n: 'đỏ', c: '#E84A4A' }, { n: 'xanh', c: '#4DA3FF' }, { n: 'vàng', c: '#FFC93C' }, { n: 'xanh lá', c: '#5BC85B' }];
+  const COL = [{ n: 'đỏ', c: '#E84A4A' }, { n: 'xanh dương', c: '#4DA3FF' }, { n: 'vàng', c: '#FFC93C' }, { n: 'xanh lá', c: '#5BC85B' }];
   const c15 = {
     id: 'g3-c15', semester: 2, title: 'Làm quen với yếu tố thống kê, xác suất', icon: '📊', lessons: [
       lesson(15, 73, 'Thu thập, phân loại, ghi chép số liệu. Bảng số liệu',
