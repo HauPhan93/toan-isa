@@ -42,14 +42,14 @@
   const LINE = 'Bé ơi, lớp 1 nè!';
   // Each way differs in one thing only, so the one that sounds right tells what the voice needs.
   const WAYS = [
-    { text: LINE, rate: 1, what: 'App đang đọc như cách này' },
-    { text: 'Lớp 1 nè, bé ơi!', rate: 1, what: 'Đưa chữ "bé" ra sau' },
-    { text: 'bé ơi, lớp 1 nè!', rate: 1, what: 'Chữ "bé" viết thường' },
-    { text: 'Bé ơi! Lớp 1 nè!', rate: 1, what: 'Ngắt câu sau "Bé ơi"' },
-    { text: 'Chào bé! Lớp 1 nè!', rate: 1, what: 'Có chữ "Chào" đứng trước' },
-    { text: 'Bé', rate: 1, what: 'Chỉ một chữ "Bé"' },
-    { text: LINE, rate: 1, warm: true, what: 'Phát một tiếng im lặng trước, rồi mới đọc' },
-    { text: LINE, rate: 0.9, pitch: 1.1, what: 'Chậm hơn một chút, giọng cao hơn một chút' },
+    { text: LINE, rate: 1, what: 'App đang đọc như cách này (để so sánh)' },
+    { text: LINE, rate: 1, noVoice: true, what: 'Không chọn giọng, để iPad tự chọn giọng tiếng Việt (có thể là giọng Nâng cao)' },
+    { text: LINE, rate: 1, noVoice: true, lang: 'vi', what: 'Như số 2, ghi ngôn ngữ "vi" thay cho "vi-VN"' },
+    { text: 'Bé ơi, lớp 1 nè!', nfd: true, rate: 1, what: 'Dấu sắc gõ kiểu tổ hợp (e + dấu)' },
+    { text: 'Bée ơi, lớp 1 nè!', rate: 1, what: 'Viết "Bée" (kéo dài chữ e)' },
+    { text: 'B é ơi, lớp 1 nè!', rate: 1, what: 'Tách chữ B và é' },
+    { text: 'BÉ ơi, lớp 1 nè!', rate: 1, what: 'Viết hoa cả chữ BÉ' },
+    { text: 'Pé ơi, lớp 1 nè!', rate: 1, what: 'Viết "Pé" (âm gần giống)' },
   ];
   const info = document.getElementById('info');
   const sel = document.getElementById('voice'), list = document.getElementById('list'), status = document.getElementById('status'), uri = document.getElementById('uri');
@@ -78,8 +78,8 @@
     let done = false;
     const go = () => {
       if (done) return; done = true;
-      const u = new SpeechSynthesisUtterance(w.text.normalize('NFC'));
-      u.lang = 'vi-VN'; if (v) u.voice = v; u.pitch = w.pitch || 1; u.rate = w.rate;
+      const u = new SpeechSynthesisUtterance(w.nfd ? w.text : w.text.normalize('NFC'));
+      u.lang = w.lang || 'vi-VN'; if (v && !w.noVoice) u.voice = v; u.pitch = w.pitch || 1; u.rate = w.rate;
       speechSynthesis.speak(u);
     };
     if (w.warm) {
