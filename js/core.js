@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v36';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v37';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
 
   const GRADE_INFO = {
     1: { color: '#F0A500', icon: '🐣', desc: 'Số đến 100 · Cộng, trừ trong phạm vi 10 · Hình, giờ, lịch' },
@@ -314,14 +314,16 @@
     return /Premium|Cao cấp/i.test(s) ? 'Cao cấp' : /Enhanced|Nâng cao/i.test(s) ? 'Nâng cao'
       : /super-compact/i.test(s) ? 'nhẹ' : /compact/i.test(s) ? 'chuẩn' : '';
   };
+  // iPadOS Safari reports itself as a Mac; a Mac with a touch screen is an iPad
+  const IS_IPAD = /iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
   const voiceRank = v => {
     const n = v.name || '', tag = voiceTag(v);
     if (/HoaiMy|Hoài My/i.test(n)) return 0;
     if (/Natural|Online|Neural/i.test(n)) return 1;
-    // iPhone/iPad (user tests): read with no leading comma at normal speed, "Linh chuẩn" (compact) says "Bé"
-    // clearly and sounds more natural than "Linh nhẹ" (super-compact), so it comes first
-    if (tag === 'chuẩn' || (/Linh/i.test(n) && !tag)) return 2;
-    if (tag === 'nhẹ') return 3;
+    // User tests on real devices: on the iPhone "Linh chuẩn" (compact) says "Bé" clearly and sounds more
+    // natural; on the iPad the same voice still says "mớ" while "Linh nhẹ" (super-compact) is clear.
+    if (tag === 'chuẩn' || (/Linh/i.test(n) && !tag)) return IS_IPAD ? 3 : 2;
+    if (tag === 'nhẹ') return IS_IPAD ? 2 : 3;
     if (tag === 'Cao cấp') return 4;
     if (tag === 'Nâng cao') return 4;
     if (/Google|Siri/i.test(n)) return 5;
