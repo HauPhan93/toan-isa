@@ -32,6 +32,9 @@
   <div id="status"></div>
   <p id="uri" style="font-size:13px;margin:6px 2px 0"></p>
   <div id="list"></div>
+  <h2 style="font-size:18px;margin:22px 0 6px">Thông tin giọng trên máy</h2>
+  <p style="margin:0 0 6px">Chụp màn hình phần này gửi cho mình nhé.</p>
+  <pre id="info" style="white-space:pre-wrap;word-break:break-all;background:#fff;border-radius:12px;padding:12px;font-size:13px;line-height:1.5;margin:0"></pre>
   <p style="margin-top:18px"><a href="./">← Về Toán ISA</a></p>
 </main>
 <script>
@@ -46,6 +49,7 @@
     { text: LINE, rate: 0.88, warm: true, what: 'Phát một tiếng im lặng trước, rồi mới đọc' },
     { text: 'Bé ơi. Lớp 1 nè!', rate: 0.88, what: 'Ngắt câu sau "Bé ơi"' },
   ];
+  const info = document.getElementById('info');
   const sel = document.getElementById('voice'), list = document.getElementById('list'), status = document.getElementById('status'), uri = document.getElementById('uri');
   const showUri = () => { const v = voices[Number(sel.value)]; uri.textContent = v ? 'Mã giọng: ' + (v.voiceURI || '—') : ''; };
   sel.addEventListener('change', showUri);
@@ -60,6 +64,9 @@
     voices.forEach((v, i) => { const o = document.createElement('option'); o.value = String(i); const t = tag(v); o.textContent = v.name + (t && !v.name.includes(t) ? ' — ' + t : ''); sel.append(o); });
     const enh = voices.findIndex(v => /Nâng cao|Cao cấp/.test(tag(v)));
     sel.value = keep && voices[Number(keep)] ? keep : String(enh >= 0 ? enh : 0);
+    const all = speechSynthesis.getVoices();
+    info.textContent = navigator.userAgent + '\n' + `Tổng số giọng: ${all.length} · tiếng Việt: ${voices.length}` + '\n\n' +
+      voices.map((v, i) => `${i + 1}. ${v.name} · ${v.lang}` + '\n   mã: ' + v.voiceURI + '\n   ' + (v.localService ? 'trong máy' : 'qua mạng') + (v.default ? ' · mặc định' : '')).join('\n\n');
     showUri();
     status.innerHTML = voices.length ? '' : '<div class="none">Máy này chưa có giọng tiếng Việt (hoặc đang tải danh sách giọng…).</div>';
   }
