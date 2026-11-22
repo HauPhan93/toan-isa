@@ -1627,11 +1627,23 @@
     if (!isBoard()) mk('path', { d: jugPath, fill: K.shadow, transform: 'translate(4,5)' }, g);
     path(g, 'M230,84 C292,84 292,212 226,214', 'none', isBoard() ? K.ink : '#B9D7E2', 14);
     path(g, jugPath, isBoard() ? 'rgba(159,216,255,.06)' : '#F2FAFD', 'none');
-    const wg = mk('g', { 'clip-path': `url(#${cid})` }, g);
+    // viz-nobox: the water is a tall block clipped to the jug; the picture's frame is measured without it
+    const wg = mk('g', { 'clip-path': `url(#${cid})`, class: 'viz-nobox' }, g);
     const water = mk('g', null, wg);
     const wcol = isBoard() ? 'rgba(159,216,255,.42)' : 'rgba(77,163,255,.55)';
-    rect(water, 60, 0, 220, 400, 0, wcol);
-    path(water, 'M60,0 q 20,-8 40,0 t 40,0 t 40,0 t 40,0 t 40,0 t 40,0', isBoard() ? 'rgba(159,216,255,.6)' : 'rgba(77,163,255,.75)', 'none');
+    // the water is alive (user: "lít nước thì cho động đậy"): the surface rocks gently, two ripples run across
+    // it in opposite directions and a few bubbles rise; all of it stops with "Giảm chuyển động"
+    const still = reduced();
+    const bob = mk('g', null, water);
+    rect(bob, 60, 0, 220, 400, 0, wcol);
+    const wave = (d, col, from, to, dur) => {
+      const wv = path(bob, d, col, 'none');
+      if (!still) mk('animateTransform', { attributeName: 'transform', type: 'translate', from, to, dur, repeatCount: 'indefinite' }, wv);
+    };
+    const crest = x0 => `M${x0},0` + ' q 20,-8 40,0 t 40,0'.repeat(1) + ' t 40,0'.repeat(9);
+    wave(crest(0), isBoard() ? 'rgba(159,216,255,.6)' : 'rgba(77,163,255,.75)', '0 0', '-80 0', '2.6s');
+    wave(crest(-40), isBoard() ? 'rgba(159,216,255,.28)' : 'rgba(77,163,255,.35)', '-80 1', '0 1', '3.4s');
+    if (!still) mk('animateTransform', { attributeName: 'transform', type: 'translate', values: '0 0; 0 2.2; 0 0; 0 -1.6; 0 0', dur: '3.2s', repeatCount: 'indefinite' }, bob);
     path(g, jugPath, 'none', isBoard() ? K.ink : '#8FBFD0', 4);
     path(g, 'M92,44 L76,34 L96,60', isBoard() ? 'none' : '#F2FAFD', isBoard() ? K.ink : '#8FBFD0', 3.5);
     path(g, 'M112,70 L108,270', 'none', '#FFFFFF', 6, { opacity: isBoard() ? 0.15 : 0.7 });
@@ -1646,6 +1658,14 @@
       if (major) T(g, 192, y, `${fmt(r6(v))} ${unit}`, { size: 15, weight: 800, fill: tc, anchor: 'end' });
     }
     const finalY = Y(amt);
+    if (!still && bot - 14 - finalY > 40) {
+      [[128, 5, '2.8s', '1.8s'], [158, 3.5, '3.6s', '2.7s'], [176, 4.5, '3.1s', '3.5s']].forEach(([x, r, dur, delay]) => {
+        const b = circle(wg, x, bot - 14, r, 'none', isBoard() ? 'rgba(244,247,242,.55)' : 'rgba(255,255,255,.9)', 1.8);
+        b.setAttribute('opacity', '0');
+        mk('animate', { attributeName: 'cy', from: bot - 14, to: finalY + 8, dur, begin: delay, repeatCount: 'indefinite' }, b);
+        mk('animate', { attributeName: 'opacity', values: '0;0.9;0.9;0', keyTimes: '0;0.15;0.8;1', dur, begin: delay, repeatCount: 'indefinite' }, b);
+      });
+    }
     const setLevel = y => water.setAttribute('transform', `translate(0,${y.toFixed(2)})`);
     setLevel(bot);
     if (reduced()) setLevel(finalY);

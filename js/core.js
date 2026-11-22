@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v53';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v54';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
   // English mode (Góc phụ huynh → Ngôn ngữ): tx('Vietnamese', 'English'). The parent corner itself stays Vietnamese.
   const EN = U.EN, tx = U.L;
   const G = n => tx('Lớp ' + n, 'Grade ' + n), HK = k => tx('Học kì ' + k, 'Term ' + k);
@@ -129,6 +129,39 @@
       svg.setAttribute('width', Math.round(w)); svg.setAttribute('height', Math.round(hgt));
     };
     requestAnimationFrame(run);
+  }
+  // A tall, narrow picture (a jug, a thermometer, a clock, a column sum) on a wide, short board — an iPad held
+  // upright, where the answer pad sits under the board — stands beside the question instead of under it, so it
+  // is drawn bigger and the board looks balanced (user: "1 hình nhỏ bé và không cân"). Decided again whenever
+  // the board changes size (turning the iPad, the feedback growing the answer card).
+  function sideBoard(board) {
+    const qv = board.querySelector(':scope > .qvisual');
+    if (!qv) return;
+    let ro = null, pending = false;
+    const decide = () => {
+      pending = false;
+      if (!board.isConnected) { if (ro) ro.disconnect(); return; }
+      const svg = qv.querySelector('.viz > svg');
+      const vb = svg && svg.viewBox && svg.viewBox.baseVal;
+      if (!vb || !vb.width || !vb.height) return;
+      const a = vb.width / vb.height;
+      board.classList.remove('side');
+      const cs = getComputedStyle(board), px = k => parseFloat(cs[k]) || 0;
+      const W = board.clientWidth - px('paddingLeft') - px('paddingRight');
+      const head = board.querySelector(':scope > .board-head');
+      const H = board.clientHeight - px('paddingTop') - px('paddingBottom') - (head ? head.offsetHeight : 0) - 16;
+      const stacked = Math.min(qv.clientHeight, W / a, 320);          // picture height under the question
+      const cw = Math.min(W * 0.5, H * a), beside = Math.min(H, cw / a);   // … and beside it
+      if (W - cw - 24 >= 260 && beside > stacked * 1.3) {
+        board.classList.add('side');
+        board.style.setProperty('--side-w', Math.round(cw) + 'px');
+      }
+    };
+    const soon = () => { if (!pending) { pending = true; requestAnimationFrame(() => requestAnimationFrame(decide)); } };
+    let tries = 0;
+    const start = () => { if (!board.isConnected) { if (tries++ < 120) requestAnimationFrame(start); return; } soon(); };
+    start();
+    if ('ResizeObserver' in window) { ro = new ResizeObserver(soon); ro.observe(board); }
   }
   function mascot(mood) {
     if (window.V && V.types && V.types.includes('mascot')) {
@@ -1087,6 +1120,7 @@
         h('div', { class: 'topbar', style: { padding: '0' } }, dots),
         h('div', { class: 'stage' }, board, h('div', { class: 'answer-pane' }, pane))));
     if (window.Scratch) Scratch.attach('practice:' + run.seed);   // giấy nháp, kept for the whole run
+    if (visualEl) sideBoard(board);
     keyHandler = qKeys;
     if (S.settings.autoRead) speak(q.speak || q.prompt, sayBtn);
   }
@@ -1636,7 +1670,7 @@
     const commentBox = h('div', { class: 'ep-comment' }, h('div', { class: 'ep-lbl' }, tx('Nhận xét của giáo viên', 'Teacher\'s comment')), h('div', { class: 'ep-cmt' }, ''));
     const paper = h('div', { class: 'exam-paper' },
       h('div', { class: 'ep-head' },
-        h('div', { class: 'ep-school' }, h('div', null, tx('TRƯỜNG TIỂU HỌC ISA', 'ISA PRIMARY SCHOOL')), h('div', null, tx('Họ và tên: ................', 'Name: ................')), h('div', null, tx(`Lớp: ${n}`, `Grade: ${n}`))),
+        h('div', { class: 'ep-school' }, h('div', null, tx('CƠ SỞ GIÁO DỤC CÔNG NGHỆ ISA', 'ISA TECHNOLOGY EDUCATION CENTRE')), h('div', null, tx('Họ và tên: ................', 'Name: ................')), h('div', null, tx(`Lớp: ${n}`, `Grade: ${n}`))),
         h('div', { class: 'ep-title' }, h('div', { class: 'ep-t1' }, EN ? (bp.sheet ? 'REVIEW SHEET' : TERMS[term].title) : bp.title || TERMS[term].title), bp.sheet ? h('div', { class: 'ep-t2' }, termName(n, term)) : null, h('div', null, `${tx('NĂM HỌC', 'SCHOOL YEAR')} ${schoolYear()}`),
           h('div', { class: 'ep-t2' }, tx(`Môn: Toán – Lớp ${n}`, `Subject: Maths – Grade ${n}`)), h('div', { class: 'ep-t3' }, tx(`Thời gian làm bài: ${bp.minutes} phút`, `Time: ${bp.minutes} minutes`) + (mode === 'nc' ? tx(' · Nâng cao', ' · Challenge') : '')))),
       h('div', { class: 'ep-boxes' }, scoreBox, commentBox));
@@ -1856,5 +1890,5 @@
   else if (hash.get('grade') && gradeOf(Number(hash.get('grade')))) { showMap(Number(hash.get('grade')), Number(hash.get('hk')) || 1); }
   else showHome();
 
-  window.ToanISA = { state: () => S, startLesson, showHome, showMap, showExamHome, startExam, buildPaper, blueprintFor, rememberPaper, slotPool, scopeLessons, showTopicList };
+  window.ToanISA = { state: () => S, startLesson, showPractice, lessonIds: () => [...LESSONS.keys()], lessonRec: id => LESSONS.get(id), showHome, showMap, showExamHome, startExam, buildPaper, blueprintFor, rememberPaper, slotPool, scopeLessons, showTopicList };
 })();

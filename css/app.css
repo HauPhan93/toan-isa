@@ -1119,3 +1119,21 @@ body.no-voice .say-btn { display: none; }
   body.scratch-open .qvisual { min-height: 0; }   /* the picture shrinks so the answer line still shows */
   body.scratch-open .exam-scroll { padding-bottom: calc(var(--scr-h) + 40px); }
 }
+
+/* ---------- pictures on the chalkboard (user: "canh giữa bảng", "sát vào câu hỏi quá", "không cân") ----------
+   Room between the question and the picture, and a tall narrow picture on a wide board stands beside the
+   question (core.js sideBoard adds .side and the picture column width --side-w). */
+.board .qvisual { margin: 16px 0 6px; }
+@media (max-width: 640px), (orientation: landscape) and (max-height: 540px) { .board .qvisual { margin: 8px 0 2px; } }
+.board.side {
+  display: grid; column-gap: 24px;
+  grid-template-columns: minmax(0, 1fr) var(--side-w, 45%);
+  grid-template-rows: auto minmax(0, 1fr) auto auto minmax(0, 1fr);
+}
+.board.side > .board-head { grid-column: 1 / -1; grid-row: 1; }
+.board.side > .qhead { grid-column: 1; grid-row: 3; }
+.board.side > .board-answer { grid-column: 1; grid-row: 4; margin-top: 10px; }
+.board.side > .qvisual { grid-column: 2; grid-row: 2 / 6; margin: 8px 0 4px; min-height: 0; }
+.board.side .qvisual > .viz > svg { max-height: 100%; }
+/* parts clipped to a shape (the water in a jug) do not count when a picture is fitted to its frame (fitViz) */
+.viz-measure .viz-nobox { display: none; }
