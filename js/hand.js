@@ -171,6 +171,10 @@
       else if (t.weight) s *= t.weight;
       if (best[t.d] == null || s < best[t.d]) best[t.d] = s;
     }
+    // second opinion from the small neural network (js/hand-cnn.js), when it is loaded: each digit's distance gets
+    // the network's doubt about that digit added (−ln p), so the two readers settle close calls together
+    const p = cnnProbs(strokes);
+    if (p) for (const d of Object.keys(best)) best[d] += CNN_WEIGHT * -Math.log(Math.max(p[d], 1e-4));
     let list = Object.keys(best).map(d => ({ d, score: best[d] })).sort((a, b) => a.score - b.score);
     list = disambiguate(list, strokes);
     // a very thin, tall shape is a 1 whatever the clouds say (a straight line normalises to a point column)
@@ -202,7 +206,7 @@
       return x1 - x0 <= 1.05 * H;   // one digit is not much wider than it is tall
     };
     const cost = (a, b) => {
-      const list = recognize(ink.slice(a, b + 1).map(it => it.st));
+      const list = recognizeCached(ink.slice(a, b + 1).map(it => it.st));
       return list.length ? list[0].score : 99;
     };
     // best split of the strokes into digits of 1–3 strokes (dynamic programming over the writing order)
@@ -222,11 +226,23 @@
     }
     return groups.concat(commas).sort((a, b) => (a.comma ? a.x : (a.x0 + a.x1) / 2) - (b.comma ? b.x : (b.x0 + b.x1) / 2));
   }
+  // The pad reads all its ink again after every pause; the same groups of strokes come up again and again, so
+  // their readings are kept (strokes are never changed once written).
+  const strokeIds = new WeakMap(); let nextStrokeId = 1;
+  const recCache = new Map();
+  function recognizeCached(strokes) {
+    const key = strokes.map(st => { if (!strokeIds.has(st)) strokeIds.set(st, nextStrokeId++); return strokeIds.get(st); }).join(',');
+    if (recCache.has(key)) return recCache.get(key);
+    const list = recognize(strokes);
+    if (recCache.size > 400) recCache.clear();
+    recCache.set(key, list);
+    return list;
+  }
   function readNumber(strokes) {
     const parts = [];
     for (const g of segment(strokes)) {
       if (g.comma) { if (parts.length && !parts.some(p => p.comma) && !parts[parts.length - 1].comma) parts.push({ comma: true }); continue; }
-      const list = recognize(g.strokes);
+      const list = recognizeCached(g.strokes);
       if (list.length) parts.push({ d: list[0].d, alts: list.slice(1, 5).map(x => x.d), strokes: g.strokes });
     }
     while (parts.length && parts[parts.length - 1].comma) parts.pop();   // a comma needs digits after it
@@ -257,6 +273,90 @@
     }
     return list;
   }
+  /* ------------------------------------------------ small neural network (second opinion) */
+  // Weights trained by tools/train_digit_cnn.py on MNIST + Vietnamese child-style digits; int8, decoded once.
+  let CNN_WEIGHT = 0.15, cnn = null;
+  function cnnNet() {
+    if (cnn !== null) return cnn;
+    const W = window.HAND_CNN && window.HAND_CNN.w;
+    if (!W) return null;   // not loaded yet: try again next time
+    const dec = w => { const bin = atob(w.b64), out = new Float32Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = ((bin.charCodeAt(i) << 24) >> 24) * w.scale; return out; };
+    cnn = {};
+    for (const k of Object.keys(W)) cnn[k] = dec(W[k]);
+    return cnn;
+  }
+  function conv5(inp, C, Hh, w, b, O) {   // 5 × 5 convolution, padding 2, then ReLU
+    const out = new Float32Array(O * Hh * Hh);
+    for (let o = 0; o < O; o++) for (let y = 0; y < Hh; y++) for (let x = 0; x < Hh; x++) {
+      let v = b[o];
+      for (let c = 0; c < C; c++) for (let ky = 0; ky < 5; ky++) {
+        const yy = y + ky - 2; if (yy < 0 || yy >= Hh) continue;
+        const wo = ((o * C + c) * 5 + ky) * 5, io = (c * Hh + yy) * Hh;
+        for (let kx = 0; kx < 5; kx++) { const xx = x + kx - 2; if (xx >= 0 && xx < Hh) v += w[wo + kx] * inp[io + xx]; }
+      }
+      out[(o * Hh + y) * Hh + x] = v > 0 ? v : 0;
+    }
+    return out;
+  }
+  function pool2(inp, C, Hh) {
+    const h2 = Hh >> 1, out = new Float32Array(C * h2 * h2);
+    for (let c = 0; c < C; c++) for (let y = 0; y < h2; y++) for (let x = 0; x < h2; x++) {
+      const i = (c * Hh + 2 * y) * Hh + 2 * x;
+      out[(c * h2 + y) * h2 + x] = Math.max(inp[i], inp[i + 1], inp[i + Hh], inp[i + Hh + 1]);
+    }
+    return out;
+  }
+  function dense(inp, w, b, O, relu) {
+    const N = inp.length, out = new Float32Array(O);
+    for (let o = 0; o < O; o++) { let v = b[o]; for (let i = 0; i < N; i++) v += w[o * N + i] * inp[i]; out[o] = relu && v < 0 ? 0 : v; }
+    return out;
+  }
+  function cnnProbs(strokes) {
+    const n = cnnNet(); if (!n) return null;
+    let x = toImage(strokes);
+    x = pool2(conv5(x, 1, 28, n['c1.weight'], n['c1.bias'], 16), 16, 28);
+    x = pool2(conv5(x, 16, 14, n['c2.weight'], n['c2.bias'], 32), 32, 14);
+    x = dense(x, n['f1.weight'], n['f1.bias'], 64, true);
+    x = dense(x, n['f2.weight'], n['f2.bias'], 10, false);
+    const m = Math.max(...x); let sum = 0; const p = {};
+    for (let d = 0; d < 10; d++) { p[d] = Math.exp(x[d] - m); sum += p[d]; }
+    for (let d = 0; d < 10; d++) p[d] /= sum;
+    return p;
+  }
+
+  // Ink → 28 × 28 grey image laid out like MNIST (the digit fits a 20 × 20 box, centred on its centre of mass),
+  // for the small neural network that gives a second opinion. Drawn 4× larger and averaged down for smooth edges.
+  let rasterCanvas = null;
+  function toImage(strokes) {
+    const S = 112, k = 4, b = bounds(strokes);
+    if (!rasterCanvas) rasterCanvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(S, S) : Object.assign(document.createElement('canvas'), { width: S, height: S });
+    const c = rasterCanvas.getContext('2d', { willReadFrequently: true });
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.fillStyle = '#000'; c.fillRect(0, 0, S, S);
+    const sc = 80 / Math.max(b.w, b.h, 1);
+    c.translate(S / 2 - (b.x + b.w / 2) * sc, S / 2 - (b.y + b.h / 2) * sc);
+    c.strokeStyle = '#fff'; c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = 9 / sc;
+    for (const st of strokes) {
+      c.beginPath();
+      st.forEach((q, i) => (i ? c.lineTo(q.x, q.y) : c.moveTo(q.x, q.y)));
+      if (st.length === 1) c.lineTo(st[0].x + 0.01, st[0].y);
+      c.stroke();
+    }
+    const px = c.getImageData(0, 0, S, S).data, small = new Float32Array(784);
+    let m = 0, mx = 0, my = 0;
+    for (let y = 0; y < 28; y++) for (let x = 0; x < 28; x++) {
+      let v = 0;
+      for (let dy = 0; dy < k; dy++) for (let dx = 0; dx < k; dx++) v += px[((y * k + dy) * S + x * k + dx) * 4];
+      v /= k * k * 255; small[y * 28 + x] = v; m += v; mx += v * x; my += v * y;
+    }
+    if (!m) return small;
+    const sx = Math.round(13.5 - mx / m), sy = Math.round(13.5 - my / m), out = new Float32Array(784);
+    for (let y = 0; y < 28; y++) for (let x = 0; x < 28; x++) {
+      const X = x - sx, Y = y - sy;
+      if (X >= 0 && X < 28 && Y >= 0 && Y < 28) out[y * 28 + x] = small[Y * 28 + X];
+    }
+    return out;
+  }
   function learn(strokes, d) {
     const mine = own();
     const box = bounds(strokes);
@@ -265,6 +365,7 @@
     if (mine[d].length > PER_DIGIT) mine[d].shift();
     try { localStorage.setItem(STORE, JSON.stringify(mine)); } catch (e) { /* storage full / private mode */ }
     TEMPLATES = null;
+    recCache.clear();   // readings made before this sample are out of date
   }
   function bounds(strokes) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -395,5 +496,5 @@
     return root;
   }
 
-  window.Hand = { recognize, readNumber, learn, pad, _shapes: SHAPES, _normalize: normalize, _segment: segment };
+  window.Hand = { recognize, readNumber, learn, pad, toImage, cnnProbs, _shapes: SHAPES, _normalize: normalize, _segment: segment, _setCnnWeight: w => { CNN_WEIGHT = w; } };
 })();
