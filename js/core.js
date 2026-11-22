@@ -311,6 +311,7 @@
     if (/\bAn\b/.test(n)) return 9;
     return 5;
   };
+  const isPlainVoice = v => !!v && voiceRank(v) === 9;
   const viVoices = () => speechSynthesis.getVoices().filter(v => /^vi/i.test(v.lang)).sort((a, b) => voiceRank(a) - voiceRank(b));
   function pickVoice() {
     if (!('speechSynthesis' in window)) return;
@@ -355,7 +356,9 @@
     const u = new SpeechSynthesisUtterance(', ' + speakable(text).trim());
     u.lang = 'vi-VN'; if (viVoice) u.voice = viVoice;
     const st = VOICE_STYLES[S.settings.voiceStyle] || VOICE_STYLES.cute;
-    u.pitch = st.pitch; u.rate = st.rate;
+    // The old Windows voice "Microsoft An" garbles words when its pitch is raised ("Bé" comes out as "mớ"):
+    // with that voice ISA always speaks at its natural pitch.
+    u.pitch = isPlainVoice(viVoice) ? 1 : st.pitch; u.rate = st.rate;
     if (btn) { btn.classList.add('speaking'); u.onend = u.onerror = () => btn.classList.remove('speaking'); }
     const wait = Math.max(delay, busy ? 150 : 0);
     if (wait) setTimeout(() => { if (gen === speechGen) speechSynthesis.speak(u); }, wait); else speechSynthesis.speak(u);
@@ -953,7 +956,8 @@
       return h('div', { class: 'row' }, h('div', { class: 'grow' }, label), t);
     };
     const curStyle = VOICE_STYLES[S.settings.voiceStyle] ? S.settings.voiceStyle : 'cute';
-    const styleRow = h('div', { class: 'row' }, h('div', { class: 'grow' }, 'Giọng ISA'),
+    const styleRow = h('div', { class: 'row' }, h('div', { class: 'grow' }, 'Giọng ISA',
+        isPlainVoice(viVoice) ? h('div', { class: 'voice-note' }, viVoices().length === 1 ? 'Máy này chỉ có giọng An nên ISA đọc giọng thường cho rõ chữ. Mở app bằng Microsoft Edge để có giọng HoaiMy trong trẻo hơn.' : 'Giọng An đọc giọng thường cho rõ chữ.') : null),
       ...Object.entries(VOICE_STYLES).map(([k, v]) => h('button', {
         class: 'btn small ' + (curStyle === k ? '' : 'ghost'),
         onclick: () => { S.settings.voiceStyle = k; save(); sh.close(); parentCorner(); speak('Chào bé! Mình là Rô-bốt ISA. 3 cộng 4 bằng 7.'); },
@@ -962,7 +966,7 @@
     // every Vietnamese voice on this device, clearest first; a tap picks it and plays the test line
     const voiceShort = v => v.name.replace(/^Microsoft\s+|^Google\s+/i, '').replace(/\s*[-–]\s*Vietnamese.*$/i, '').replace(/\s*\(.*?\)\s*/g, ' ').trim() || v.name;
     const vlist = 'speechSynthesis' in window ? viVoices() : [];
-    const voiceRow = vlist.length ? h('div', { class: 'row voice-row' }, h('div', { class: 'grow' }, 'Giọng máy', h('div', { class: 'voice-note' }, 'Nghe chưa rõ (ví dụ "Bé" thành "mớ")? Chọn giọng khác.')),
+    const voiceRow = vlist.length ? h('div', { class: 'row voice-row' }, h('div', { class: 'grow' }, 'Giọng máy', vlist.length > 1 ? h('div', { class: 'voice-note' }, 'Nghe chưa rõ (ví dụ "Bé" thành "mớ")? Chọn giọng khác.') : null),
       ...vlist.map(v => h('button', {
         class: 'btn small ' + (viVoice && viVoice.name === v.name ? '' : 'ghost'), title: v.name,
         onclick: () => { S.settings.voiceName = v.name; save(); pickVoice(); sh.close(); parentCorner(); speak('Bé ơi, lớp 1 nè! Mình là Rô-bốt ISA.'); },
