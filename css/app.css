@@ -941,3 +941,13 @@ body.no-voice .say-btn { display: none; }
   85%, 100% { background-position: -60% 0, 0 0, 0 0; }
 }
 @media (prefers-reduced-motion: reduce) { .grade-card .gnum { animation: none; } }
+/* round, chubby digits for children (user: "các số cần tròn đầy 1 tí") — Fredoka, only the digits are downloaded */
+.grade-card .gnum {
+  font-family: "Fredoka", "Arial Rounded MT Bold", ui-rounded, var(--font); font-weight: 700;
+  letter-spacing: 0; line-height: .95;
+  filter: drop-shadow(0 2px 0 color-mix(in srgb, var(--gc) 60%, #000)) drop-shadow(0 5px 6px rgba(0, 40, 50, .16));
+}
+.grade-card:not(.review-card) .gnum { font-size: 58px; }
+@media (orientation: portrait) and (min-width: 641px) { .grade-card:not(.review-card) .gnum { font-size: 60px; } }
+@media (max-width: 640px) { .grade-card:not(.review-card) .gnum { font-size: 44px; } }
+@media (orientation: landscape) and (max-height: 540px) { .grade-card:not(.review-card) .gnum { font-size: 40px; } }
