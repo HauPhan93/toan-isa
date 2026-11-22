@@ -42,7 +42,7 @@ LINES = [
     *[(f'de-lop-{n}', f'Bé ơi, đề lớp {n} nè!') for n in range(1, 6)],
     # a tap on a card
     ('di-thoi', 'Đi thôi!'),
-    ('lam-de-nao', 'Làm đề nào!'),
+    ('giai-bai-nao', 'Giải bài nào bạn ơi!'),
     ('co-len-nao', 'Cố lên nào!'),
     # home greeting ("Chào <tên bé>!" stays with the device voice)
     ('chao-be', 'Chào bé!'),

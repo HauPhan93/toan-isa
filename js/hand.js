@@ -7,9 +7,12 @@
  *
  * window.Hand = {
  *   recognize(strokes) → [{ d, score }] best first        (strokes: [[{x,y}, …], …])
+ *   readNumber(strokes) → { text, parts }                   a whole number written at once ("1638", "98,5")
  *   learn(strokes, d)                                       keep a sample of the child's digit d
- *   pad({ onDigit(d), onFix(d), onBack(), comma: bool, onComma() }) → HTMLElement with .clear()
+ *   pad({ onNumber(text), comma: bool }) → HTMLElement with .clear() and .flush()
  * }
+ * The child writes the whole answer in one go (user request); the ink is split into digits by where the
+ * strokes sit left to right, each digit is recognised, and a small low mark becomes the decimal comma.
  */
 (function () {
   'use strict';
@@ -163,6 +166,61 @@
     if (c.aspect < 0.18) list = [{ d: '1', score: 0 }, ...list.filter(x => x.d !== '1')];
     return list;
   }
+  // Split the ink into digits. Strokes come in the order they were written, and the strokes of one digit are
+  // written one after the other (the bar of a 4, 5 or 7 right after its body), so a stroke can only join the digit
+  // of the stroke before it, and only when it sits over that digit. The possible splits of each run of strokes
+  // are scored with the recogniser and the best one is kept. A small mark low on the line is a decimal comma.
+  function segment(strokes) {
+    const items = strokes.filter(st => st.length).map(st => ({ st, b: bounds([st]) }));
+    if (!items.length) return [];
+    const H = Math.max(...items.map(it => it.b.h), 1);
+    const top = Math.min(...items.map(it => it.b.y)), bottom = Math.max(...items.map(it => it.b.y + it.b.h));
+    const lineH = Math.max(bottom - top, 1);
+    const isComma = it => it.b.w < 0.3 * H && it.b.h < 0.3 * H && it.b.y + it.b.h / 2 > top + lineH * 0.55 && H > 18;
+    const ink = items.filter(it => !isComma(it));
+    const commas = items.filter(isComma).map(it => ({ comma: true, x: it.b.x + it.b.w / 2 }));
+    // can strokes a..b (in writing order) be one digit? each one must sit over the ones before it
+    const over = (a, b) => {
+      let x0 = ink[a].b.x, x1 = ink[a].b.x + ink[a].b.w;
+      for (let k = a + 1; k <= b; k++) {
+        const it = ink[k], cx = it.b.x + it.b.w / 2, gc = (x0 + x1) / 2, w = Math.max(x1 - x0, 1);
+        const ov = Math.min(x1, it.b.x + it.b.w) - Math.max(x0, it.b.x);
+        if (!((cx >= x0 - 0.05 * H && cx <= x1 + 0.05 * H) || (gc >= it.b.x && gc <= it.b.x + it.b.w) || ov > 0.6 * Math.min(w, it.b.w))) return false;
+        x0 = Math.min(x0, it.b.x); x1 = Math.max(x1, it.b.x + it.b.w);
+      }
+      return x1 - x0 <= 1.05 * H;   // one digit is not much wider than it is tall
+    };
+    const cost = (a, b) => {
+      const list = recognize(ink.slice(a, b + 1).map(it => it.st));
+      return list.length ? list[0].score : 99;
+    };
+    // best split of the strokes into digits of 1–3 strokes (dynamic programming over the writing order)
+    const n = ink.length, best = new Array(n + 1).fill(Infinity), from = new Array(n + 1).fill(-1);
+    best[0] = 0;
+    const PER_DIGIT = 0.9;   // a small charge per digit, so two strokes of one digit are not read as two digits
+    for (let e = 1; e <= n; e++) for (let k = 1; k <= 3 && k <= e; k++) {
+      const a = e - k;
+      if (k > 1 && !over(a, e - 1)) continue;
+      const c = best[a] + cost(a, e - 1) + PER_DIGIT;
+      if (c < best[e]) { best[e] = c; from[e] = a; }
+    }
+    const groups = [];
+    for (let e = n; e > 0; e = from[e]) {
+      const a = from[e], g = ink.slice(a, e);
+      groups.unshift({ strokes: g.map(it => it.st), x0: Math.min(...g.map(it => it.b.x)), x1: Math.max(...g.map(it => it.b.x + it.b.w)) });
+    }
+    return groups.concat(commas).sort((a, b) => (a.comma ? a.x : (a.x0 + a.x1) / 2) - (b.comma ? b.x : (b.x0 + b.x1) / 2));
+  }
+  function readNumber(strokes) {
+    const parts = [];
+    for (const g of segment(strokes)) {
+      if (g.comma) { if (parts.length && !parts.some(p => p.comma) && !parts[parts.length - 1].comma) parts.push({ comma: true }); continue; }
+      const list = recognize(g.strokes);
+      if (list.length) parts.push({ d: list[0].d, alts: list.slice(1, 5).map(x => x.d), strokes: g.strokes });
+    }
+    while (parts.length && parts[parts.length - 1].comma) parts.pop();   // a comma needs digits after it
+    return { text: parts.map(p => (p.comma ? ',' : p.d)).join(''), parts };
+  }
   function learn(strokes, d) {
     const mine = own();
     const box = bounds(strokes);
@@ -184,20 +242,29 @@
     const root = el('div', 'hand');
     const area = el('div', 'hand-area');
     const canvas = document.createElement('canvas');
-    const hintTx = el('div', 'hand-hint', 'Viết 1 chữ số vào đây ✏️');
+    const hintTx = el('div', 'hand-hint', 'Viết cả số vào đây ✏️');
     area.append(canvas, hintTx);
     const bar = el('div', 'hand-bar');
     const guess = el('div', 'hand-guess');
     const tools = el('div', 'hand-tools');
-    const back = el('button', 'key fn', '⌫'); back.type = 'button'; back.setAttribute('aria-label', 'Xóa số vừa viết');
-    back.onclick = () => { resetInk(); hideGuess(); opts.onBack && opts.onBack(); };
-    if (opts.comma) { const cm = el('button', 'key fn', ','); cm.type = 'button'; cm.onclick = () => { opts.onComma && opts.onComma(); }; tools.append(cm); }
-    tools.append(back);
+    const back = el('button', 'key fn', '⌫'); back.type = 'button'; back.setAttribute('aria-label', 'Xóa nét vừa viết');
+    back.onclick = () => { if (!strokes.length) return; strokes.pop(); redraw(); update(); };
+    const wipe = el('button', 'key fn', '🧹'); wipe.type = 'button'; wipe.setAttribute('aria-label', 'Xóa hết để viết lại');
+    wipe.onclick = () => { root.clear(); emit(''); };
+    if (opts.comma) {
+      const cm = el('button', 'key fn', ','); cm.type = 'button'; cm.setAttribute('aria-label', 'Dấu phẩy');
+      cm.onclick = () => { if (strokes.length) { commaAt = readNumber(strokes).parts.filter(p => !p.comma).length; update(); } };
+      tools.append(cm);
+    }
+    tools.append(back, wipe);
     bar.append(guess, tools);
     root.append(area, bar);
 
     const ctx = canvas.getContext('2d');
-    let strokes = [], cur = null, timer = null, penSeen = false, last = null;
+    let strokes = [], cur = null, timer = null, penSeen = false;
+    let commaAt = -1;                 // comma typed with the "," key: after that many digits
+    const fixes = new Map();          // first stroke of a digit → the digit the child chose for it
+    let lastText = null, lastParts = [];
     function fit() {
       const r = area.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
       if (!r.width) return;
@@ -208,15 +275,15 @@
     function redraw() {
       const r = area.getBoundingClientRect();
       ctx.clearRect(0, 0, r.width, r.height);
-      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1D4ED8'; ctx.lineWidth = Math.max(6, r.width / 32);
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1D4ED8'; ctx.lineWidth = Math.max(5, Math.min(9, r.height / 18));
       for (const st of strokes.concat(cur ? [cur] : [])) {
         ctx.beginPath();
         st.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
         if (st.length === 1) ctx.lineTo(st[0].x + 0.1, st[0].y);
         ctx.stroke();
       }
+      hintTx.style.opacity = strokes.length || cur ? '0' : '';
     }
-    function resetInk() { clearTimeout(timer); strokes = []; cur = null; redraw(); hintTx.style.opacity = ''; }
     const pos = e => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
     canvas.addEventListener('pointerdown', e => {
       if (e.pointerType === 'pen') penSeen = true;
@@ -224,8 +291,7 @@
       e.preventDefault();
       try { canvas.setPointerCapture(e.pointerId); } catch (er) { /* synthetic events */ }
       clearTimeout(timer);
-      hideGuess();
-      hintTx.style.opacity = '0';
+      hideAlts();
       cur = [pos(e)];
       redraw();
     });
@@ -234,36 +300,64 @@
       if (!cur) return;
       strokes.push(cur); cur = null; redraw();
       clearTimeout(timer);
-      timer = setTimeout(done, 700);   // wait a moment: 4, 5 and 7 may need a second stroke
+      timer = setTimeout(update, 650);   // read the whole number again after each pause
     };
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
-    function done() {
-      const ink = strokes.filter(s => s.length);
+    function emit(text) { if (text !== lastText) { lastText = text; opts.onNumber && opts.onNumber(text); } }
+    // read all the ink as one number; digits the child corrected keep their choice
+    function update() {
+      clearTimeout(timer); timer = null;
+      const ink = strokes.filter(st => st.length);
+      if (!ink.length) { lastParts = []; showGuess(); emit(''); return; }
       const b = bounds(ink);
-      if (!ink.length || (b.w < 6 && b.h < 6)) { resetInk(); return; }   // a tap, not a digit
-      const list = recognize(ink);
-      const d = list[0].d;
-      last = { strokes: ink, d };
-      showGuess(d, list.slice(1, 5).map(x => x.d));
-      resetInk();
-      opts.onDigit && opts.onDigit(d);
-    }
-    function showGuess(d, alts) {
-      guess.innerHTML = '';
-      guess.append(el('span', 'hg-lbl', 'Bé viết số'), el('b', 'hg-d', d), el('span', 'hg-lbl', 'Không phải? Chọn:'));
-      for (const a of alts) {
-        const b = el('button', 'hg-alt', a); b.type = 'button';
-        b.onclick = () => { if (!last) return; learn(last.strokes, a); last.d = a; opts.onFix && opts.onFix(a); hideGuess(); };
-        guess.append(b);
+      if (b.w < 6 && b.h < 6) { strokes = []; redraw(); lastParts = []; showGuess(); emit(''); return; }   // a tap
+      const res = readNumber(ink);
+      let parts = res.parts.filter(p => !p.comma || commaAt < 0);
+      parts = parts.map(p => (p.comma ? p : Object.assign({}, p, fixes.has(p.strokes[0]) ? { d: fixes.get(p.strokes[0]) } : {})));
+      if (commaAt > 0) {
+        const digits = parts.filter(p => !p.comma);
+        if (commaAt < digits.length) parts = [...digits.slice(0, commaAt), { comma: true }, ...digits.slice(commaAt)];
+        else parts = digits;
       }
+      lastParts = parts;
+      showGuess();
+      emit(parts.map(p => (p.comma ? ',' : p.d)).join(''));
+    }
+    // "Bé viết: 1 6 3 8" — a tap on a digit offers the other likely digits for it
+    function showGuess() {
+      guess.innerHTML = '';
+      if (!lastParts.length) { guess.classList.remove('show'); return; }
+      guess.append(el('span', 'hg-lbl', 'Bé viết:'));
+      lastParts.forEach(p => {
+        if (p.comma) { guess.append(el('b', 'hg-comma', ',')); return; }
+        const b = el('button', 'hg-dig', p.d); b.type = 'button';
+        b.setAttribute('aria-label', 'Sửa chữ số ' + p.d);
+        b.onclick = () => showAlts(p);
+        guess.append(b);
+      });
+      guess.append(el('span', 'hg-lbl hg-tip', 'Sai số nào thì chạm vào số đó.'));
       guess.classList.add('show');
     }
-    function hideGuess() { guess.classList.remove('show'); }
+    function showAlts(p) {
+      guess.innerHTML = '';
+      guess.append(el('span', 'hg-lbl', 'Bé viết số'), el('b', 'hg-d', p.d), el('span', 'hg-lbl', 'hay là:'));
+      const opts2 = p.alts.concat(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']).filter((x, k, a) => x !== p.d && a.indexOf(x) === k).slice(0, 5);
+      for (const a of opts2) {
+        const b = el('button', 'hg-alt', a); b.type = 'button';
+        b.onclick = () => { learn(p.strokes, a); fixes.set(p.strokes[0], a); update(); };
+        guess.append(b);
+      }
+      const no = el('button', 'hg-alt hg-ok', '✓'); no.type = 'button'; no.setAttribute('aria-label', 'Đúng rồi'); no.onclick = () => showGuess();
+      guess.append(no);
+      guess.classList.add('show');
+    }
+    function hideAlts() { if (guess.querySelector('.hg-alt')) showGuess(); }
     if ('ResizeObserver' in window) new ResizeObserver(fit).observe(area); else setTimeout(fit, 50);
-    root.clear = () => { resetInk(); hideGuess(); last = null; };
+    root.clear = () => { clearTimeout(timer); strokes = []; cur = null; commaAt = -1; fixes.clear(); lastParts = []; lastText = ''; redraw(); showGuess(); };
+    root.flush = () => { if (timer) update(); };   // read the last strokes now (before the answer is checked)
     return root;
   }
 
-  window.Hand = { recognize, learn, pad, _shapes: SHAPES, _normalize: normalize };
+  window.Hand = { recognize, readNumber, learn, pad, _shapes: SHAPES, _normalize: normalize, _segment: segment };
 })();

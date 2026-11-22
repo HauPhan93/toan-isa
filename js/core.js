@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v46';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v47';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
 
   const GRADE_INFO = {
     1: { color: '#F0A500', icon: '🐣', desc: 'Số đến 100 · Cộng, trừ trong phạm vi 10 · Hình, giờ, lịch' },
@@ -518,7 +518,7 @@
     if (delay) setTimeout(next, delay); else next();
     return ctl;
   }
-  // A card tap's line ("Làm đề nào!") keeps playing while the next screen opens; the back button still cuts it.
+  // A card tap's line ("Giải bài nào bạn ơi!") keeps playing while the next screen opens; the back button still cuts it.
   let keepLineUntil = 0;
   let speechGen = 0;   // a line waiting to start is dropped when another line or a stop comes first
   function stopSpeech(force) { if (!force && Date.now() < keepLineUntil) return; keepLineUntil = 0; speechGen++; if ('speechSynthesis' in window) speechSynthesis.cancel(); stopClip(); setSpeakBtn(null); }
@@ -611,7 +611,7 @@
     // 6th card: Ôn tập & Kiểm tra (bộ đề theo mẫu của Bộ GD&ĐT)
     const nExams = [1, 2, 3, 4, 5].reduce((s, n) => s + (gradeOf(n) ? termsFor(n).length : 0), 0);
     const doneExams = Object.keys(S.exams || {}).length;
-    grades.append(h('button', { class: 'grade-card review-card', 'data-peek': 'Ôn tập nè!', 'data-say': 'Bé ơi, ôn tập nè!', 'data-peek-short': 'Làm đề!', style: { '--gc': '#0E8C88' }, onclick: e => { sfx.tap(); peekThen(e.currentTarget, showExamHome, 'Làm đề nào!'); } },
+    grades.append(h('button', { class: 'grade-card review-card', 'data-peek': 'Ôn tập nè!', 'data-say': 'Bé ơi, ôn tập nè!', 'data-peek-short': 'Làm đề!', style: { '--gc': '#0E8C88' }, onclick: e => { sfx.tap(); peekThen(e.currentTarget, showExamHome, 'Giải bài nào bạn ơi!'); } },
       h('div', { class: 'island' }), h('div', { class: 'gicon' }, '📝'),
       h('div', null, h('div', { class: 'gnum' }, '✓'), h('div', { class: 'glabel' }, 'Ôn tập'),
         h('div', { class: 'gdesc' }, `Kiểm tra giữa kì, cuối kì · Đề theo mẫu Bộ GD&ĐT` + (doneExams ? ` · đã làm ${doneExams} đề` : ''))),
@@ -837,6 +837,8 @@
     }
 
     let qKeys = null;   // computer keyboard for this question (set after the screen is drawn)
+    let flushHand = () => {};   // reads the last handwritten strokes before the answer is checked
+    let clearHand = () => {};   // wipes the writing pad (another try)
     if (A.kind === 'choice' || A.kind === 'text') {
       const sym = A.kind === 'text' && A.options.every(o => String(o).length <= 2);
       const long = A.options.some(o => String(o).length > 14);
@@ -900,14 +902,23 @@
         b.onclick = () => { if (finished) return; sfx.tap(); press(k); };
         pad.append(b);
       }
-      // handwriting pad (finger, Apple Pencil or mouse); a wrong guess is fixed by tapping the right digit
-      const handPad = hasHand ? Hand.pad({
-        comma: !isFr && !bi, onComma: () => press(','),
-        onDigit: d => { sfx.tap(); press(d); },
-        onFix: d => { sfx.tap(); press('⌫'); press(d); },
-        onBack: () => press('⌫'),
-      }) : null;
-      if (isFr && handPad) handPad.prepend(h('div', { class: 'hand-note' }, 'Chạm vào tử số hoặc mẫu số trên bảng để chọn chỗ viết.'));
+      // handwriting pad (finger, Apple Pencil or mouse): the child writes the whole answer at once and it is read
+      // again after every pause (user request); a misread digit is fixed by tapping it
+      function setWritten(text) {
+        if (finished) return;
+        if (toBoxes()) { bi.fillRow(text); return; }
+        if (isFr) { fr[fr.part || 'num'] = text.replace(/\D/g, '').slice(0, 4); refreshFraction(); return; }
+        let t = text.replace(/[^\d,]/g, '');
+        if (t.indexOf(',') !== t.lastIndexOf(',')) t = t.slice(0, t.indexOf(',') + 1) + t.slice(t.indexOf(',') + 1).replace(/,/g, '');
+        t = t.replace(/^0+(?=\d)/, '').slice(0, 10);
+        input = t;
+        setSlot(prettyInput(input));
+        checkBtn.disabled = input === '' || input.endsWith(',');
+      }
+      const handPad = hasHand ? Hand.pad({ comma: !isFr && !bi, onNumber: setWritten }) : null;
+      if (isFr && handPad) handPad.prepend(h('div', { class: 'hand-note' }, 'Viết tử số, rồi chạm vào mẫu số trên bảng và viết tiếp.'));
+      if (handPad && bi) bi.onSelect(() => { if (inMode === 'hand') handPad.clear(); });
+      if (handPad) { flushHand = () => { if (inMode === 'hand') handPad.flush(); }; clearHand = () => handPad.clear(); }
       const modes = bi ? [['box', '✍️ Điền vào ô'], ['type', '⌨️ Gõ số']] : [['keys', '⌨️ Bàn phím']];
       if (handPad) modes.push(['hand', '✏️ Viết tay']);
       const saved = bi ? S.settings.colMode : S.settings.numMode;
@@ -921,7 +932,7 @@
         pad.style.display = m === 'hand' ? 'none' : '';
         if (handPad) { handPad.style.display = m === 'hand' ? '' : 'none'; handPad.clear(); }
         label.textContent = m === 'box' ? 'Chạm vào ô rồi điền chữ số (bắt đầu từ hàng đơn vị)'
-          : m === 'hand' ? (bi ? 'Viết từng chữ số, bắt đầu từ hàng đơn vị (chạm ô để chọn chỗ viết)' : isFr ? 'Viết phân số' : 'Viết số')
+          : m === 'hand' ? (bi ? 'Viết cả số của hàng kết quả (chạm vào hàng khác để viết hàng đó)' : isFr ? 'Viết phân số' : 'Viết cả số')
           : isFr ? 'Viết phân số' : 'Nhập số';
         if (bi) { bi.enable(toBoxes()); bi.clear(); boardAnswer.classList.toggle('in-boxes', toBoxes()); }
         if (!isFr) { input = ''; setSlot(''); checkBtn.disabled = true; }
@@ -942,8 +953,8 @@
         else if (e.key === 'Enter') { e.preventDefault(); if (!finished && !checkBtn.disabled) checkBtn.click(); else if (finished) nextBtn.click(); }
       };
       if (isFr) {
-        frNum.onclick = () => { fr.part = 'num'; refreshFraction(); };
-        frDen.onclick = () => { fr.part = 'den'; refreshFraction(); };
+        frNum.onclick = () => { fr.part = 'num'; refreshFraction(); if (handPad && inMode === 'hand') handPad.clear(); };
+        frDen.onclick = () => { fr.part = 'den'; refreshFraction(); if (handPad && inMode === 'hand') handPad.clear(); };
       }
     } else if (A.kind === 'visual') {
       pane.append(h('div', { class: 'answer-label' }, 'Làm trên bảng'),
@@ -959,6 +970,7 @@
 
     checkBtn.onclick = () => {
       if (finished) return;
+      flushHand();   // the last strokes count too
       if (A.kind === 'number') {
         const v = U.parseNum(input);
         const ok = Math.abs(v - A.value) < 1e-9;
@@ -997,6 +1009,7 @@
         showFeedback('hint', 'Chưa đúng, bé thử lại nhé!', q.hint || '', q.hintVisual);
         speak('Chưa đúng, bé thử lại nhé. ' + (q.hint || ''));
         // allow another try
+        if (A.kind === 'number' || A.kind === 'fraction') setTimeout(clearHand, 700);   // a fresh pad for the next try
         if (A.kind === 'number') { input = ''; setTimeout(() => { setSlot(''); slot.classList.remove('wrong'); checkBtn.disabled = true; if (bi) { bi.mark(null); bi.clear(); } }, 700); }
         if (A.kind === 'fraction') { fr.num = ''; fr.den = ''; fr.part = 'num'; setTimeout(refreshFraction, 700); }
       } else {

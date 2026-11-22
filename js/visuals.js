@@ -982,8 +982,8 @@
    * Fill-in boxes for đặt tính (reveal 'none'): the child taps a box and types its digit, in any order;
    * by default the cursor starts at the units box of the answer row and moves left after each digit
    * (the way the sum is worked out). The host (app) drives it through root.boxInput:
-   *   type(d) · back() · select(i) · clear() · fill(str) · value() → "1234" / "12,5" / "" (incomplete)
-   *   onChange(fn) · enable(on) · mark('right'|'wrong'|null)
+   *   type(d) · back() · select(i) · clear() · fill(str) · fillRow(str) · value() → "1234" / "12,5" / "" (incomplete)
+   *   onChange(fn) · onSelect(fn(row)) · enable(on) · mark('right'|'wrong'|null)
    * Boxes of partial-product rows (long multiplication) can be filled too; only the last row is the answer.
    */
   /** Answer rows of a column layout: [{row, lo, hi}] (lowest and highest column of each row). */
@@ -1008,12 +1008,12 @@
       const r = line(g, x - o.CW * 0.32, y + o.RH * 0.32, x + o.CW * 0.32, y + o.RH * 0.32, sel, 3.5);
       const t = T(g, x, y, '', { size: o.FS, weight: 700, fill: ink });
       rect(g, x - o.CW / 2, y - o.RH / 2, o.CW, o.RH, 0, 'transparent');   // full-cell hit area
-      g.addEventListener('pointerdown', e => { if (!enabled) return; e.preventDefault(); select(i); });
+      g.addEventListener('pointerdown', e => { if (!enabled) return; e.preventDefault(); select(i); if (selCb) selCb(bx.row); });
       return { row: bx.row, c: bx.c, r, t, ch: '' };
     });
     // decimals: the answer row's comma is drawn in place (the app adds it to the value too)
     if (cm) T(gp, (o.cx(cm.at - 1) + o.cx(cm.at)) / 2, o.ry(ansRow) + 10, ',', { size: o.FS, weight: 800, fill: ink });
-    let cur = -1, enabled = true, cb = null;
+    let cur = -1, enabled = true, cb = null, selCb = null;
     const unitsOf = row => slots.findIndex(s => s.row === row && s.c === Math.min(...slots.filter(z => z.row === row).map(z => z.c)));
     function paint() {
       const curRow = enabled && slots[cur] ? slots[cur].row : null;
@@ -1060,8 +1060,20 @@
         row.forEach((s, k) => { s.ch = k < digits.length ? digits[digits.length - 1 - k] : ''; });
         paint();
       },
+      // a whole number written at once (handwriting): right-aligned into the row the child is on
+      fillRow(str) {
+        if (!enabled) return;
+        if (cur < 0) cur = unitsOf(ansRow);
+        const rowNo = slots[cur] ? slots[cur].row : ansRow;
+        const digits = String(str || '').replace(/[^\d]/g, '');
+        const row = slots.filter(s => s.row === rowNo).sort((a, b) => a.c - b.c);
+        row.forEach((s, k) => { s.ch = k < digits.length ? digits[digits.length - 1 - k] : ''; });
+        cur = row.length ? slots.indexOf(row[Math.min(digits.length, row.length - 1)]) : cur;
+        changed();
+      },
       value,
       onChange(fn) { cb = fn; },
+      onSelect(fn) { selCb = fn; },
       enable(on) { enabled = !!on; paint(); },
       mark(m) { slots.filter(s => s.row === ansRow).forEach(s => s.t.setAttribute('fill', m === 'wrong' ? bad : ink)); },
       hasComma: !!cm,
