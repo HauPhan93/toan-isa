@@ -5,6 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
+  const APP_VERSION = 'v36';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
 
   const GRADE_INFO = {
     1: { color: '#F0A500', icon: '🐣', desc: 'Số đến 100 · Cộng, trừ trong phạm vi 10 · Hình, giờ, lịch' },
@@ -24,6 +25,9 @@
     settings: { voice: true, sound: true, autoRead: false, voiceStyle: 'cute' },
   });
   let S = load();
+  // Voice choices saved while the voice list was still being worked out (iPad picked "Linh nhẹ" by a confusing
+  // label) are dropped once, so every device starts on the clearest voice; a new pick is kept as usual.
+  if ((S.settings.voicePick || 0) < 2) { delete S.settings.voiceName; S.settings.voicePick = 2; save(); }
   function load() {
     try {
       const raw = localStorage.getItem(STORE_KEY);
@@ -1058,7 +1062,8 @@
       toggle('voice', 'Giọng đọc tiếng Việt' + (viVoice ? '' : ' (máy này chưa có giọng tiếng Việt nên app không đọc)')), voiceRow, styleRow, toggle('autoRead', 'Tự đọc đề bài'), toggle('sound', 'Âm thanh'), goalSel,
       h('div', { class: 'row' }, h('div', { style: { width: '120px' } }, 'Tên bé'), nameIn),
       h('h3', null, 'Đặt lại ứng dụng'), resetProgress, resetAll,
-      h('div', { class: 'result-actions', style: { marginTop: '14px' } }, h('button', { class: 'btn', onclick: () => { sh.close(); showHome(); } }, 'Xong')));
+      h('div', { class: 'result-actions', style: { marginTop: '14px' } }, h('button', { class: 'btn', onclick: () => { sh.close(); showHome(); } }, 'Xong')),
+      h('p', { class: 'app-ver' }, `Toán ISA ${APP_VERSION}` + (viVoice ? ` · giọng: ${viVoice.name}${voiceTag(viVoice) ? ' ' + voiceTag(viVoice) : ''}` : '')));
   }
 
 
