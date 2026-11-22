@@ -511,11 +511,27 @@
     renderQuestion(run);
   }
 
+  // A fraction answer that simplifies to a whole number (24/12 = 2/1) is asked as the whole number,
+  // and "= 2/1" at the end of a working becomes "= 2" — except where the lesson asks for the form n/1.
+  function tidyQuestion(q) {
+    if (!q || !q.answer) return q;
+    const keep = /mẫu số (là )?1(?!\d)|đảo ngược/.test(q.prompt);
+    if (keep) return q;
+    const A = q.answer;
+    if (A.kind === 'fraction' && A.den === 1) {
+      const unit = A.unit;
+      q.answer = unit ? { kind: 'number', value: A.num, unit } : { kind: 'number', value: A.num };
+    }
+    const fix = t => (typeof t === 'string' ? t.replace(/= (\d+)\/1(?![\d\/])/g, '= $1') : t);
+    q.explain = fix(q.explain); q.hint = fix(q.hint);
+    return q;
+  }
+
   function makeQuestion(run) {
     const L = run.rec.lesson;
     for (let attempt = 0; attempt < 12; attempt++) {
       try {
-        const q = L.gen(U.makeRng(run.seed + run.i * 7919 + attempt * 104729), run.i);
+        const q = tidyQuestion(L.gen(U.makeRng(run.seed + run.i * 7919 + attempt * 104729), run.i));
         // a question answered on the picture needs the visuals library
         if (q && q.prompt && q.answer && (HAS_V || q.answer.kind !== 'visual')) return q;
       } catch (e) { console.error('generator failed', L.id, e); }
@@ -966,7 +982,7 @@
           const qr = U.makeRng(Math.floor(rng() * 4294967295));
           const i = lv === 1 ? U.rand(qr, 0, 3) : lv === 2 ? U.rand(qr, 4, 6) : U.rand(qr, 7, 9);
           let q;
-          try { q = typeof L.exam === 'function' ? L.exam(qr, lv) : L.gen(qr, i); } catch (e) { console.error('exam gen', id, e); continue; }
+          try { q = tidyQuestion(typeof L.exam === 'function' ? L.exam(qr, lv) : L.gen(qr, i)); } catch (e) { console.error('exam gen', id, e); continue; }
           if (!q || !q.prompt || !q.answer || seen.has(q.prompt)) continue;
           if (q.answer.kind === 'visual' && !HAS_V) continue;
           let answer = q.answer;
