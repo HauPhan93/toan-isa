@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Thử giọng ISA</title>
+<style>
+  :root { --teal: #12A39E; --ink: #1E3A4C; --ink-2: #5B7280; --line: #DCE7EA; --orange: #F47A2A; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 600 17px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #EAF7F6; }
+  main { max-width: 640px; margin: 0 auto; padding: 18px 16px 40px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  p { margin: 6px 0 14px; color: var(--ink-2); font-weight: 500; }
+  label { display: block; font-weight: 800; margin: 14px 0 6px; }
+  select { width: 100%; height: 48px; font: inherit; border-radius: 12px; border: 2px solid var(--line); padding: 0 10px; background: #fff; color: var(--ink); }
+  .v { display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 16px; padding: 12px 14px; margin: 10px 0; box-shadow: 0 2px 8px rgba(0, 40, 50, .08); }
+  .v b { font-size: 26px; color: var(--orange); width: 28px; text-align: center; flex: none; }
+  .v div { flex: 1; min-width: 0; }
+  .v small { display: block; color: var(--ink-2); font-weight: 500; font-size: 14px; }
+  button { height: 48px; min-width: 92px; border: 0; border-radius: 14px; background: var(--teal); color: #fff; font: 800 17px system-ui, sans-serif; flex: none; }
+  button:active { transform: translateY(2px); }
+  .none { padding: 14px; border-radius: 14px; background: #FFF6DB; color: #7A5600; }
+  a { color: var(--teal); }
+</style>
+</head>
+<body>
+<main>
+  <h1>🔊 Thử giọng ISA</h1>
+  <p>Bấm nghe từng cách đọc. Cho mình biết <b>số</b> nào đọc rõ chữ "Bé" nhé (có thể nhiều số).</p>
+  <label for="voice">Giọng</label>
+  <select id="voice"></select>
+  <div id="status"></div>
+  <p id="uri" style="font-size:13px;margin:6px 2px 0"></p>
+  <div id="list"></div>
+  <h2 style="font-size:18px;margin:22px 0 6px">Thông tin giọng trên máy</h2>
+  <p style="margin:0 0 6px">Chụp màn hình phần này gửi cho mình nhé.</p>
+  <pre id="info" style="white-space:pre-wrap;word-break:break-all;background:#fff;border-radius:12px;padding:12px;font-size:13px;line-height:1.5;margin:0"></pre>
+  <p style="margin-top:18px"><a href="./">← Về Toán ISA</a></p>
+</main>
+<script>
+(() => {
+  const LINE = 'Bé ơi, lớp 1 nè!';
+  // Each way differs in one thing only, so the one that sounds right tells what the voice needs.
+  const WAYS = [
+    { text: LINE, rate: 1, what: 'App đang đọc như cách này' },
+    { text: 'Lớp 1 nè, bé ơi!', rate: 1, what: 'Đưa chữ "bé" ra sau' },
+    { text: 'bé ơi, lớp 1 nè!', rate: 1, what: 'Chữ "bé" viết thường' },
+    { text: 'Bé ơi! Lớp 1 nè!', rate: 1, what: 'Ngắt câu sau "Bé ơi"' },
+    { text: 'Chào bé! Lớp 1 nè!', rate: 1, what: 'Có chữ "Chào" đứng trước' },
+    { text: 'Bé', rate: 1, what: 'Chỉ một chữ "Bé"' },
+    { text: LINE, rate: 1, warm: true, what: 'Phát một tiếng im lặng trước, rồi mới đọc' },
+    { text: LINE, rate: 0.9, pitch: 1.1, what: 'Chậm hơn một chút, giọng cao hơn một chút' },
+  ];
+  const info = document.getElementById('info');
+  const sel = document.getElementById('voice'), list = document.getElementById('list'), status = document.getElementById('status'), uri = document.getElementById('uri');
+  const showUri = () => { const v = voices[Number(sel.value)]; uri.textContent = v ? 'Mã giọng: ' + (v.voiceURI || '—') : ''; };
+  sel.addEventListener('change', showUri);
+  if (!('speechSynthesis' in window)) { list.innerHTML = '<div class="none">Trình duyệt này không đọc được.</div>'; return; }
+  let voices = [];
+  function load() {
+    voices = speechSynthesis.getVoices().filter(v => /^vi/i.test(v.lang));
+    const keep = sel.value;
+    sel.innerHTML = '';
+    // iPhone/iPad call both voices "Linh": the system ID (voiceURI) says which one was downloaded
+    const tag = v => { const s = v.name + ' ' + (v.voiceURI || ''); return /Premium|Cao cấp/i.test(s) ? 'Cao cấp' : /Enhanced|Nâng cao/i.test(s) ? 'Nâng cao' : /super-compact/i.test(s) ? 'nhẹ' : /compact/i.test(s) ? 'chuẩn' : ''; };
+    voices.forEach((v, i) => { const o = document.createElement('option'); o.value = String(i); const t = tag(v); o.textContent = v.name + (t && !v.name.includes(t) ? ' — ' + t : ''); sel.append(o); });
+    const enh = voices.findIndex(v => /Nâng cao|Cao cấp/.test(tag(v)));
+    sel.value = keep && voices[Number(keep)] ? keep : String(enh >= 0 ? enh : 0);
+    const all = speechSynthesis.getVoices();
+    info.textContent = navigator.userAgent + '\n' + `Tổng số giọng: ${all.length} · tiếng Việt: ${voices.length}` + '\n\n' +
+      voices.map((v, i) => `${i + 1}. ${v.name} · ${v.lang}` + '\n   mã: ' + v.voiceURI + '\n   ' + (v.localService ? 'trong máy' : 'qua mạng') + (v.default ? ' · mặc định' : '')).join('\n\n');
+    showUri();
+    status.innerHTML = voices.length ? '' : '<div class="none">Máy này chưa có giọng tiếng Việt (hoặc đang tải danh sách giọng…).</div>';
+  }
+  function say(w) {
+    const v = voices[Number(sel.value)];
+    speechSynthesis.cancel();
+    let done = false;
+    const go = () => {
+      if (done) return; done = true;
+      const u = new SpeechSynthesisUtterance(w.text.normalize('NFC'));
+      u.lang = 'vi-VN'; if (v) u.voice = v; u.pitch = w.pitch || 1; u.rate = w.rate;
+      speechSynthesis.speak(u);
+    };
+    if (w.warm) {
+      const s = new SpeechSynthesisUtterance(' . ');
+      s.lang = 'vi-VN'; if (v) s.voice = v; s.volume = 0;
+      s.onend = go; s.onerror = go;
+      speechSynthesis.speak(s);
+      setTimeout(go, 900);   // some devices never report the end of a silent line
+    } else setTimeout(go, 120);
+  }
+  WAYS.forEach((w, i) => {
+    const row = document.createElement('div'); row.className = 'v';
+    row.innerHTML = `<b>${i + 1}</b><div>${w.text.replace(/^, /, '')}<small>${w.what}</small></div>`;
+    const b = document.createElement('button'); b.textContent = '▶ Nghe'; b.onclick = () => say(w);
+    row.append(b); list.append(row);
+  });
+  load();
+  speechSynthesis.onvoiceschanged = load;
+})();
+</script>
+</body>
+</html>
