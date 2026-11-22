@@ -362,12 +362,14 @@
     const busy = speechSynthesis.speaking || speechSynthesis.pending, gen = ++speechGen;
     speechSynthesis.cancel();
     // NFC: precomposed Vietnamese letters (é = U+00E9, not e + U+0301), which every voice reads correctly
-    const u = new SpeechSynthesisUtterance((', ' + speakable(text).trim()).normalize('NFC'));
+    // no leading comma: on iPhone/iPad it made "Bé" come out as "mớ" (user test on voice-test.html, way 3)
+    const u = new SpeechSynthesisUtterance(speakable(text).trim().normalize('NFC'));
     u.lang = 'vi-VN'; if (viVoice) u.voice = viVoice;
     const st = VOICE_STYLES[S.settings.voiceStyle] || VOICE_STYLES.cute;
-    // The old Windows voice "Microsoft An" garbles words when its pitch is raised ("Bé" comes out as "mớ"):
-    // with that voice ISA always speaks at its natural pitch.
-    u.pitch = isPlainVoice(viVoice) ? 1 : st.pitch; u.rate = st.rate;
+    // Phone, iPad and old Windows voices garble the first word ("Bé" → "mớ") when slowed down or raised:
+    // they speak at their natural pitch and speed. Edge's natural voices keep the "Dễ thương" style.
+    const plain = isPlainVoice(viVoice);
+    u.pitch = plain ? 1 : st.pitch; u.rate = plain ? 1 : st.rate;
     if (btn) { btn.classList.add('speaking'); u.onend = u.onerror = () => btn.classList.remove('speaking'); }
     const wait = Math.max(delay, busy ? 150 : 0);
     if (wait) setTimeout(() => { if (gen === speechGen) speechSynthesis.speak(u); }, wait); else speechSynthesis.speak(u);
