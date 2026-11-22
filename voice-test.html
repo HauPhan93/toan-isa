@@ -26,7 +26,7 @@
 <body>
 <main>
   <h1>🔊 Thử giọng ISA</h1>
-  <p>Chọn giọng <b>Linh (Nâng cao)</b>, rồi bấm nghe từng cách đọc. Cho mình biết <b>số</b> nào đọc rõ chữ "Bé" nhất nhé.</p>
+  <p>Chọn một giọng ở ô bên dưới, rồi bấm nghe từng cách đọc. Cho mình biết <b>giọng</b> và <b>số</b> nào đọc rõ chữ "Bé" nhất nhé.</p>
   <label for="voice">Giọng</label>
   <select id="voice"></select>
   <div id="status"></div>
@@ -60,7 +60,7 @@
     const keep = sel.value;
     sel.innerHTML = '';
     // iPhone/iPad call both voices "Linh": the system ID (voiceURI) says which one was downloaded
-    const tag = v => { const s = v.name + ' ' + (v.voiceURI || ''); return /Premium|Cao cấp/i.test(s) ? 'Cao cấp' : /Enhanced|Nâng cao/i.test(s) ? 'Nâng cao' : /compact/i.test(s) ? 'thường (có sẵn)' : ''; };
+    const tag = v => { const s = v.name + ' ' + (v.voiceURI || ''); return /Premium|Cao cấp/i.test(s) ? 'Cao cấp' : /Enhanced|Nâng cao/i.test(s) ? 'Nâng cao' : /super-compact/i.test(s) ? 'nhẹ' : /compact/i.test(s) ? 'chuẩn' : ''; };
     voices.forEach((v, i) => { const o = document.createElement('option'); o.value = String(i); const t = tag(v); o.textContent = v.name + (t && !v.name.includes(t) ? ' — ' + t : ''); sel.append(o); });
     const enh = voices.findIndex(v => /Nâng cao|Cao cấp/.test(tag(v)));
     sel.value = keep && voices[Number(keep)] ? keep : String(enh >= 0 ? enh : 0);

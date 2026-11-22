@@ -302,20 +302,22 @@
   // Which Vietnamese voice: the one the parent picked in Góc phụ huynh, else the clearest one on the device.
   // (Windows lists the old "Microsoft An" first; it swallows the first sound — "Bé ơi" heard as "mớ ơi" —
   // so natural/online voices like HoaiMy, Google Tiếng Việt or Linh come first.)
-  // iPhone/iPad name both voices just "Linh"; only the system ID tells them apart:
-  // com.apple.voice.compact.vi-VN.Linh (built in) · ….enhanced… (Nâng cao) · ….premium… (Cao cấp)
+  // iPhone/iPad name every voice just "Linh"; only the system ID tells them apart:
+  // ….super-compact.vi-VN.Linh ("nhẹ") · ….compact.vi-VN.Linh ("chuẩn") · ….enhanced… (Nâng cao) · ….premium… (Cao cấp).
+  // Safari only offers websites the two built-in ones (seen on the user's iPhone), never the downloaded voices.
   const voiceTag = v => {
     const s = (v.name || '') + ' ' + (v.voiceURI || '');
-    return /Premium|Cao cấp/i.test(s) ? 'Cao cấp' : /Enhanced|Nâng cao/i.test(s) ? 'Nâng cao' : '';
+    return /Premium|Cao cấp/i.test(s) ? 'Cao cấp' : /Enhanced|Nâng cao/i.test(s) ? 'Nâng cao'
+      : /super-compact/i.test(s) ? 'nhẹ' : /compact/i.test(s) ? 'chuẩn' : '';
   };
   const voiceRank = v => {
     const n = v.name || '', tag = voiceTag(v);
     if (/HoaiMy|Hoài My/i.test(n)) return 0;
     if (/Natural|Online|Neural/i.test(n)) return 1;
-    // iPhone/iPad: on a real iPad the built-in "Linh" says "Bé" more clearly than the downloaded
-    // "Linh (Nâng cao)" (user test), so the built-in voice comes first
-    if (/Linh/i.test(n) && !tag) return 2;
-    if (tag === 'Cao cấp') return 3;
+    // iPhone/iPad (user tests): the "nhẹ" Linh (super-compact) says "Bé" clearly; the "chuẩn" one swallowed it
+    if (tag === 'nhẹ') return 2;
+    if (tag === 'chuẩn' || (/Linh/i.test(n) && !tag)) return 3;
+    if (tag === 'Cao cấp') return 4;
     if (tag === 'Nâng cao') return 4;
     if (/Google|Siri/i.test(n)) return 5;
     if (/\bAn\b/.test(n)) return 9;
@@ -986,7 +988,7 @@
       const base = n.replace(/^Microsoft\s+|^Google\s+/i, '').replace(/\s*[-–]\s*Vietnamese.*$/i, '').replace(/\s*\(.*?\)\s*/g, ' ')
         .replace(/\s*\b(Online|Natural|Enhanced|Premium)\b/gi, '').trim() || n;
       const tag = voiceTag(v);
-      return tag ? `${base} ${tag}` : /Linh/i.test(n) && /compact/i.test(v.voiceURI || '') ? `${base} thường` : base;
+      return tag ? `${base} ${tag}` : base;
     };
     const vlist = 'speechSynthesis' in window ? viVoices() : [];
     const voiceRow = vlist.length ? h('div', { class: 'row voice-row' }, h('div', { class: 'grow' }, 'Giọng máy', vlist.length > 1 ? h('div', { class: 'voice-note' }, 'Nghe chưa rõ (ví dụ "Bé" thành "mớ")? Chọn giọng khác.') : null),
