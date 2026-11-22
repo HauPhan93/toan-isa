@@ -1041,11 +1041,20 @@ body.no-voice .say-btn { display: none; }
 .exam-fresh { font-size: 15px; font-weight: 600; color: var(--ink-2); margin: 0 2px 14px; }
 @media (max-width: 640px) { .exam-mode .cm-btn { height: 44px; font-size: 15px; } .exam-fresh { font-size: 14px; } }
 .exam-term.wide { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
-/* the Đề thường ⇄ Đề nâng cao switch on top of Ôn tập & Kiểm tra; the kind shown in the start panel */
-.exam-swap { max-width: 1100px; margin: 0 auto 16px; }
-.exam-swap .exam-mode { margin: 0; max-width: 520px; background: rgba(255, 255, 255, .28); }
-.exam-swap .cm-btn { color: #fff; height: 50px; font-size: 18px; }
-.exam-swap .cm-btn.on { color: var(--teal-d, #0E8C88); }
+/* the Đề thường ⇄ Đề nâng cao switch in the top bar of Ôn tập & Kiểm tra; the kind shown in the start panel */
+.exam-tabs .sem-tab { padding: 0 18px; }
+/* narrow screens: the switch takes its own row under the title instead of squeezing it */
+@media (max-width: 860px) {
+  .topbar:has(.exam-tabs) { flex-wrap: wrap; }
+  .topbar .exam-tabs { order: 10; flex: 1 1 100%; justify-content: center; }
+  .topbar .exam-tabs .sem-tab { flex: 1; }
+}
 .exam-kind { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 16px; background: #E9F8F7; color: var(--teal-d, #0E8C88); font-weight: 800; font-size: 17px; margin: 2px 0 8px; }
 .exam-kind.nc { background: #FFF1E7; color: #C25412; }
 .exam-rec { font-weight: 800; color: var(--ink); }
+/* a phone on its side has the width but not the height: keep the switch in the bar */
+@media (orientation: landscape) and (max-height: 540px) {
+  .topbar:has(.exam-tabs) { flex-wrap: nowrap; }
+  .topbar .exam-tabs { order: 0; flex: none; }
+  .topbar .exam-tabs .sem-tab { flex: none; }
+}

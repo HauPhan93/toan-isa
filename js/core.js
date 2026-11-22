@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v45';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v46';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
 
   const GRADE_INFO = {
     1: { color: '#F0A500', icon: '🐣', desc: 'Số đến 100 · Cộng, trừ trong phạm vi 10 · Hình, giờ, lịch' },
@@ -1448,8 +1448,9 @@
     stopSpeech();
     const mode = examMode(S.settings.examMode);
     // Đề thường ⇄ Đề nâng cao: chosen here first, then the child picks lớp and kì (user's rule); remembered
-    const swap = h('div', { class: 'col-mode exam-mode' }, ...['thuong', 'nc'].map(m => h('button', {
-      class: 'cm-btn' + (m === mode ? ' on' : ''),
+    // It sits in the top bar, like the Học kì tabs of the lesson map (user: moved up from above the cards).
+    const swap = h('div', { class: 'sem-tabs exam-tabs', style: { '--gc': '#0E8C88' } }, ...['thuong', 'nc'].map(m => h('button', {
+      class: 'sem-tab' + (m === mode ? ' on' : ''),
       onclick: () => { if (m === mode) return; sfx.tap(); S.settings.examMode = m; save(); showExamHome(); },
     }, (m === 'nc' ? '🚀 ' : '📝 ') + MODE_NAME[m])));
     const wrap = h('div', { class: 'scroll' });
@@ -1478,9 +1479,8 @@
         terms));
     }
     wrap.append(h('div', { class: 'exam-intro' }, h('div', { class: 'mini-mascot' }, mascot('happy')),
-      h('div', null, h('b', null, 'Ôn tập & Kiểm tra'), h('div', null, 'Đề kiểm tra định kì môn Toán theo mẫu đề của Bộ GD&ĐT (Thông tư 27): Phần I Trắc nghiệm, Phần II Tự luận, chấm thang điểm 10. Chọn đề thường hoặc đề nâng cao, rồi bấm vào một kì là có ngay một đề mới.'))),
-      h('div', { class: 'exam-swap' }, swap), grid);
-    screen(topbar('Ôn tập & Kiểm tra 📝', 'Chọn lớp và kì kiểm tra', homeBtn(), [coinPill(), parentBtn()]), wrap);
+      h('div', null, h('b', null, 'Ôn tập & Kiểm tra'), h('div', null, 'Đề kiểm tra định kì môn Toán theo mẫu đề của Bộ GD&ĐT (Thông tư 27): Phần I Trắc nghiệm, Phần II Tự luận, chấm thang điểm 10. Chọn đề thường hoặc đề nâng cao, rồi bấm vào một kì là có ngay một đề mới.'))), grid);
+    screen(topbar('Ôn tập & Kiểm tra', 'Chọn lớp và kì kiểm tra', homeBtn(), [swap, coinPill(), parentBtn()]), wrap);
     Peek.bind(grid, '.exam-grade');
   }
 
