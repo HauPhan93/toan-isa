@@ -306,9 +306,12 @@
     const n = v.name || '';
     if (/HoaiMy|Hoài My/i.test(n)) return 0;
     if (/Natural|Online|Neural/i.test(n)) return 1;
-    if (/Premium|Cao cấp/i.test(n)) return 2;           // iPhone/iPad downloaded voices: "Linh (Cao cấp)"
-    if (/Enhanced|Nâng cao/i.test(n)) return 3;         // "Linh (Nâng cao)"
-    if (/Google/i.test(n)) return 4;
+    // iPhone/iPad: on a real iPad the basic "Linh" says "Bé" more clearly than the downloaded
+    // "Linh (Nâng cao)" (user test), so the basic voice comes first
+    if (/^Linh$/i.test(n.trim())) return 2;
+    if (/Premium|Cao cấp/i.test(n)) return 3;
+    if (/Enhanced|Nâng cao/i.test(n)) return 4;
+    if (/Google/i.test(n)) return 5;
     if (/Linh|Siri/i.test(n)) return 5;
     if (/\bAn\b/.test(n)) return 9;
     return 6;
