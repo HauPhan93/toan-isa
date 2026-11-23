@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dạng toán self-test</title>
+<style>
+  body { font: 14px/1.45 -apple-system, Segoe UI, sans-serif; margin: 16px; color: #1E3A4C; }
+  .ok { color: #1a8a3a; } .bad { color: #c0392b; font-weight: 600; } .warn { color: #b9770e; }
+  pre { white-space: pre-wrap; background: #f4f8f8; padding: 8px; border-radius: 8px; margin: 4px 0; }
+  h3 { margin: 18px 0 4px; }
+</style>
+</head>
+<body>
+<h1>Học dạng toán — self-test</h1>
+<p>Checks every kind of <code>js/content/dangtoan-lopN.js</code>: its texts, 60 guided examples and practice questions
+for i = 0…9 over 30 seeds. <code>?grade=N</code> one grade, <code>?samples=1</code> prints the texts, two guided examples
+and practice at i = 0, 5, 9, <code>&amp;lang=en</code> English.</p>
+<div id="out">running…</div>
+<script src="js/util.js"></script>
+<script src="js/visuals.js" onerror="window.__noV=true"></script>
+<script src="js/content/nangcao.js"></script>
+<script src="js/content/nangcao-lop1.js"></script>
+<script src="js/content/nangcao-lop2.js"></script>
+<script src="js/content/nangcao-lop3.js"></script>
+<script src="js/content/nangcao-lop4.js"></script>
+<script src="js/content/nangcao-lop5.js"></script>
+<script src="js/content/dangtoan.js"></script>
+<script src="js/content/dangtoan-lop1.js" onerror="console.warn('no dangtoan-lop1')"></script>
+<script src="js/content/dangtoan-lop2.js" onerror="console.warn('no dangtoan-lop2')"></script>
+<script src="js/content/dangtoan-lop3.js" onerror="console.warn('no dangtoan-lop3')"></script>
+<script src="js/content/dangtoan-lop4.js" onerror="console.warn('no dangtoan-lop4')"></script>
+<script src="js/content/dangtoan-lop5.js" onerror="console.warn('no dangtoan-lop5')"></script>
+<script>
+(function () {
+  const qs = new URLSearchParams(location.search);
+  const onlyGrade = qs.get('grade') ? Number(qs.get('grade')) : null;
+  const samples = qs.get('samples');
+  const out = document.getElementById('out');
+  const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const MAXN = { 1: 100, 2: 1000, 3: 100000, 4: 1e9, 5: 1e12 };
+  const lines = [];
+  let errors = 0, warns = 0, kinds = 0, runs = 0;
+  const bad = m => { errors++; if (errors < 200) lines.push(`<div class="bad">✗ ${esc(m)}</div>`); };
+  const warn = m => { warns++; lines.push(`<div class="warn">⚠ ${esc(m)}</div>`); };
+  const strOk = s => typeof s === 'string' && s.trim() && !/undefined|NaN|\[object|null|Infinity/.test(s);
+  const numsIn = s => (String(s).match(/\d{1,3}(?:[  ]\d{3})+(?:,\d+)?|\d+(?:,\d+)?/g) || []).map(t => U.parseNum(t));
+  const noYears = s => String(s).replace(/(năm|year|in|of)\s+\d{4}/gi, '');
+
+  function checkAnswer(A, where, grade, allowFraction) {
+    if (!A || !A.kind) return bad(`${where}: no answer`);
+    if (A.kind === 'number') {
+      if (typeof A.value !== 'number' || !isFinite(A.value) || A.value < 0) bad(`${where}: bad number ${A.value}`);
+      else if (Math.abs(U.round(A.value, 3) - A.value) > 1e-9) bad(`${where}: more than 3 decimals ${A.value}`);
+      else if (grade < 5 && !Number.isInteger(A.value)) bad(`${where}: decimal answer ${A.value} before lớp 5`);
+      if (A.value > MAXN[grade]) bad(`${where}: ${A.value} beyond lớp ${grade}`);
+    } else if (A.kind === 'choice' || A.kind === 'text') {
+      const o = A.options || [];
+      if (o.length < 2 || o.length > 4) bad(`${where}: ${o.length} options`);
+      if (new Set(o).size !== o.length) bad(`${where}: repeated options ${o.join(' | ')}`);
+      if (o.some(x => !strOk(String(x)))) bad(`${where}: empty option`);
+      if (!(A.correct >= 0 && A.correct < o.length)) bad(`${where}: correct index ${A.correct}`);
+    } else if (A.kind === 'fraction' && allowFraction) {
+      if (!(Number.isInteger(A.num) && Number.isInteger(A.den) && A.den > 0 && A.num >= 0)) bad(`${where}: bad fraction ${A.num}/${A.den}`);
+    } else bad(`${where}: answer kind ${A.kind} not allowed here`);
+  }
+  function checkVisual(v, where) {
+    if (!v) return;
+    if (!v.type) return bad(`${where}: visual without type`);
+    if (window.V && V.types && !V.types.includes(v.type)) return bad(`${where}: unknown visual ${v.type}`);
+    if (window.V && V.render) { try { V.render(v.type, v.params || {}, { theme: 'board' }); } catch (err) { bad(`${where}: visual fails: ${err.message}`); } }
+  }
+  const ansText = A => (A.kind === 'number' ? U.fmt(A.value) + (A.unit ? ' ' + A.unit : '') : A.kind === 'fraction' ? `${A.num}/${A.den}` : A.options.map((o, k) => (k === A.correct ? `[${o}]` : o)).join(' | '));
+
+  const items = (window.DT && DT.items) || [];
+  const ids = new Set();
+  for (const e of items) {
+    if (onlyGrade && e.grade !== onlyGrade) continue;
+    kinds++;
+    const w = e.id || '(no id)';
+    if (!e.id || ids.has(e.id)) bad(`duplicate or missing id ${e.id}`); ids.add(e.id);
+    if (!new RegExp(`^g${e.grade}-`).test(e.id || '')) bad(`${w}: id must start with g${e.grade}-`);
+    if (e.sem !== 1 && e.sem !== 2) bad(`${w}: sem ${e.sem}`);
+    if (!strOk(e.title)) bad(`${w}: no title`);
+    if (!strOk(e.icon)) bad(`${w}: no icon`);
+    if (!strOk(e.spot)) bad(`${w}: no spot`);
+    if (e.tip != null && !strOk(e.tip)) bad(`${w}: bad tip`);
+    if (!Array.isArray(e.steps) || e.steps.length < 2 || e.steps.length > 5 || e.steps.some(s => !strOk(s))) bad(`${w}: steps must be 2–5 strings`);
+    if (e.lesson != null && !new RegExp(`^g${e.grade}-c\\d+-b\\d+$`).test(e.lesson)) bad(`${w}: lesson ${e.lesson}`);
+    if (typeof e.guide !== 'function') bad(`${w}: no guide`);
+    if (typeof e.practice !== 'function') bad(`${w}: no practice`);
+    const shown = [];
+    // guided examples
+    const gPrompts = new Set();
+    for (let s = 0; typeof e.guide === 'function' && s < 60; s++) {
+      let g;
+      try { g = e.guide(U.makeRng(500 + s * 7919)); } catch (err) { bad(`${w} guide seed ${s}: throws ${err.message}`); continue; }
+      runs++;
+      const where = `${w} guide seed ${s}`;
+      if (!g || !strOk(g.prompt)) { bad(`${where}: no prompt`); continue; }
+      gPrompts.add(g.prompt);
+      if (!strOk(g.done)) bad(`${where}: no done`);
+      checkVisual(g.visual, where);
+      if (!Array.isArray(g.steps) || g.steps.length < 2 || g.steps.length > 5) { bad(`${where}: ${g.steps && g.steps.length} steps (2–5)`); continue; }
+      g.steps.forEach((st, k) => {
+        if (!strOk(st.ask)) bad(`${where} step ${k + 1}: no ask`);
+        if (!strOk(st.say)) bad(`${where} step ${k + 1}: no say`);
+        if (st.hint != null && !strOk(st.hint)) bad(`${where} step ${k + 1}: bad hint`);
+        checkAnswer(st.answer, `${where} step ${k + 1}`, e.grade, false);
+      });
+      const big = numsIn(noYears([g.prompt, g.done, ...g.steps.map(st => st.ask + '\n' + st.say)].join('\n'))).filter(x => x > MAXN[e.grade]);
+      if (big.length) bad(`${where}: number ${big[0]} beyond lớp ${e.grade}`);
+      if (samples && s < 2) shown.push(`VÍ DỤ: ${g.prompt}\n` + g.steps.map((st, k) => `  ${k + 1}. ${st.ask} → ${ansText(st.answer)}\n     ${st.say}${st.hint ? '\n     (gợi ý: ' + st.hint + ')' : ''}`).join('\n') + `\n  ${g.done}`);
+    }
+    if (typeof e.guide === 'function' && gPrompts.size < 10) warn(`${w}: only ${gPrompts.size} different guided examples in 60 runs`);
+    // practice
+    for (let i = 0; typeof e.practice === 'function' && i < 10; i++) {
+      const prompts = new Set();
+      for (let s = 0; s < 30; s++) {
+        let q;
+        try { q = e.practice(U.makeRng(900 + s * 104729 + i * 31), i); } catch (err) { bad(`${w} practice i${i} seed ${s}: throws ${err.message}`); continue; }
+        runs++;
+        const where = `${w} practice i${i} seed ${s}`;
+        if (!q || !strOk(q.prompt)) { bad(`${where}: no prompt`); continue; }
+        prompts.add(q.prompt);
+        if (!strOk(q.explain)) bad(`${where}: no explain`);
+        if (q.hint != null && !strOk(q.hint)) bad(`${where}: bad hint`);
+        checkAnswer(q.answer, where, e.grade, true);
+        checkVisual(q.visual, where);
+        const big = numsIn(noYears([q.prompt, q.explain].join('\n'))).filter(x => x > MAXN[e.grade]);
+        if (big.length) bad(`${where}: number ${big[0]} beyond lớp ${e.grade}`);
+        if (samples && s === 0 && (i === 0 || i === 5 || i === 9)) shown.push(`LUYỆN i=${i}: ${q.prompt}\n  → ${ansText(q.answer)}\n  ${q.explain}`);
+      }
+      if (prompts.size < 6) warn(`${w} practice i${i}: only ${prompts.size} different prompts in 30 runs`);
+    }
+    if (samples) {
+      lines.push(`<h3>${esc(e.icon || '')} ${esc(e.title || '')} · ${esc(e.id)} · lớp ${e.grade} HK${e.sem}${e.lesson ? ' · ' + esc(e.lesson) : ''}</h3>`);
+      lines.push(`<pre>${esc('NHẬN BIẾT: ' + e.spot + '\n' + (e.steps || []).join('\n') + (e.tip ? '\nLƯU Ý: ' + e.tip : ''))}</pre>`);
+      shown.forEach(t => lines.push(`<pre>${esc(t)}</pre>`));
+    }
+  }
+  const per = {};
+  for (const e of items) per[`lớp ${e.grade}`] = (per[`lớp ${e.grade}`] || 0) + 1;
+  out.innerHTML = `<p class="${errors ? 'bad' : 'ok'}">${kinds} kinds · ${runs} runs · ${errors} errors · ${warns} warnings · lang ${U.LANG}</p>`
+    + `<p>${Object.entries(per).sort().map(([k, v]) => `${k}: ${v}`).join(' · ')}</p>` + lines.join('');
+  window.__dt = { kinds, runs, errors, warns };
+})();
+</script>
+</body>
+</html>

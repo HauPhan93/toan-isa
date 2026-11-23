@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v58';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v59';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
   // English mode (Góc phụ huynh → Ngôn ngữ): tx('Vietnamese', 'English'). The parent corner itself stays Vietnamese.
   const EN = U.EN, tx = U.L;
   const G = n => tx('Lớp ' + n, 'Grade ' + n), HK = k => tx('Học kì ' + k, 'Term ' + k);
@@ -684,11 +684,15 @@
     // 6th card: Ôn tập & Kiểm tra (bộ đề theo mẫu của Bộ GD&ĐT)
     const nExams = [1, 2, 3, 4, 5].reduce((s, n) => s + (gradeOf(n) ? termsFor(n).length : 0), 0);
     const doneExams = Object.keys(S.exams || {}).length;
-    grades.append(h('button', { class: 'grade-card review-card', 'data-peek': tx('Ôn tập nè!', 'Tests!'), 'data-say': tx('Bé ơi, ôn tập nè!', 'Time for a review!'), 'data-peek-short': tx('Làm đề!', 'Tests!'), style: { '--gc': '#0E8C88' }, onclick: e => { sfx.tap(); peekThen(e.currentTarget, showExamHome, tx('Giải bài nào bạn ơi!', 'Let\'s solve some problems!')); } },
-      h('div', { class: 'island' }), h('div', { class: 'gicon' }, '📝'),
-      h('div', null, h('div', { class: 'gnum' }, '✓'), h('div', { class: 'glabel' }, tx('Ôn tập', 'Review')),
-        h('div', { class: 'gdesc' }, tx(`Kiểm tra giữa kì, cuối kì · Đề theo mẫu Bộ GD&ĐT`, `Mid-term and end-of-term tests · Ministry of Education style`) + (doneExams ? tx(` · đã làm ${doneExams} đề`, ` · ${doneExams} done`) : ''))),
-      h('span', { class: 'btn small review-go' }, tx('Vào làm đề ▶', 'Start a test ▶'))));
+    // 6th cell: three small cards (user, 2026-11-23: a card for the kinds of problem and one for the history of
+    // maths) — Ôn tập & Kiểm tra, Học dạng toán, Chuyện kể Toán học
+    const more = (icon, color, title, desc, go, cls) => h('button', { class: 'more-card' + (cls ? ' ' + cls : ''), style: { '--gc': color }, onclick: () => { sfx.tap(); go(); } },
+      h('span', { class: 'mc-icon' }, icon), h('span', { class: 'mc-body' }, h('span', { class: 'mc-title' }, title), h('span', { class: 'mc-desc' }, desc)), h('span', { class: 'mc-go' }, '▶'));
+    const nStories = (window.STORIES || []).length, readStories = Object.keys(S.stories || {}).length;
+    grades.append(h('div', { class: 'grade-card more-stack' },
+      more('📝', '#0E8C88', tx('Ôn tập & Kiểm tra', 'Review & Tests'), tx('Đề giữa kì, cuối kì theo mẫu Bộ GD&ĐT', 'Mid-term and end-of-term tests') + (doneExams ? tx(` · đã làm ${doneExams} đề`, ` · ${doneExams} done`) : ''), showExamHome, 'review-card'),
+      more('🧩', '#7C5CE0', tx('Học dạng toán', 'Kinds of problem'), tx('Chưa hiểu dạng nào, ISA chỉ từng bước', 'ISA shows you each kind step by step'), () => showKinds()),
+      more('📖', '#F47A2A', tx('Chuyện kể Toán học', 'Stories of Mathematics'), nStories ? tx(`Lật sách xem toán ra đời thế nào · ${readStories}/${nStories} chuyện`, `Flip the book: how maths began · ${readStories}/${nStories}`) : tx('Lật sách xem toán ra đời thế nào', 'Flip the book: how maths began'), () => openStory())));
     const m = h('div', { class: 'mascot-wrap' }, mascot('happy'));
     screen(
       topbar(tx('Toán ISA', 'ISA Maths'), tx('Kết nối tri thức với cuộc sống', 'Connecting Knowledge with Life'), null, [coinPill(), parentBtn()]),
@@ -700,7 +704,7 @@
             h('div', { class: 'daily', html: ring + `<div>${tx('Mục tiêu hôm nay', 'Today\'s goal')}<br><b>${Math.min(d.count, d.goal)}/${d.goal} ${tx('câu', 'questions')}</b></div>` }))),
         grades));
     m.addEventListener('click', () => speak(`${hi} ${greet}`));
-    Peek.bind(grades, '.grade-card');
+    Peek.bind(grades, '.grade-card:not(.more-stack)');
   }
 
 
@@ -1116,7 +1120,7 @@
     }
 
     screen(
-      topbar(L.title, `${L.book || ''} · ${G(n)}`, backBtn(() => { clearInterval(run.timer); showMap(n, lessonSem(L.id)); }), []),
+      topbar(L.title, `${L.book || ''} · ${G(n)}`, backBtn(() => { clearInterval(run.timer); if (run.rec.custom) run.rec.custom.back(); else showMap(n, lessonSem(L.id)); }), []),
       h('div', { class: 'player' },
         h('div', { class: 'topbar', style: { padding: '0' } }, dots),
         h('div', { class: 'stage' }, board, h('div', { class: 'answer-pane' }, pane))));
@@ -1164,9 +1168,11 @@
     S.totals.seconds += Math.round((Date.now() - run.t0) / 1000);
     save();
     if (stars >= 2) { sfx.win(); confetti(110); } else sfx.good();
-    const all = lessonList(run.rec.grade);
+    // a practice set that is not a lesson of the book (Học dạng toán) goes back to where it came from
+    const custom = run.rec.custom;
+    const all = custom ? [] : lessonList(run.rec.grade);
     const idx = all.indexOf(L);
-    const nextL = all[idx + 1];
+    const nextL = custom ? null : all[idx + 1];
     const msg = cheerFor(sc * 10 / QUESTIONS_PER_LESSON);
     const bs = h('div', { class: 'big-stars' });
     for (let k = 0; k < 3; k++) bs.append(h('span', { class: k < stars ? '' : 'star-off' }, '⭐'));
@@ -1182,7 +1188,7 @@
             h('button', { class: 'btn ghost', onclick: () => { sfx.tap(); showPractice(run.rec); } }, tx('↻ Làm lại', '↻ Try again')),
             stars === 0 && L.learn && L.learn.length ? h('button', { class: 'btn teal', onclick: () => { sfx.tap(); showLearn(run.rec, 0); } }, tx('💡 Xem lại', '💡 Look again')) : null,
             nextL ? h('button', { class: 'btn', onclick: () => { sfx.tap(); startLesson(nextL.id); } }, tx('Bài tiếp ▶', 'Next lesson ▶')) : null,
-            h('button', { class: 'btn ghost', onclick: () => { sfx.tap(); showMap(n, lessonSem(L.id)); } }, tx('🗺️ Bản đồ', '🗺️ Map'))))));
+            h('button', { class: 'btn ghost', onclick: () => { sfx.tap(); if (custom) custom.back(); else showMap(n, lessonSem(L.id)); } }, custom ? custom.label : tx('🗺️ Bản đồ', '🗺️ Map'))))));
     setTimeout(() => speak(msg), 600);   // after the result sound
   }
 
@@ -2105,6 +2111,20 @@
     return { open, close, remove: () => panel.remove() };
   }
 
+  /* ------------------------------------------------------------------ Chuyện kể Toán học · Học dạng toán */
+  // Their screens live in js/story.js and js/dangtoan.js; this is what they may use of the app.
+  const moduleApi = () => ({
+    state: () => S, save, h, screen, topbar, backBtn, homeBtn, coinPill, speak, stopSpeech, sfx, toast, sheet, mascot, viz, tx, G,
+    gradeInfo: GRADE_INFO, gradeOf, startLesson, hasLesson: id => LESSONS.has(id), lessonOf: id => LESSONS.get(id), home: showHome, makePad: makeExamPad, prettyInput,
+    // the ten practice questions of a kind of problem, in the usual practice player; `back` is where it returns
+    practice: (kind, back) => showPractice({
+      lesson: { id: 'dt:' + kind.id, title: kind.title, book: tx('Dạng toán', 'Kind of problem'), gen: (rng, i) => kind.practice(rng, i) },
+      grade: gradeOf(kind.grade), topic: null, custom: { back, label: tx('🧩 Về dạng toán', '🧩 Back to the kinds') },
+    }),
+  });
+  function openStory(at) { if (window.Story) Story.open(moduleApi(), at); else toast(tx('Cuốn sách đang được soạn…', 'The book is coming soon…')); }
+  function showKinds(n, id) { if (window.Kinds) Kinds.open(moduleApi(), n, id); else toast(tx('Phần này đang được soạn…', 'This part is coming soon…')); }
+
   /* ------------------------------------------------------------------ boot */
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('sw.js').catch(() => { /* offline cache unavailable */ });
@@ -2115,8 +2135,10 @@
   else if (hash.get('practice') && LESSONS.has(hash.get('practice'))) { showPractice(LESSONS.get(hash.get('practice')), Number(hash.get('q')) || 0); }
   else if (hash.get('exam')) { const [gn, t1, t2, a, b] = hash.get('exam').split('-'); startExam(Number(gn), t1 + '-' + t2, Number(a === 'nc' ? b : a) || 1, a === 'nc' ? 'nc' : 'thuong'); }
   else if (hash.get('exams') != null) { showExamHome(); }
+  else if (hash.get('story') != null) { openStory(Number(hash.get('story')) || 0); }
+  else if (hash.get('kinds') != null) { showKinds(Number(hash.get('kinds')) || undefined, hash.get('kind') || undefined); }
   else if (hash.get('grade') && gradeOf(Number(hash.get('grade')))) { showMap(Number(hash.get('grade')), Number(hash.get('hk')) || 1); }
   else showHome();
 
-  window.ToanISA = { state: () => S, startLesson, showPractice, lessonIds: () => [...LESSONS.keys()], lessonRec: id => LESSONS.get(id), showHome, showMap, showExamHome, startExam, buildPaper, blueprintFor, rememberPaper, slotPool, scopeLessons, showTopicList };
+  window.ToanISA = { state: () => S, startLesson, showPractice, openStory, showKinds, lessonIds: () => [...LESSONS.keys()], lessonRec: id => LESSONS.get(id), showHome, showMap, showExamHome, startExam, buildPaper, blueprintFor, rememberPaper, slotPool, scopeLessons, showTopicList };
 })();

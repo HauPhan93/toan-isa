@@ -1,9 +1,10 @@
 /* Toán ISA service worker: offline cache. Bump VERSION whenever app files change. */
-const VERSION = 'toanisa-v58';
+const VERSION = 'toanisa-v59';
 const CORE = [
   './', './index.html', './css/app.css', './manifest.webmanifest',
   './js/util.js', './js/visuals.js', './js/scratch.js', './js/hand-cnn.js', './js/hand.js', './js/isa-voice.js', './js/core.js',
   './js/content/lop1.js', './js/content/lop2.js', './js/content/lop3.js', './js/content/lop4.js', './js/content/lop5.js', './js/content/dethi.js', './js/content/dethi-lop1.js',
+  './js/story.js', './js/dangtoan.js', './js/content/lichsu.js', './js/content/dangtoan.js', './js/content/dangtoan-lop1.js', './js/content/dangtoan-lop2.js', './js/content/dangtoan-lop3.js', './js/content/dangtoan-lop4.js', './js/content/dangtoan-lop5.js',
   './js/content/nangcao.js', './js/content/nangcao-lop1.js', './js/content/nangcao-lop2.js', './js/content/nangcao-lop3.js', './js/content/nangcao-lop4.js', './js/content/nangcao-lop5.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
 ];
