@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nâng cao self-test</title>
+<style>
+  body { font: 14px/1.45 -apple-system, Segoe UI, sans-serif; margin: 16px; color: #1E3A4C; }
+  .ok { color: #1a8a3a; } .bad { color: #c0392b; font-weight: 600; } .warn { color: #b9770e; }
+  pre { white-space: pre-wrap; background: #f4f8f8; padding: 8px; border-radius: 8px; margin: 4px 0; }
+  h3 { margin: 18px 0 4px; }
+</style>
+</head>
+<body>
+<h1>Ngân hàng bài nâng cao — self-test</h1>
+<p>Runs every entry of <code>js/content/nangcao-lopN.js</code> over 300 seeds and checks the question shape, the answer of
+every "Đặt tính rồi tính", the size of the numbers for the grade and the variety. <code>?grade=N</code> one grade,
+<code>?show=ID</code> 12 samples of one entry, <code>?samples=1</code> 3 samples of every entry, <code>&amp;lang=en</code> English.</p>
+<div id="out">running…</div>
+<script src="js/util.js"></script>
+<script src="js/visuals.js" onerror="window.__noV=true"></script>
+<script src="js/content/nangcao.js"></script>
+<script src="js/content/nangcao-lop1.js" onerror="console.warn('no nangcao-lop1')"></script>
+<script src="js/content/nangcao-lop2.js" onerror="console.warn('no nangcao-lop2')"></script>
+<script src="js/content/nangcao-lop3.js" onerror="console.warn('no nangcao-lop3')"></script>
+<script src="js/content/nangcao-lop4.js" onerror="console.warn('no nangcao-lop4')"></script>
+<script src="js/content/nangcao-lop5.js" onerror="console.warn('no nangcao-lop5')"></script>
+<script>
+(function () {
+  const qs = new URLSearchParams(location.search);
+  const onlyGrade = qs.get('grade') ? Number(qs.get('grade')) : null;
+  const show = qs.get('show'), samples = qs.get('samples');
+  const out = document.getElementById('out');
+  const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const TERMS = { 1: ['cuoi-hk1', 'cuoi-nam'], 2: ['cuoi-hk1', 'cuoi-nam'], 3: ['cuoi-hk1', 'cuoi-nam'], 4: ['giua-hk1', 'cuoi-hk1', 'giua-hk2', 'cuoi-nam'], 5: ['giua-hk1', 'cuoi-hk1', 'giua-hk2', 'cuoi-nam'] };
+  const MAXN = { 1: 100, 2: 1000, 3: 100000, 4: 1e9, 5: 1e12 };   // largest number a grade reads and writes
+  const SEEDS = 300;
+  const lines = [];
+  let errors = 0, warns = 0, entries = 0, runs = 0;
+  const bad = (m) => { errors++; lines.push(`<div class="bad">✗ ${esc(m)}</div>`); };
+  const warn = (m) => { warns++; lines.push(`<div class="warn">⚠ ${esc(m)}</div>`); };
+  // numbers as the app writes them: 12 345 (thin or no-break space), 3,5
+  const numsIn = s => (String(s).match(/\d{1,3}(?:[  ]\d{3})+(?:,\d+)?|\d+(?:,\d+)?/g) || []).map(t => U.parseNum(t));
+  const strOk = s => typeof s === 'string' && s.trim() && !/undefined|NaN|\[object|null|Infinity/.test(s);
+  // years in dates ("năm 2027") are read as a whole and do not count against the grade's number range
+  const text = q => [q.prompt, q.explain, q.hint, ...((q.answer && q.answer.options) || [])].filter(Boolean).join('\n').replace(/(năm|year|in|of)\s+\d{4}/gi, '');
+
+  function checkQ(e, q, seed) {
+    const where = `${e.id} seed ${seed}`;
+    if (!q || typeof q !== 'object') return bad(`${where}: no question`);
+    if (!strOk(q.prompt)) return bad(`${where}: bad prompt ${q.prompt}`);
+    if (!strOk(q.explain)) bad(`${where}: no explain`);
+    if (q.hint != null && !strOk(q.hint)) bad(`${where}: bad hint`);
+    const A = q.answer;
+    if (!A || !A.kind) return bad(`${where}: no answer`);
+    if (A.kind === 'number') {
+      if (typeof A.value !== 'number' || !isFinite(A.value) || A.value < 0) bad(`${where}: bad number answer ${A.value}`);
+      else if (Math.abs(U.round(A.value, 3) - A.value) > 1e-9) bad(`${where}: answer has more than 3 decimals ${A.value}`);
+      if (A.unit != null && !strOk(A.unit)) bad(`${where}: bad unit`);
+    } else if (A.kind === 'choice' || A.kind === 'text') {
+      const o = A.options || [];
+      if (o.length < 2 || o.length > 4) bad(`${where}: ${o.length} options`);
+      if (new Set(o).size !== o.length) bad(`${where}: repeated options ${o.join(' | ')}`);
+      if (o.some(x => !strOk(String(x)))) bad(`${where}: empty option`);
+      if (!(A.correct >= 0 && A.correct < o.length)) bad(`${where}: correct index ${A.correct}`);
+    } else if (A.kind === 'fraction') {
+      if (!(Number.isInteger(A.num) && Number.isInteger(A.den) && A.den > 0 && A.num >= 0)) bad(`${where}: bad fraction ${A.num}/${A.den}`);
+    } else bad(`${where}: answer kind ${A.kind} not allowed`);
+    if (q.visual) {
+      if (!q.visual.type) bad(`${where}: visual without type`);
+      else if (window.V && V.types && !V.types.includes(q.visual.type)) bad(`${where}: unknown visual ${q.visual.type}`);
+      else if (window.V && V.render) { try { V.render(q.visual.type, q.visual.params || {}, { theme: 'paper' }); } catch (err) { bad(`${where}: visual fails: ${err.message}`); } }
+    }
+    // "Đặt tính rồi tính": the answer must be the calculation
+    if ((e.kinds || []).includes('dt') && e.__dt) {
+      const m = /([\d  ,]+)\s*([+−×:])\s*([\d  ,]+)\s*$/.exec(q.prompt.split('\n').pop());
+      if (!m) bad(`${where}: dt prompt is not "a op b": ${q.prompt}`);
+      else {
+        const a = U.parseNum(m[1]), b = U.parseNum(m[3]), op = m[2];
+        const r = op === '+' ? a + b : op === '−' ? a - b : op === '×' ? a * b : a / b;
+        if (A.kind !== 'number' || Math.abs(U.round(r, 6) - A.value) > 1e-9) bad(`${where}: dt answer ${A.value} ≠ ${U.round(r, 6)} (${q.prompt.replace(/\n/g, ' ')})`);
+        if (r < 0) bad(`${where}: negative result`);
+      }
+    }
+    // numbers the grade can read
+    const mx = MAXN[e.grade];
+    const big = numsIn(text(q)).concat(A.kind === 'number' ? [A.value] : []).filter(x => x > mx);
+    if (big.length) bad(`${where}: number ${big[0]} beyond lớp ${e.grade}`);
+  }
+
+  const items = (window.NC && NC.items) || [];
+  const ids = new Set();
+  for (const e of items) {
+    if (onlyGrade && e.grade !== onlyGrade) continue;
+    if (show && e.id !== show) continue;
+    entries++;
+    if (!e.id || ids.has(e.id)) bad(`duplicate or missing id ${e.id}`); ids.add(e.id);
+    if (!TERMS[e.grade] || !TERMS[e.grade].includes(e.from)) bad(`${e.id}: from "${e.from}" is not a test of lớp ${e.grade}`);
+    if (!Array.isArray(e.kinds) || !e.kinds.length || e.kinds.some(k => !['tn', 'tl', 'dt'].includes(k))) bad(`${e.id}: kinds ${e.kinds}`);
+    if (e.kinds && e.kinds.includes('dt') && e.kinds.length > 1) bad(`${e.id}: a dt entry is only dt`);
+    if (e.lesson != null && !new RegExp(`^g${e.grade}-c\\d+-b\\d+$`).test(e.lesson)) bad(`${e.id}: lesson ${e.lesson}`);
+    if (typeof e.gen !== 'function') { bad(`${e.id}: no gen`); continue; }
+    e.__dt = (e.kinds || []).includes('dt');
+    const prompts = new Set(), shown = [];
+    for (let s = 0; s < SEEDS; s++) {
+      let q;
+      try { q = e.gen(U.makeRng(1000 + s * 7919)); } catch (err) { bad(`${e.id} seed ${s}: throws ${err.message}`); continue; }
+      runs++;
+      checkQ(e, q, s);
+      if (q && q.prompt) prompts.add(q.prompt);
+      if (q && shown.length < (show ? 12 : samples ? 3 : 0)) shown.push(q);
+    }
+    if (prompts.size < 15) warn(`${e.id}: only ${prompts.size} different prompts in ${SEEDS} runs`);
+    if (shown.length) {
+      lines.push(`<h3>${esc(e.id)} · lớp ${e.grade} · ${esc(e.from)} · ${esc(e.kinds.join('/'))}${e.lesson ? ' · ' + esc(e.lesson) : ''}</h3>`);
+      for (const q of shown) {
+        const A = q.answer;
+        const ans = A.kind === 'number' ? U.fmt(A.value) + (A.unit ? ' ' + A.unit : '') : A.kind === 'fraction' ? `${A.num}/${A.den}` : A.options.map((o, k) => (k === A.correct ? `[${o}]` : o)).join(' | ');
+        lines.push(`<pre>${esc(q.prompt)}\n→ ${esc(ans)}\n${esc(q.explain || '')}</pre>`);
+      }
+    }
+  }
+  const per = {};
+  for (const e of items) for (const k of e.kinds || []) { const key = `lớp ${e.grade} ${k}`; per[key] = (per[key] || 0) + 1; }
+  out.innerHTML = `<p class="${errors ? 'bad' : 'ok'}">${entries} entries · ${runs} questions · ${errors} errors · ${warns} warnings · lang ${U.LANG}</p>`
+    + `<p>${Object.entries(per).sort().map(([k, v]) => `${k}: ${v}`).join(' · ')}</p>` + lines.slice(0, 400).join('');
+  window.__nc = { entries, runs, errors, warns };
+})();
+</script>
+</body>
+</html>

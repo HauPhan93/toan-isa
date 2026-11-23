@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v57';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v58';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
   // English mode (Góc phụ huynh → Ngôn ngữ): tx('Vietnamese', 'English'). The parent corner itself stays Vietnamese.
   const EN = U.EN, tx = U.L;
   const G = n => tx('Lớp ' + n, 'Grade ' + n), HK = k => tx('Học kì ' + k, 'Term ' + k);
@@ -1433,12 +1433,26 @@
     for (let k = 0; tn.length < P.tn && TN.length; k++) tn.push(TN[k % TN.length]);
     // tự luận: the blueprint's own slots (twice each at most), then trắc nghiệm topics written out
     const nOT = P.n - P.tn - set.length, others = TL.filter(it => !src.includes(it));
+    // Đề nâng cao: mức 3 "vận dụng" problems from the bank (nangcao*.js) take the last trắc nghiệm slots, the
+    // "Đặt tính rồi tính" set (harder numbers) and part of the tự luận; each bank slot keeps a copy of a blueprint slot
+    // to fall back on. Researched 2026-11-23 (Thông tư 27 mức 3, CT 2018 yêu cầu cần đạt, real KNTT school papers).
+    const bankN = k => (mode === 'nc' && window.NC ? NC.pool(bp.grade, bp.term, k).length : 0);
+    // a small bank (lớp 1 học kì I, the giữa học kì I papers) gives fewer slots, so a paper does not repeat a kind
+    const tnBank = Math.min(4, Math.ceil(bankN('tn') / 2));
+    for (let k = Math.max(0, tn.length - tnBank); k < tn.length; k++) tn[k] = Object.assign({}, tn[k], { bank: 'tn', level: 3 });
+    if (bankN('dt')) set.forEach(s => { s.bank = 'dt'; });
+    const tlBank = bankN('tl') ? Math.min(nOT, Math.max(4, nOT - others.length), Math.max(2, bankN('tl') - tnBank)) : 0;
+    const nOwn = nOT - tlBank;
     const ot = [];
-    const reps = Math.min(2, Math.max(1, Math.floor(nOT / Math.max(1, others.length))));
-    for (const it of others) for (let r = 0; r < reps && ot.length < nOT; r++) ot.push(Object.assign({}, it));
-    for (let k = 0; ot.length < nOT && TN.length; k++) {
+    const reps = Math.min(2, Math.max(1, Math.floor(nOwn / Math.max(1, others.length))));
+    for (const it of others) for (let r = 0; r < reps && ot.length < nOwn; r++) ot.push(Object.assign({}, it));
+    for (let k = 0; ot.length < nOwn && TN.length; k++) {
       const it = TN[(TN.length - 1 - k % TN.length)];
       ot.push(Object.assign({}, it, { form: 'as-is', points: 1, label: undefined }));
+    }
+    for (let k = 0; k < tlBank; k++) {
+      const base = others.length ? others[k % others.length] : TN[k % TN.length];
+      ot.push(Object.assign({}, base, { bank: 'tl', form: 'as-is', level: 3, points: 1.5, label: undefined }));
     }
     // marks of the tự luận slots: P.tl in steps of 0,25, shared by the blueprint's weights (largest remainder)
     const units = Math.round(P.tl / 0.25), wsum = ot.reduce((s, it) => s + (it.points || 1), 0);
@@ -1575,8 +1589,30 @@
       const isTN = /TRẮC NGHIỆM/i.test(part.title);
       let items = [];
       for (const it of part.items) {
+        // a bank slot of the Đề nâng cao: an advanced problem the child has met least, each kind once per paper
+        if (it.bank && window.NC) {
+          const bpool = NC.pool(bp.grade, bp.term, it.bank);
+          let bb = null;
+          for (let tries = 0; tries < 18 && bpool.length; tries++) {
+            const e = U.pick(rng, bpool), qr = U.makeRng(Math.floor(rng() * 4294967295)), id = 'nc:' + e.id;
+            let q;
+            try { q = tidyQuestion(e.gen(qr)); } catch (err) { console.error('nangcao', e.id, err); continue; }
+            if (!q || !q.prompt || !q.answer || seen.has(qId(q))) continue;
+            const answer = it.form === 'choice' ? choiceFromAnswer(qr, q) || q.answer : q.answer;
+            const cost = (metQ.has(qSig(q)) ? 1e6 : 0) + (sn.s[kindSig(id, q)] || 0) * 100 + (used.get(id) || 0) * 400
+              + (it.label === DT_LABEL ? (ops.get(setOp(q)) || 0) * 60 : 0) + rng();
+            if (!bb || cost < bb.cost) bb = { cost, q, answer, id, lesson: e.lesson };
+          }
+          if (bb) {
+            seen.add(qId(bb.q)); used.set(bb.id, (used.get(bb.id) || 0) + 1);
+            if (it.label === DT_LABEL) ops.set(setOp(bb.q), (ops.get(setOp(bb.q)) || 0) + 1);
+            items.push({ q: bb.q, answer: bb.answer, points: it.points || 1, level: 3, label: it.label || '', lessonId: bb.id,
+              reviewLesson: bb.lesson && LESSONS.has(bb.lesson) ? bb.lesson : null });
+            continue;
+          }
+        }
         const pool = slotPool(bp, it, scope);
-        const lv = Math.min(3, (it.level || 2) + (mode === 'nc' && it.label !== DT_LABEL ? 1 : 0));
+        const lv = Math.min(3,(it.level || 2) + (mode === 'nc' && it.label !== DT_LABEL ? 1 : 0));
         let best = null, valid = 0;
         for (let tries = 0; tries < 16 && valid < 6; tries++) {
           // mostly the blueprint's own lesson, often a neighbour of the same chủ đề, now and then (trắc nghiệm
@@ -1855,7 +1891,7 @@
       const cheer = cheerFor(final);
       setTimeout(() => speak(cheer), 600);   // after the result sound
       // weak lessons from this paper → quick links to practise
-      const weak = [...new Set(states.filter(st => st.el.classList.contains('wrong')).map(st => st.it.lessonId))].map(id => LESSONS.get(id)).filter(Boolean);
+      const weak = [...new Set(states.filter(st => st.el.classList.contains('wrong')).map(st => st.it.reviewLesson || st.it.lessonId))].map(id => LESSONS.get(id)).filter(Boolean);
       const summary = h('div', { class: 'card exam-summary' },
         h('div', { class: 'mini-mascot' }, mascot(final >= 7 ? 'cheer' : 'think')),
         h('div', { class: 'es-body' },
@@ -1914,7 +1950,7 @@
       final: p.final, got: p.got, total: p.total, cmt: p.cmt,
       parts: p.parts.map(pt => ({ title: pt.title, note: pt.note || '' })),
       items: p.states.map(st => ({
-        p: st.pi, no: st.it.no, points: st.it.points, label: st.it.label || '', lessonId: st.it.lessonId,
+        p: st.pi, no: st.it.no, points: st.it.points, label: st.it.label || '', lessonId: st.it.reviewLesson || st.it.lessonId,
         q: { prompt: st.it.q.prompt, visual: st.it.q.visual || null, explain: st.it.q.explain || '' },
         a: plainA(st.it.answer), r: resp(st), ok: st.el.classList.contains('right'),
       })),
