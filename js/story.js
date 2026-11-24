@@ -9,13 +9,21 @@
   const L = U.L;
   const CSS = `
 .bk-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 0 18px calc(14px + var(--safe-b, 0px)); }
-.bk-book { position: relative; flex: 1; min-height: 0; perspective: 2200px; }
-.bk-spread { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; }
+/* a real-looking book (user, 2026-11-24): a hard cover board behind the pages, a spine in the middle, a stack of
+   paper edges on the outer sides and a deep shadow in the fold */
+.bk-book { position: relative; flex: 1; min-height: 0; perspective: 2200px; margin: 12px 16px 20px; }
+.bk-book::before { content: ''; position: absolute; inset: -12px -16px -20px; border-radius: 18px; background: linear-gradient(160deg, #13797A, #0C5A60 55%, #08454B);
+  box-shadow: 0 16px 34px rgba(0, 30, 40, .38), inset 0 0 0 2px rgba(255, 255, 255, .14), inset 0 0 0 6px rgba(0, 0, 0, .08); }
+.bk-book::after { content: ''; position: absolute; left: 50%; top: -12px; bottom: -20px; width: 18px; transform: translateX(-50%); border-radius: 4px;
+  background: linear-gradient(90deg, #063A40, #0E6064 50%, #063A40); }
+.bk-spread { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; z-index: 1; }
 .bk-page { position: relative; min-width: 0; min-height: 0; background: #FFFDF7; overflow: hidden; display: flex; flex-direction: column; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-.bk-l { border-radius: 22px 4px 4px 22px; box-shadow: inset -18px 0 26px -18px rgba(90, 60, 20, .35), 0 8px 22px rgba(0, 40, 50, .22); transform-origin: right center; }
-.bk-r { border-radius: 4px 22px 22px 4px; box-shadow: inset 18px 0 26px -18px rgba(90, 60, 20, .35), 0 8px 22px rgba(0, 40, 50, .22); transform-origin: left center; }
-.bk-l { background: linear-gradient(90deg, #FFF8E8, #FFFDF7 70%, #F6ECD6); }
-.bk-r { background: linear-gradient(270deg, #FFF8E8, #FFFDF7 70%, #F6ECD6); }
+.bk-l { border-radius: 10px 2px 2px 10px; transform-origin: right center;
+  box-shadow: inset -34px 0 30px -26px rgba(90, 60, 20, .42), -1px 1px 0 #E3D5B6, -3px 3px 0 #FBF5E6, -4px 4px 0 #DED0B0, -6px 6px 0 #F8F0DD, -7px 7px 0 #D2C19C, -8px 9px 12px rgba(0, 20, 30, .25); }
+.bk-r { border-radius: 2px 10px 10px 2px; transform-origin: left center;
+  box-shadow: inset 34px 0 30px -26px rgba(90, 60, 20, .42), 1px 1px 0 #E3D5B6, 3px 3px 0 #FBF5E6, 4px 4px 0 #DED0B0, 6px 6px 0 #F8F0DD, 7px 7px 0 #D2C19C, 8px 9px 12px rgba(0, 20, 30, .25); }
+.bk-l { background: linear-gradient(90deg, #FBF3DF, #FFFDF7 18%, #FFFDF7 82%, #EADCBC); }
+.bk-r { background: linear-gradient(270deg, #FBF3DF, #FFFDF7 18%, #FFFDF7 82%, #EADCBC); }
 /* turning forward: the right page lifts to the spine, then the new left page comes down from it */
 .bk-spread.out-next { z-index: 2; pointer-events: none; }
 .bk-spread.out-next .bk-r { animation: bkOutR .7s ease-in forwards; }
@@ -31,7 +39,7 @@
 @keyframes bkInR { 0%, 50% { transform: rotateY(-90deg); } 100% { transform: rotateY(0); } }
 @keyframes bkHide { 0% { opacity: 1; } 50%, 100% { opacity: 0; } }
 /* left page: the picture */
-.bk-when { display: flex; flex-wrap: wrap; gap: 6px 8px; padding: 16px 18px 0 22px; }
+.bk-when { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 16px 18px 0 22px; }
 .bk-chip { font: 800 14px var(--font, sans-serif); color: #7A5600; background: #FFF1C9; border-radius: 12px; padding: 5px 10px; }
 .bk-chip.where { color: #0E6E6A; background: #DDF5F2; }
 .bk-art { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 8px 18px 18px 22px; color: #1E3A4C; font: 800 18px var(--font, sans-serif); text-align: center; }
@@ -44,7 +52,7 @@
 .bk-text { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 24px 30px 22px; display: flex; flex-direction: column; gap: 10px; }
 .bk-title { display: flex; align-items: flex-start; gap: 10px; }
 .bk-title h2 { flex: 1; margin: 0; font: 900 25px/1.2 var(--font, sans-serif); color: #C25412; }
-.bk-say { flex: none; width: 46px; height: 46px; border-radius: 14px; background: #E9F8F7; color: #0E8C88; font-size: 22px; display: grid; place-items: center; }
+.bk-say { flex: none; width: 46px; height: 46px; border: 0; border-radius: 50%; background: #E9F8F7; color: #0E8C88; font-size: 22px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #BFE6E2; }
 .bk-say.speaking { background: #0E8C88; color: #fff; }
 .bk-text p { margin: 0; font: 600 19px/1.5 var(--font, sans-serif); color: #1E3A4C; }
 .bk-ask { margin-top: 4px; border-radius: 18px; background: #FFF6DB; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
@@ -84,11 +92,20 @@
 .cv-dot { transform-box: fill-box; transform-origin: center; animation: cvDot 3s ease-in-out infinite; }
 @keyframes cvDot { 0%, 60%, 100% { transform: scale(1); } 20% { transform: scale(1.35); } }
 .ba-spin.cv-rev { animation-direction: reverse; }
-.bk-toc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.bk-toc button { display: flex; align-items: center; gap: 8px; text-align: left; padding: 8px 10px; border-radius: 14px; background: #F3F7F8; box-shadow: inset 0 0 0 2px #E1EAEC; font: 700 15px/1.25 var(--font, sans-serif); color: #1E3A4C; min-height: 48px; }
-.bk-toc button.read { background: #E3F7EC; box-shadow: inset 0 0 0 2px #A9E2C2; }
-.bk-toc .ic { font-size: 22px; flex: none; }
-.bk-toc .no { flex: none; font-weight: 900; color: #B39B6B; min-width: 20px; }
+/* contents: a plain list as in a printed book — number, title, a dotted leader and the page */
+.bk-toc { display: flex; flex-direction: column; }
+.bk-toc button { display: flex; align-items: center; gap: 6px; text-align: left; padding: 4px 2px; border: 0; border-radius: 6px; background: none; box-shadow: none; font: 700 16px/1.3 var(--font, sans-serif); color: #1E3A4C; min-height: 36px; cursor: pointer; }
+.bk-toc button:active { background: rgba(244, 122, 42, .1); }
+.bk-toc .no { flex: none; font-weight: 900; color: #C25412; min-width: 22px; }
+.bk-toc .ic { font-size: 17px; flex: none; }
+.bk-toc .t { flex: 0 1 auto; min-width: 0; }
+.bk-toc .ok { color: #1E9E5A; font-weight: 900; }
+.bk-toc .dots { flex: 1 1 14px; min-width: 14px; align-self: flex-end; margin-bottom: 9px; border-bottom: 2px dotted #CDBB90; }
+.bk-toc .pg { flex: none; min-width: 22px; text-align: right; font-weight: 800; color: #9C8455; }
+.bk-sub { margin: -4px 0 4px; font: 700 14px var(--font, sans-serif); color: #9C8455; }
+.cv-t .bk-say { margin: 8px auto 0; width: auto; height: 38px; padding: 0 14px; gap: 6px; display: inline-flex; align-items: center; font: 800 14px var(--font, sans-serif); background: rgba(255, 255, 255, .16); color: #fff; }
+.cv-t .bk-say.speaking { background: #F47A2A; }
+.bk-when .bk-say { margin-left: auto; width: 40px; height: 40px; font-size: 19px; }
 /* nav */
 .bk-nav { display: flex; align-items: center; gap: 12px; }
 .bk-nav .mid { flex: 1; text-align: center; color: #fff; font: 800 16px var(--font, sans-serif); }
@@ -150,7 +167,11 @@
 @media (orientation: portrait), (max-width: 760px) {
   .bk-wrap { padding: 0 12px calc(10px + var(--safe-b, 0px)); }
   .bk-spread { grid-template-columns: 1fr; grid-template-rows: minmax(0, 38%) minmax(0, 1fr); gap: 8px; }
-  .bk-l, .bk-r { border-radius: 20px; transform-origin: center; box-shadow: 0 6px 16px rgba(0, 40, 50, .2); }
+  .bk-book { margin: 8px 6px 14px; }
+  .bk-book::before { inset: -8px -8px -14px; }
+  .bk-book::after { display: none; }
+  .bk-l, .bk-r { border-radius: 10px; transform-origin: center; box-shadow: 0 1px 0 #E3D5B6, 0 3px 0 #FBF5E6, 0 4px 0 #DED0B0, 0 6px 0 #F8F0DD, 0 7px 0 #D2C19C, 0 9px 12px rgba(0, 20, 30, .25); }
+  .bk-l { background: #FFFDF7; } .bk-r { background: #FFFDF7; }
   .bk-spread.cover { grid-template-rows: minmax(0, 46%) minmax(0, 1fr); }
   /* a wide, short cover: the title in the middle, two drawings on each side */
   .bk-cover.cv { padding: 10px 12px; }
@@ -478,6 +499,16 @@
     { id: 'may-cong', cap: L('Cỗ máy biết làm tính', 'A machine that adds'),
       svg: `<g class="ba-spin"><circle cx="30" cy="30" r="15" fill="none" stroke="#fff" stroke-width="7" stroke-dasharray="5 4.4"/><circle cx="30" cy="30" r="9" ${W}/><circle cx="30" cy="30" r="2.5" fill="#fff"/></g><g class="ba-spin cv-rev"><circle cx="55" cy="46" r="11" fill="none" stroke="#FFD27A" stroke-width="6" stroke-dasharray="4.3 3.9"/><circle cx="55" cy="46" r="6" fill="none" stroke="#FFD27A" stroke-width="3"/></g>` },
   ];
+  // every page has its own speaker (user, 2026-11-24): it reads what is on that page; a second tap stops it
+  function speaker(textOf, label) {
+    const b = el('button', 'bk-say', label ? `🔊 ${label}` : '🔊'); b.type = 'button';
+    b.setAttribute('aria-label', L('Nghe đọc trang này', 'Read this page aloud'));
+    b.onclick = () => {
+      if (b.classList.contains('speaking')) { api.stopSpeech(true); b.classList.remove('speaking'); return; }
+      api.speak(textOf().replace(/\s*→\s*/g, ', ').replace(/π/g, L('pi', 'pi')), b);
+    };
+    return b;
+  }
   function coverSpread() {
     const sp = el('div', 'bk-spread cover');
     const left = el('div', 'bk-page bk-l bk-cover cv');
@@ -489,15 +520,21 @@
       if (k >= 0) b.onclick = () => { api.sfx.tap(); go(k + 1); }; else b.disabled = true;
       grid.append(b);
     });
-    grid.append(el('div', 'cv-t', `<small>${L('Toán ISA kể chuyện', 'Toán ISA tells')}</small><h2><b>${L('Lịch sử', 'The history of')}</b>${L('Toán học', 'Maths')}</h2><p>${L(`${total()} câu chuyện từ thời cổ đại đến nay`, `${total()} stories from ancient times to today`)}</p>`));
+    const sub = L(`${total()} câu chuyện từ thời cổ đại đến nay`, `${total()} stories from ancient times to today`);
+    const band = el('div', 'cv-t', `<small>${L('Toán ISA kể chuyện', 'Toán ISA tells')}</small><h2><b>${L('Lịch sử', 'The history of')}</b>${L('Toán học', 'Maths')}</h2><p>${sub}</p>`);
+    band.append(speaker(() => [L('Lịch sử Toán học', 'The history of Maths'), sub,
+      L('Bé chạm vào một hình để đọc chuyện của hình đó', 'Tap a picture to read its story'), ...COVER_ART.map(v => v.cap)].join('. '), L('Nghe', 'Listen')));
+    grid.append(band);
     left.append(grid);
     const right = el('div', 'bk-page bk-r');
     const body = el('div', 'bk-text');
     const read = readMap(), done = stories().filter(s => read[s.id]).length;
-    body.append(el('div', 'bk-title', `<h2>${L('Mục lục', 'Contents')} · ${done}/${total()} ${L('chuyện đã đọc', 'stories read')}</h2>`));
+    const head = el('div', 'bk-title', `<h2>${L('Mục lục', 'Contents')}</h2>`);
+    head.append(speaker(() => [L('Mục lục', 'Contents')].concat(stories().map((s, k) => `${L('Chuyện', 'Story')} ${k + 1}: ${s.title}`)).join('. ')));
+    body.append(head, el('div', 'bk-sub', L(`Đã đọc ${done}/${total()} chuyện`, `${done} of ${total()} stories read`)));
     const toc = el('div', 'bk-toc');
     stories().forEach((s, k) => {
-      const b = el('button', read[s.id] ? 'read' : '', `<span class="no">${k + 1}</span><span class="ic">${s.icon}</span><span>${s.title}${read[s.id] ? ' ✓' : ''}</span>`);
+      const b = el('button', '', `<span class="no">${k + 1}.</span><span class="ic">${s.icon}</span><span class="t">${s.title}${read[s.id] ? ' <span class="ok">✓</span>' : ''}</span><span class="dots"></span><span class="pg">${k * 2 + 1}</span>`);
       b.type = 'button'; b.onclick = () => { api.sfx.tap(); go(k + 1); };
       toc.append(b);
     });
@@ -510,19 +547,20 @@
     const s = stories()[k - 1];
     const sp = el('div', 'bk-spread');
     const left = el('div', 'bk-page bk-l');
-    left.append(el('div', 'bk-when', `<span class="bk-chip">🕰️ ${s.when}</span><span class="bk-chip where">📍 ${s.where}</span>`), artOf(s.art), el('div', 'bk-pageno', String(k * 2 - 1)));
+    const when = el('div', 'bk-when', `<span class="bk-chip">🕰️ ${s.when}</span><span class="bk-chip where">📍 ${s.where}</span>`);
+    when.append(speaker(() => `${L('Chuyện', 'Story')} ${k}: ${s.title}. ${s.when}. ${L('Ở', 'In')} ${s.where}.`));
+    left.append(when, artOf(s.art), el('div', 'bk-pageno', String(k * 2 - 1)));
     const right = el('div', 'bk-page bk-r');
     const body = el('div', 'bk-text');
     const head = el('div', 'bk-title', `<h2>${s.icon} ${s.title}</h2>`);
-    const say = el('button', 'bk-say', '🔊'); say.type = 'button'; say.setAttribute('aria-label', L('Nghe đọc', 'Listen'));
-    say.onclick = () => api.speak([s.title].concat(s.text).join('. '), say);
-    head.append(say);
+    let answered = false;
+    head.append(speaker(() => [s.title].concat(s.text, L('Đố em', 'Can you tell?') + ': ' + s.ask, answered ? L('Đáp án', 'Answer') + ': ' + s.answer : []).join('. ')));
     body.append(head);
     s.text.forEach(t => body.append(el('p', '', t)));
     const ask = el('div', 'bk-ask');
     ask.append(el('b', '', L('❓ Đố em', '❓ Can you tell?')), el('div', 'q', s.ask));
     const show = el('button', 'btn small', L('Xem đáp án', 'Show the answer')); show.type = 'button';
-    show.onclick = () => { api.sfx.good(); show.replaceWith(el('div', 'a', '✓ ' + s.answer)); };
+    show.onclick = () => { api.sfx.good(); answered = true; show.replaceWith(el('div', 'a', '✓ ' + s.answer)); };
     ask.append(show);
     body.append(ask);
     const row = el('div', 'bk-row');
