@@ -60,6 +60,30 @@
 .bk-cover h2 { margin: 0; font: 900 32px/1.15 var(--font, sans-serif); }
 .bk-cover p { margin: 0; font: 600 17px/1.45 var(--font, sans-serif); opacity: .95; max-width: 360px; }
 @keyframes bkFloat { 50% { transform: translateY(-8px) rotate(-4deg); } }
+.bk-cover.cv { padding: 18px 16px; justify-content: stretch; background: radial-gradient(circle at 30% 18%, #22505F, #14323F 55%, #0C232D); }
+.cv-grid { flex: 1; min-height: 0; width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: "a b c" "t t t" "d e f"; gap: 12px 8px; }
+.cv-a { grid-area: a; } .cv-b { grid-area: b; } .cv-c { grid-area: c; } .cv-d { grid-area: d; } .cv-e { grid-area: e; } .cv-f { grid-area: f; }
+.cv-v { min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 6px 4px; border: 0; border-radius: 16px; background: none; color: #fff; cursor: pointer; }
+.cv-v:active { background: rgba(255, 255, 255, .1); }
+.cv-v svg { flex: 0 1 auto; width: 100%; max-width: 128px; min-height: 0; max-height: 100%; overflow: visible; }
+.cv-v span { font: 800 11.5px/1.25 var(--font, sans-serif); letter-spacing: .6px; text-transform: uppercase; text-align: center; opacity: .92; }
+.cv-t { grid-area: t; text-align: center; padding: 10px 4px 12px; border-top: 2px solid rgba(255, 255, 255, .6); border-bottom: 2px solid rgba(255, 255, 255, .6); }
+.cv-t small { display: block; font: 800 12px var(--font, sans-serif); letter-spacing: 3px; text-transform: uppercase; color: #5CE4D3; }
+.bk-cover .cv-t h2 { margin: 4px 0 2px; font: 900 46px/1 var(--font, sans-serif); letter-spacing: 1px; text-transform: uppercase; }
+.cv-t h2 b { display: block; font-size: 24px; letter-spacing: 7px; color: #FFD27A; margin-bottom: 2px; }
+.bk-cover .cv-t p { margin: 6px auto 0; font: 700 14px/1.3 var(--font, sans-serif); opacity: .85; }
+.cv-p1, .cv-p2, .cv-p3, .cv-p4 { animation: cvBlink 4s ease-in-out infinite; }
+.cv-p2 { animation-delay: 1s; } .cv-p3 { animation-delay: 2s; } .cv-p4 { animation-delay: 3s; }
+@keyframes cvBlink { 0%, 30%, 100% { opacity: 1; } 12% { opacity: .25; } }
+.cv-sun { transform-box: fill-box; transform-origin: center; animation: bkSpin 10s linear infinite; }
+.cv-shadow { animation: cvShadow 4s ease-in-out infinite; transform-box: fill-box; transform-origin: left center; }
+@keyframes cvShadow { 0%, 100% { transform: scaleX(.4); } 50% { transform: scaleX(1); } }
+.cv-bead { animation: cvBead 3s ease-in-out infinite; }
+@keyframes cvBead { 0%, 15% { transform: translateX(0); } 45%, 75% { transform: translateX(18px); } 100% { transform: translateX(0); } }
+.cv-dot { transform-box: fill-box; transform-origin: center; animation: cvDot 3s ease-in-out infinite; }
+@keyframes cvDot { 0%, 60%, 100% { transform: scale(1); } 20% { transform: scale(1.35); } }
+.ba-spin.cv-rev { animation-direction: reverse; }
 .bk-toc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .bk-toc button { display: flex; align-items: center; gap: 8px; text-align: left; padding: 8px 10px; border-radius: 14px; background: #F3F7F8; box-shadow: inset 0 0 0 2px #E1EAEC; font: 700 15px/1.25 var(--font, sans-serif); color: #1E3A4C; min-height: 48px; }
 .bk-toc button.read { background: #E3F7EC; box-shadow: inset 0 0 0 2px #A9E2C2; }
@@ -127,7 +151,14 @@
   .bk-wrap { padding: 0 12px calc(10px + var(--safe-b, 0px)); }
   .bk-spread { grid-template-columns: 1fr; grid-template-rows: minmax(0, 38%) minmax(0, 1fr); gap: 8px; }
   .bk-l, .bk-r { border-radius: 20px; transform-origin: center; box-shadow: 0 6px 16px rgba(0, 40, 50, .2); }
-  .bk-spread.cover { grid-template-rows: minmax(0, 34%) minmax(0, 1fr); }
+  .bk-spread.cover { grid-template-rows: minmax(0, 46%) minmax(0, 1fr); }
+  /* a wide, short cover: the title in the middle, two drawings on each side */
+  .bk-cover.cv { padding: 10px 12px; }
+  .cv-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); grid-template-areas: "a t d" "b t e"; gap: 4px 8px; }
+  .cv-c, .cv-f { display: none; }
+  .cv-t { align-self: center; padding: 8px 2px; }
+  .bk-cover .cv-t h2 { font-size: 36px; } .cv-t h2 b { font-size: 19px; letter-spacing: 5px; }
+  .cv-v { gap: 3px; padding: 2px; } .cv-v span { font-size: 10.5px; }
   .bk-art svg { max-height: 100%; }
   .bk-when { padding: 10px 14px 0; } .bk-art { padding: 4px 14px 12px; }
   .bk-text { padding: 14px 16px 26px; }
@@ -140,6 +171,8 @@
 @media (max-width: 640px) {
   .bk-title h2 { font-size: 21px; } .bk-text p { font-size: 17px; } .bk-ask .q, .bk-ask .a { font-size: 16px; }
   .bk-toc { grid-template-columns: 1fr; }
+  .bk-cover .cv-t h2 { font-size: 24px; letter-spacing: 0; white-space: nowrap; } .cv-t h2 b { font-size: 15px; letter-spacing: 3px; white-space: normal; } .cv-t small { font-size: 10px; letter-spacing: 1.5px; }
+  .bk-cover .cv-t p { font-size: 12px; }
   .ba-grid i { font-size: 15px; padding: 5px 0; } .ba-note { font-size: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -428,11 +461,36 @@
   }
 
   /* ---------- pages ---------- */
+  // Cover (user, 2026-11-24): "Lịch sử Toán học", a dark cover with white line drawings of calculations around a
+  // big title. Each drawing belongs to one story and opens it. Our own drawings, not taken from any book cover.
+  const W = 'fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"';
+  const COVER_ART = [
+    { id: 'dau-phep-tinh', cap: L('Dấu phép tính ra đời', 'Where the signs came from'),
+      svg: `<g ${W}><path class="cv-p1" d="M12 18h16M20 10v16"/><path class="cv-p2" d="M52 18h16"/><path class="cv-p3" d="M13 39l14 14M27 39L13 53"/><path class="cv-p4" d="M52 46h16"/></g><g class="cv-p4" fill="#fff"><circle cx="60" cy="39" r="2.6"/><circle cx="60" cy="53" r="2.6"/></g>` },
+    { id: 'thales', cap: L('Đo kim tự tháp bằng cái bóng', 'A pyramid measured by its shadow'),
+      svg: `<g ${W}><path d="M2 54h76"/><path d="M8 54L32 16l24 38"/><path d="M20 35h24" stroke-width="2" opacity=".6"/><path d="M66 54V42"/><path class="cv-shadow" d="M66 54h12" stroke="#FFD27A"/></g><g class="cv-sun" ${W} stroke="#FFD27A"><circle cx="66" cy="13" r="5"/><path d="M66 3v2M66 21v2M56 13h2M74 13h2"/></g>` },
+    { id: 'so-pi', cap: L('Số π bí ẩn', 'The mystery of π'),
+      svg: `<g ${W}><circle cx="40" cy="34" r="24"/><path d="M16 34h48" stroke-dasharray="3 5"/></g><g class="ba-spin" style="transform-origin:40px 34px;transform-box:view-box"><circle cx="40" cy="10" r="3.5" fill="#FFD27A"/></g><text x="40" y="28" text-anchor="middle" fill="#FFD27A" font-size="20" font-weight="900" font-family="Georgia, serif">π</text><text x="40" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">3,14…</text>` },
+    { id: 'ban-tinh', cap: L('Bàn tính của người xưa', 'The abacus of long ago'),
+      svg: `<g ${W}><rect x="6" y="8" width="68" height="50" rx="5"/><path d="M6 21h68M6 33h68M6 45h68" stroke-width="2"/></g><g fill="#fff"><circle cx="16" cy="21" r="4.5"/><circle cx="26" cy="21" r="4.5"/><circle cx="64" cy="21" r="4.5"/><circle cx="16" cy="33" r="4.5"/><circle cx="54" cy="33" r="4.5"/><circle cx="64" cy="33" r="4.5"/><circle cx="64" cy="45" r="4.5"/></g><circle class="cv-bead" cx="26" cy="45" r="4.5" fill="#FFD27A"/>` },
+    { id: 'so-xep-hinh', cap: L('Những con số biết xếp hình', 'Numbers that make shapes'),
+      svg: `<g fill="#fff">${[[40, 10], [33, 22], [47, 22], [26, 34], [40, 34], [54, 34], [19, 46], [33, 46], [47, 46], [61, 46]].map(([x, y], i) => `<circle class="cv-dot" style="animation-delay:${(i * 0.15).toFixed(2)}s" cx="${x}" cy="${y}" r="4.5"/>`).join('')}</g><text x="40" y="62" text-anchor="middle" fill="#FFD27A" font-size="9" font-weight="900">1 · 3 · 6 · 10</text>` },
+    { id: 'may-cong', cap: L('Cỗ máy biết làm tính', 'A machine that adds'),
+      svg: `<g class="ba-spin"><circle cx="30" cy="30" r="15" fill="none" stroke="#fff" stroke-width="7" stroke-dasharray="5 4.4"/><circle cx="30" cy="30" r="9" ${W}/><circle cx="30" cy="30" r="2.5" fill="#fff"/></g><g class="ba-spin cv-rev"><circle cx="55" cy="46" r="11" fill="none" stroke="#FFD27A" stroke-width="6" stroke-dasharray="4.3 3.9"/><circle cx="55" cy="46" r="6" fill="none" stroke="#FFD27A" stroke-width="3"/></g>` },
+  ];
   function coverSpread() {
     const sp = el('div', 'bk-spread cover');
-    const left = el('div', 'bk-page bk-l bk-cover');
-    left.append(el('div', 'big', '📖'), el('h2', '', L('Chuyện kể Toán học', 'Stories of Mathematics')),
-      el('p', '', L('Con số, phép tính, hình vẽ… đều do con người nghĩ ra qua hàng nghìn năm. Lật từng trang để xem chúng ra đời thế nào nhé!', 'Numbers, sums and shapes were all thought up by people over thousands of years. Turn the pages to see how they began!')));
+    const left = el('div', 'bk-page bk-l bk-cover cv');
+    const grid = el('div', 'cv-grid');
+    COVER_ART.forEach((v, n) => {
+      const k = stories().findIndex(s => s.id === v.id);
+      const b = el('button', 'cv-v cv-' + 'abcdef'[n], `<svg viewBox="0 0 80 64" aria-hidden="true">${v.svg}</svg><span>${v.cap}</span>`);
+      b.type = 'button'; b.setAttribute('aria-label', v.cap);
+      if (k >= 0) b.onclick = () => { api.sfx.tap(); go(k + 1); }; else b.disabled = true;
+      grid.append(b);
+    });
+    grid.append(el('div', 'cv-t', `<small>${L('Toán ISA kể chuyện', 'Toán ISA tells')}</small><h2><b>${L('Lịch sử', 'The history of')}</b>${L('Toán học', 'Maths')}</h2><p>${L(`${total()} câu chuyện từ thời cổ đại đến nay`, `${total()} stories from ancient times to today`)}</p>`));
+    left.append(grid);
     const right = el('div', 'bk-page bk-r');
     const body = el('div', 'bk-text');
     const read = readMap(), done = stories().filter(s => read[s.id]).length;
@@ -529,7 +587,7 @@
     let sx = null, sy = 0;
     bookEl.addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY; });
     bookEl.addEventListener('pointerup', e => { if (sx == null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null; if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) go(cur + (dx < 0 ? 1 : -1)); });
-    api.screen(api.topbar(L('Chuyện kể Toán học', 'Stories of Mathematics'), L('Lật từng trang để khám phá', 'Turn the pages to explore'), api.homeBtn(close), []), wrap);
+    api.screen(api.topbar(L('Lịch sử Toán học', 'History of Maths'), L('Lật từng trang để khám phá', 'Turn the pages to explore'), api.homeBtn(close), []), wrap);
     setNav();
     window.addEventListener('keydown', onKey);
   }

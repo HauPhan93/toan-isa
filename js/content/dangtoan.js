@@ -35,9 +35,18 @@
   DT.Q = (prompt, answer, explain, extra) => Object.assign({ prompt, answer, explain: explain || '' }, extra || {});
   // one step of a guided example
   DT.step = (ask, answer, say, hint) => Object.assign({ ask, answer, say }, hint ? { hint } : {});
-  // a mức 3 problem from the advanced bank (nangcao-lopN.js), for the last practice questions
-  DT.bank = (rng, ids) => {
+  // a mức 3 problem from the advanced bank (nangcao-lopN.js), for the last practice questions.
+  // keep(q): optional test that the problem still uses this kind's own technique (a bank kind can mix
+  // several operations); after a few misses the caller falls back to its own hard problem.
+  DT.bank = (rng, ids, keep) => {
     const pool = ((window.NC && NC.items) || []).filter(e => ids.includes(e.id));
-    return pool.length ? U.pick(rng, pool).gen(rng) : null;
+    if (!pool.length) return null;
+    for (let t = 0; t < (keep ? 12 : 1); t++) {
+      const q = U.pick(rng, pool).gen(rng);
+      if (!keep || keep(q)) return q;
+    }
+    return null;
   };
+  // the problem has a division sign (" : " between numbers, not the colon after "biết:")
+  DT.hasDivision = q => / : /.test(q.prompt || '');
 })();

@@ -25,7 +25,7 @@
   const toQ = (g, hint, answer) => Q(g.prompt, answer || g.steps[g.steps.length - 1].answer, g.steps.map(s => s.say).join('\n'),
     Object.assign(hint ? { hint } : {}, g.visual ? { visual: g.visual } : {}));
   // practice: i 0–3 the plain form, 4–6 a variation, 7–9 the hardest (8 and 9 from the advanced bank when it has entries)
-  const prac = (plain, vary, hard, bank) => (rng, i) => (i < 4 ? plain(rng, i) : i < 7 ? vary(rng, i) : (i > 7 && bank && DT.bank(rng, bank)) || hard(rng, i));
+  const prac = (plain, vary, hard, bank, keep) => (rng, i) => (i < 4 ? plain(rng, i) : i < 7 ? vary(rng, i) : (i > 7 && bank && DT.bank(rng, bank, keep)) || hard(rng, i));
   const roman = n => { let s = '', x = n; for (const [v, c] of [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']]) while (x >= v) { s += c; x -= v; } return s; };
   const ord = n => n + ((n % 100 >= 11 && n % 100 <= 13) ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
   const centuryOf = y => Math.floor((y - 1) / 100) + 1;
@@ -1138,7 +1138,7 @@
       ],
       tip: L('Dễ nhầm: đảo ngược phân số thứ nhất. Chỉ đảo ngược phân số thứ hai (số chia).', 'A common mistake: turning the first fraction upside down. Only the second fraction (the divisor) is turned upside down.'),
       guide: rng => chiaForm(rng, R(rng, 0, 2) === 0 ? 1 : 0),
-      practice: prac(chiaPlain, chiaVary, chiaHard, ['g4-ps-tinh']) },
+      practice: prac(chiaPlain, chiaVary, chiaHard, ['g4-ps-tinh'], DT.hasDivision) },
 
     { id: 'g4-dt-ps-cua-so', sem: 2, icon: '🍰', lesson: 'g4-c12-b65',
       title: L('Tìm phân số của một số', 'Finding a fraction of a number'),

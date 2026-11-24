@@ -26,7 +26,7 @@
   // a practice-only problem: rows of [value, unit, line of the lời giải]; the last row is the answer
   const lines = (prompt, rows, hint, visual) => Q(prompt, num(rows[rows.length - 1][0], rows[rows.length - 1][1]), rows.map(r => r[2]).join('\n'), Object.assign(hint ? { hint } : {}, visual ? { visual } : {}));
   // practice: i 0–3 the plain form, 4–6 a variation, 7–9 the hardest (8 and 9 from the advanced bank when it has entries)
-  const prac = (plain, vary, hard, bank) => (rng, i) => (i < 4 ? plain(rng, i) : i < 7 ? vary(rng, i) : (i > 7 && bank && DT.bank(rng, bank)) || hard(rng, i));
+  const prac = (plain, vary, hard, bank, keep) => (rng, i) => (i < 4 ? plain(rng, i) : i < 7 ? vary(rng, i) : (i > 7 && bank && DT.bank(rng, bank, keep)) || hard(rng, i));
   // time amounts and times of day (English uses the clock form 7:30 for a time of day)
   const hm = (h, m) => L(h && m ? `${h} giờ ${m} phút` : h ? `${h} giờ` : `${m} phút`, h && m ? `${pl(h, 'hour')} ${pl(m, 'minute')}` : h ? pl(h, 'hour') : pl(m, 'minute'));
   const clk = (h, m) => L(m ? `${h} giờ ${m} phút` : `${h} giờ`, `${h}:${String(m).padStart(2, '0')}`);
@@ -946,7 +946,7 @@
       ],
       tip: L('Dễ nhầm: chỉ bỏ dấu phẩy ở số chia mà quên chuyển dấu phẩy ở số bị chia. Phải làm ở cả hai số: 2,52 : 1,2 = 25,2 : 12.', 'A common mistake: dropping the comma of the divisor but forgetting to move the comma of the dividend. Do both: 2,52 : 1,2 = 25,2 : 12.'),
       guide: rng => (R(rng, 0, 1) ? chCount(rng) : chShare(rng)),
-      practice: prac(chPlain, chVary, chHard, ['g5-nc-tim-x', 'g5-nc-tt-thapphan']) },
+      practice: prac(chPlain, chVary, chHard, ['g5-nc-tim-x', 'g5-nc-tt-thapphan'], DT.hasDivision) },
 
     { id: 'g5-dt-tam-giac', sem: 1, icon: '🔺', lesson: 'g5-c5-b25',
       title: L('Diện tích hình tam giác', 'Area of a triangle'),
