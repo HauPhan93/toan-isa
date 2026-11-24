@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v74';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v75';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
   // English mode (Góc phụ huynh → Ngôn ngữ): tx('Vietnamese', 'English'). The parent corner itself stays Vietnamese.
   const EN = U.EN, tx = U.L;
   const G = n => tx('Lớp ' + n, 'Grade ' + n), HK = k => tx('Học kì ' + k, 'Term ' + k);
@@ -721,11 +721,10 @@
     // maths) — Ôn tập & Kiểm tra, Học dạng toán, Chuyện kể Toán học
     const more = (icon, color, title, desc, go, cls) => h('button', { class: 'more-card' + (cls ? ' ' + cls : ''), style: { '--gc': color }, onclick: () => { sfx.tap(); go(); } },
       h('span', { class: 'mc-icon' }, icon), h('span', { class: 'mc-body' }, h('span', { class: 'mc-title' }, title), h('span', { class: 'mc-desc' }, desc)), h('span', { class: 'mc-go' }, '▶'));
-    const nStories = (window.STORIES || []).length, readStories = Object.keys(S.stories || {}).length;
     grades.append(h('div', { class: 'grade-card more-stack' },
       more('📝', '#0E8C88', tx('Ôn tập & Kiểm tra', 'Review & Tests'), tx('Đề giữa kì, cuối kì theo mẫu Bộ GD&ĐT', 'Mid-term and end-of-term tests') + (doneExams ? tx(` · đã làm ${doneExams} đề`, ` · ${doneExams} done`) : ''), showExamHome, 'review-card'),
       more('🧩', '#7C5CE0', tx('Học dạng toán', 'Kinds of problem'), tx('Chưa hiểu dạng nào, ISA chỉ từng bước', 'ISA shows you each kind step by step'), () => showKinds()),
-      more('📖', '#F47A2A', tx('Lịch sử Toán học', 'History of Maths'), nStories ? tx(`Lật sách xem toán ra đời thế nào · ${readStories}/${nStories} chuyện`, `Flip the book: how maths began · ${readStories}/${nStories}`) : tx('Lật sách xem toán ra đời thế nào', 'Flip the book: how maths began'), () => openStory())));
+      more('📖', '#F47A2A', tx('Lịch sử Toán học', 'History of Maths'), tx('Toán ra đời thế nào các bé nhỉ?', 'How did maths begin, kids?'), () => openStory())));
     const m = h('div', { class: 'mascot-wrap' }, mascot('happy'));
     screen(
       topbar(tx('Toán ISA', 'ISA Maths'), tx('Kết nối tri thức với cuộc sống', 'Connecting Knowledge with Life'), null, [coinPill(), parentBtn()]),
