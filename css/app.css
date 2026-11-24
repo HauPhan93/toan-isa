@@ -1243,7 +1243,7 @@ body.no-voice .say-btn { display: none; }
 /* phones: the answer pad fits its card without scrolling (user, 2026-11-24 "gõ số bên điện thoại bị dài") — the
    Tử/Mẫu key no longer widens its column (minmax above) and the pad is a little tighter on short screens */
 .key.fr { position: relative; padding: 0; overflow: hidden;
-  background-image: linear-gradient(to top right, transparent calc(50% - 1px), color-mix(in srgb, currentColor 45%, transparent) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)); }
+  background-image: linear-gradient(to bottom right, transparent calc(50% - 1px), color-mix(in srgb, currentColor 65%, transparent) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)); }
 .key.fr .fr-t, .key.fr .fr-m { position: absolute; font-size: 13px; font-weight: 900; line-height: 1; }
 .key.fr .fr-t { left: 6px; top: 4px; }
 .key.fr .fr-m { right: 5px; bottom: 5px; }
