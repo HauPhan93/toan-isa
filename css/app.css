@@ -1256,3 +1256,12 @@ body.no-voice .say-btn { display: none; }
   .keypad { gap: 6px; }
   .answer-card > .actions { padding-top: 6px; }
 }
+
+/* phones upright: the , ⌫ 🧹 keys sit in the top-right corner of the writing area and the "Viết cả số vào đây" hint
+   at its foot, so they no longer cover each other (user, 2026-11-24 "xếp lại vị trí cho phù hợp") */
+@media (max-width: 640px) and (orientation: portrait) {
+  .hand-bar { top: 6px; bottom: 6px; align-items: flex-end; }
+  .hand-tools { align-self: flex-start; }
+  .hand-hint { align-items: flex-end; padding-bottom: 10px; font-size: 16px; }
+}
+@media (max-width: 640px) and (max-height: 760px) and (orientation: portrait) { .hand-area { height: 86px; } }
