@@ -215,7 +215,12 @@
         for (let j = a; j < k && !cross; j++) cross = crosses(ink[j].st, ink[k].st);
         const it = ink[k], cx = it.b.x + it.b.w / 2, gc = (x0 + x1) / 2, w = Math.max(x1 - x0, 1);
         const ov = Math.min(x1, it.b.x + it.b.w) - Math.max(x0, it.b.x);
-        if (!((cx >= x0 - 0.05 * H && cx <= x1 + 0.05 * H) || (gc >= it.b.x && gc <= it.b.x + it.b.w) || ov > 0.6 * Math.min(w, it.b.w))) return false;
+        // ...or an end of it meets an end of the stroke before it: the stem of a two-stroke 1 meets the top of its
+        // flag, and when the stem leans right it lies wholly to the right of the flag ("14" was read as "114").
+        // Either stroke may have been drawn either way round.
+        const prev = ink[k - 1].st, ends = s => [s[0], s[s.length - 1]];
+        const joined = ends(prev).some(p => ends(it.st).some(q => Math.hypot(p.x - q.x, p.y - q.y) <= 0.12 * H));
+        if (!(joined || (cx >= x0 - 0.05 * H && cx <= x1 + 0.05 * H) || (gc >= it.b.x && gc <= it.b.x + it.b.w) || ov > 0.6 * Math.min(w, it.b.w))) return false;
         x0 = Math.min(x0, it.b.x); x1 = Math.max(x1, it.b.x + it.b.w);
         y0 = Math.min(y0, it.b.y); y1 = Math.max(y1, it.b.y + it.b.h);
       }
