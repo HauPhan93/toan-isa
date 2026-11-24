@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v68';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v69';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
   // English mode (Góc phụ huynh → Ngôn ngữ): tx('Vietnamese', 'English'). The parent corner itself stays Vietnamese.
   const EN = U.EN, tx = U.L;
   const G = n => tx('Lớp ' + n, 'Grade ' + n), HK = k => tx('Học kì ' + k, 'Term ' + k);
@@ -700,7 +700,9 @@
       h('div', { class: 'home' },
         h('div', { class: 'hero' },
           h('div', { class: 'speech' }, `${hi} ${greet}`),
-          m,
+          // the rover's lane: on an upright tablet ISA drives to and fro in it (user, 2026-11-24); elsewhere it is
+          // display: contents and changes nothing
+          h('div', { class: 'isa-lane' }, m),
           h('div', null, h('h1', null, hi), h('p', null, greet),
             h('div', { class: 'daily', html: ring + `<div>${tx('Mục tiêu hôm nay', 'Today\'s goal')}<br><b>${Math.min(d.count, d.goal)}/${d.goal} ${tx('câu', 'questions')}</b></div>` }))),
         grades));
