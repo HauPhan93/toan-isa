@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v75';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v76';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
   // English mode (Góc phụ huynh → Ngôn ngữ): tx('Vietnamese', 'English'). The parent corner itself stays Vietnamese.
   const EN = U.EN, tx = U.L;
   const G = n => tx('Lớp ' + n, 'Grade ' + n), HK = k => tx('Học kì ' + k, 'Term ' + k);
@@ -723,7 +723,7 @@
       h('span', { class: 'mc-icon' }, icon), h('span', { class: 'mc-body' }, h('span', { class: 'mc-title' }, title), h('span', { class: 'mc-desc' }, desc)), h('span', { class: 'mc-go' }, '▶'));
     grades.append(h('div', { class: 'grade-card more-stack' },
       more('📝', '#0E8C88', tx('Ôn tập & Kiểm tra', 'Review & Tests'), tx('Đề giữa kì, cuối kì theo mẫu Bộ GD&ĐT', 'Mid-term and end-of-term tests') + (doneExams ? tx(` · đã làm ${doneExams} đề`, ` · ${doneExams} done`) : ''), showExamHome, 'review-card'),
-      more('🧩', '#7C5CE0', tx('Học dạng toán', 'Kinds of problem'), tx('Chưa hiểu dạng nào, ISA chỉ từng bước', 'ISA shows you each kind step by step'), () => showKinds()),
+      more('🧩', '#7C5CE0', tx('Học dạng toán', 'Kinds of problem'), tx('ISA giúp bé hiểu bài hơn nhé', 'ISA helps you understand better'), () => showKinds()),
       more('📖', '#F47A2A', tx('Lịch sử Toán học', 'History of Maths'), tx('Toán ra đời thế nào các bé nhỉ?', 'How did maths begin, kids?'), () => openStory())));
     const m = h('div', { class: 'mascot-wrap' }, mascot('happy'));
     screen(
