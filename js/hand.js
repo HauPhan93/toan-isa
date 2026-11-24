@@ -185,6 +185,20 @@
   // written one after the other (the bar of a 4, 5 or 7 right after its body), so a stroke can only join the digit
   // of the stroke before it, and only when it sits over that digit. The possible splits of each run of strokes
   // are scored with the recogniser and the best one is kept. A small mark low on the line is a decimal comma.
+  // do two strokes cross (a segment of one cuts a segment of the other, not just touching at an end)?
+  function crosses(p, q) {
+    const side = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    const bp = bounds([p]), bq = bounds([q]);
+    if (bp.x > bq.x + bq.w || bq.x > bp.x + bp.w || bp.y > bq.y + bq.h || bq.y > bp.y + bp.h) return false;
+    for (let i = 1; i < p.length; i++) for (let j = 1; j < q.length; j++) {
+      const a = p[i - 1], b = p[i], c = q[j - 1], d = q[j];
+      if (side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0) {
+        // ignore a crossing right at the end of either stroke: that is two strokes meeting, not crossing
+        if ((i > 2 && i < p.length - 2) && (j > 2 && j < q.length - 2)) return true;
+      }
+    }
+    return false;
+  }
   function segment(strokes) {
     const items = strokes.filter(st => st.length).map(st => ({ st, b: bounds([st]) }));
     if (!items.length) return [];
@@ -196,8 +210,9 @@
     const commas = items.filter(isComma).map(it => ({ comma: true, x: it.b.x + it.b.w / 2 }));
     // can strokes a..b (in writing order) be one digit? each one must sit over the ones before it
     const over = (a, b) => {
-      let x0 = ink[a].b.x, x1 = ink[a].b.x + ink[a].b.w, y0 = ink[a].b.y, y1 = ink[a].b.y + ink[a].b.h;
+      let x0 = ink[a].b.x, x1 = ink[a].b.x + ink[a].b.w, y0 = ink[a].b.y, y1 = ink[a].b.y + ink[a].b.h, cross = false;
       for (let k = a + 1; k <= b; k++) {
+        for (let j = a; j < k && !cross; j++) cross = crosses(ink[j].st, ink[k].st);
         const it = ink[k], cx = it.b.x + it.b.w / 2, gc = (x0 + x1) / 2, w = Math.max(x1 - x0, 1);
         const ov = Math.min(x1, it.b.x + it.b.w) - Math.max(x0, it.b.x);
         if (!((cx >= x0 - 0.05 * H && cx <= x1 + 0.05 * H) || (gc >= it.b.x && gc <= it.b.x + it.b.w) || ov > 0.6 * Math.min(w, it.b.w))) return false;
@@ -206,7 +221,9 @@
       }
       // one digit is not much wider than it is tall — measured on the strokes together: a 4 drawn as a wide
       // open corner plus a short stem below it is taller than either stroke alone (iPad sample read as "41")
-      return x1 - x0 <= 1.05 * Math.max(H, y1 - y0);
+      // Two digits of a number never cross each other, so strokes that cross are one digit even when it is wide:
+      // a 4 whose long bar runs far past the stem is nearly twice as wide as tall (iPhone sample read as "41").
+      return x1 - x0 <= (cross ? 2.4 : 1.05) * Math.max(H, y1 - y0);
     };
     const cost = (a, b) => {
       const list = recognizeCached(ink.slice(a, b + 1).map(it => it.st));
