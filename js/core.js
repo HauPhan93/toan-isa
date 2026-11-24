@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v69';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v70';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
   // English mode (Góc phụ huynh → Ngôn ngữ): tx('Vietnamese', 'English'). The parent corner itself stays Vietnamese.
   const EN = U.EN, tx = U.L;
   const G = n => tx('Lớp ' + n, 'Grade ' + n), HK = k => tx('Học kì ' + k, 'Term ' + k);
@@ -76,6 +76,9 @@
   }
 
   /* ------------------------------------------------------------------ helpers */
+  // The read-aloud button draws its own speaker: the 🔊 emoji sat off-centre on an iPhone (Apple's emoji has its
+  // own padding and Safari pads buttons), user 2026-11-24 "loa trong bảng phone lúc làm bài bị lệch"
+  const SPEAKER_SVG = '<svg class="spk" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 9.2h3.6L12 5v14l-4.9-4.2H3.5z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M15.6 9.2a4 4 0 0 1 0 5.6M18.3 6.6a7.6 7.6 0 0 1 0 10.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
   function h(tag, attrs, ...kids) {
     const el = document.createElement(tag);
     if (attrs) for (const [k, v] of Object.entries(attrs)) {
@@ -773,7 +776,7 @@
     stopSpeech();
     const L = rec.lesson, n = rec.grade.grade, cards = L.learn;
     const c = cards[k];
-    const sayBtn = h('button', { class: 'say-btn', 'aria-label': tx('Đọc to', 'Read aloud') }, '🔊');
+    const sayBtn = h('button', { class: 'say-btn', 'aria-label': tx('Đọc to', 'Read aloud'), html: SPEAKER_SVG });
     sayBtn.onclick = () => speak(c.speak || c.text, sayBtn);
     const dots = h('div', { class: 'dots' }, cards.map((_, i) => h('i', { class: i === k ? 'on' : '' })));
     const last = k === cards.length - 1;
@@ -854,7 +857,7 @@
     const timeEl = h('div', { class: 'bc chalk' }, fmtTime(Date.now() - run.t0));
     run.timer = setInterval(() => { timeEl.textContent = fmtTime(Date.now() - run.t0); }, 1000);
     const scoreEl = h('div', { class: 'br chalk' }, tx('Điểm: ', 'Score: ') + fmtScore(run.score));
-    const sayBtn = h('button', { class: 'say-btn', 'aria-label': tx('Đọc đề', 'Read aloud') }, '🔊');
+    const sayBtn = h('button', { class: 'say-btn', 'aria-label': tx('Đọc đề', 'Read aloud'), html: SPEAKER_SVG });
     sayBtn.onclick = () => speak(q.speak || q.prompt, sayBtn);
     let visualEl = null;
     let visualValue;
@@ -2117,7 +2120,7 @@
   /* ------------------------------------------------------------------ Chuyện kể Toán học · Học dạng toán */
   // Their screens live in js/story.js and js/dangtoan.js; this is what they may use of the app.
   const moduleApi = () => ({
-    state: () => S, save, h, screen, topbar, backBtn, homeBtn, coinPill, speak, stopSpeech, sfx, toast, sheet, mascot, viz, tx, G,
+    state: () => S, save, h, SPEAKER_SVG, screen, topbar, backBtn, homeBtn, coinPill, speak, stopSpeech, sfx, toast, sheet, mascot, viz, tx, G,
     gradeInfo: GRADE_INFO, gradeOf, startLesson, hasLesson: id => LESSONS.has(id), lessonOf: id => LESSONS.get(id), home: showHome, makePad: makeExamPad, prettyInput,
     // the ten practice questions of a kind of problem, in the usual practice player; `back` is where it returns
     practice: (kind, back) => showPractice({

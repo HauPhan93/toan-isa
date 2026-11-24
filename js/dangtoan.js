@@ -130,7 +130,7 @@
 
   function learnCard(k) {
     const h = api.h;
-    const say = h('button', { class: 'say-btn', 'aria-label': L('Nghe đọc', 'Listen') }, '🔊');
+    const say = h('button', { class: 'say-btn', 'aria-label': L('Nghe đọc', 'Listen'), html: api.SPEAKER_SVG });
     say.onclick = () => api.speak([k.title, k.spot].concat(k.steps, k.tip ? [k.tip] : []).join('. '), say);
     const ol = h('ol', null, ...k.steps.map(s => h('li', null, h('span', null, s.replace(/^(Bước|Step)\s*\d+\s*[:.]\s*/i, '')))));
     return h('div', { class: 'card dk-card' },

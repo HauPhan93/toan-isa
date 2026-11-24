@@ -1235,3 +1235,7 @@ body.no-voice .say-btn { display: none; }
   .isa-lane .mascot-wrap, .isa-lane .mascot-wrap .viz-mascot, .isa-lane .mascot-wrap > div { animation: none; }
   .isa-lane .mascot-wrap { left: calc(50% - var(--bot) / 2); }
 }
+
+/* read-aloud button: a drawn speaker, centred on every device (the 🔊 emoji sat off-centre on an iPhone) */
+.say-btn { padding: 0; line-height: 0; -webkit-appearance: none; appearance: none; }
+.say-btn .spk { width: 58%; height: 58%; display: block; pointer-events: none; }
