@@ -20,7 +20,7 @@
   --shadow: 0 10px 30px rgba(10, 70, 80, .16), 0 2px 6px rgba(10, 70, 80, .08);
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
-  --font: -apple-system, "SF Pro Rounded", ui-rounded, "Nunito", "Segoe UI", system-ui, sans-serif;
+  --font: "Nunito", -apple-system, "SF Pro Rounded", ui-rounded, "Segoe UI", system-ui, sans-serif;   /* Nunito loaded in index.html */
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -1269,3 +1269,6 @@ body.no-voice .say-btn { display: none; }
 /* back button: a drawn, chubby arrow in the middle of the button */
 .icon-btn .back-ic { width: 60%; height: 60%; display: block; pointer-events: none; filter: drop-shadow(0 2px 0 rgba(0, 60, 60, .18)); }
 .icon-btn:has(.back-ic) { display: grid; place-items: center; padding: 0; line-height: 0; }
+/* landscape tablets about 1080 px wide: "0/11 bài · ⭐ 0" was 4 px too wide for a Học kì button */
+@media (orientation: landscape) and (min-width: 901px) and (max-width: 1150px) { .sem-btn { padding-left: 8px; padding-right: 6px; } .sem-stat { letter-spacing: -.3px; } }
+@media (orientation: landscape) and (min-width: 901px) and (max-width: 1060px) { .sem-stat { font-size: 11px; } }

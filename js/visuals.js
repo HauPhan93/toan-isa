@@ -8,7 +8,7 @@
   'use strict';
 
   const NS = 'http://www.w3.org/2000/svg';
-  const FONT = '-apple-system, "SF Pro Rounded", "Nunito", "Segoe UI", sans-serif';
+  const FONT = '"Nunito", -apple-system, "SF Pro Rounded", "Segoe UI", sans-serif';   // the app's font (index.html loads Nunito)
   const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 
   const BASE = {
