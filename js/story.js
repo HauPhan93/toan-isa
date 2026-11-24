@@ -1,5 +1,7 @@
 /* Toán ISA — "Chuyện kể Toán học": a flip book of short stories from the history of mathematics (user, 2026-11-23:
  * "1 thẻ animation về lịch sử toán học kiểu lật sách tò mò cho các em thích học toán tìm hiểu").
+ * Renamed "Lịch sử Toán học" (v61); book frame, corner-curl turns, a speaker on every page and text that fits its
+ * page on a tablet (v62–v63).
  * Content: js/content/lichsu.js (window.STORIES). Each story is one spread: a moving picture on the left page, the
  * story, a "Đố em" question and a link to the lesson on the right page. Pages turn with a 3D flip (tap the arrows,
  * swipe, or the ← → keys). API: Story.open(api) — api gives the app's own helpers (h, screen, topbar, speak…).
@@ -26,18 +28,39 @@
 .bk-r { background: linear-gradient(270deg, #FBF3DF, #FFFDF7 18%, #FFFDF7 82%, #EADCBC); }
 /* turning forward: the right page lifts to the spine, then the new left page comes down from it */
 .bk-spread.out-next { z-index: 2; pointer-events: none; }
-.bk-spread.out-next .bk-r { animation: bkOutR .7s ease-in forwards; }
-.bk-spread.out-next .bk-l { animation: bkHide .7s steps(1, end) forwards; }
-.bk-spread.in-next .bk-l { animation: bkInL .7s ease-out both; }
+/* a turn (user, 2026-11-24 "lật cái góc trang giấy"): first the bottom corner of the page curls up — the page is cut
+   along a fold line and its back (.bk-curl) lies over it, showing the next page underneath — then the page swings
+   over. --c (the curl size) is set on the page from its own size. */
+.bk-spread.out-next .bk-r { animation: bkOutR .95s ease-in-out forwards, bkCutR .95s ease-out forwards; }
+.bk-spread.out-next .bk-l { animation: bkHide .95s linear forwards; }
+.bk-spread.in-next .bk-l { animation: bkInL .95s ease-out both; }
 .bk-spread.out-prev { z-index: 2; pointer-events: none; }
-.bk-spread.out-prev .bk-l { animation: bkOutL .7s ease-in forwards; }
-.bk-spread.out-prev .bk-r { animation: bkHide .7s steps(1, end) forwards; }
-.bk-spread.in-prev .bk-r { animation: bkInR .7s ease-out both; }
-@keyframes bkOutR { 0% { transform: rotateY(0); } 50%, 100% { transform: rotateY(-90deg); } }
-@keyframes bkOutL { 0% { transform: rotateY(0); } 50%, 100% { transform: rotateY(90deg); } }
-@keyframes bkInL { 0%, 50% { transform: rotateY(90deg); } 100% { transform: rotateY(0); } }
-@keyframes bkInR { 0%, 50% { transform: rotateY(-90deg); } 100% { transform: rotateY(0); } }
-@keyframes bkHide { 0% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.bk-spread.out-prev .bk-l { animation: bkOutL .95s ease-in-out forwards, bkCutL .95s ease-out forwards; }
+.bk-spread.out-prev .bk-r { animation: bkHide .95s linear forwards; }
+.bk-spread.in-prev .bk-r { animation: bkInR .95s ease-out both; }
+@keyframes bkOutR { 0%, 34% { transform: rotateY(0); } 68%, 100% { transform: rotateY(-90deg); } }
+@keyframes bkOutL { 0%, 34% { transform: rotateY(0); } 68%, 100% { transform: rotateY(90deg); } }
+@keyframes bkInL { 0%, 68% { transform: rotateY(90deg); } 100% { transform: rotateY(0); } }
+@keyframes bkInR { 0%, 68% { transform: rotateY(-90deg); } 100% { transform: rotateY(0); } }
+@keyframes bkHide { 0%, 67% { opacity: 1; } 68%, 100% { opacity: 0; } }
+@keyframes bkCutR {
+  0% { -webkit-clip-path: polygon(0 0, 100% 0, 100% 100%, 100% 100%, 0 100%); clip-path: polygon(0 0, 100% 0, 100% 100%, 100% 100%, 0 100%); }
+  34%, 100% { -webkit-clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--c)), calc(100% - var(--c)) 100%, 0 100%); clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--c)), calc(100% - var(--c)) 100%, 0 100%); } }
+@keyframes bkCutL {
+  0% { -webkit-clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 100%); clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 100%); }
+  34%, 100% { -webkit-clip-path: polygon(0 0, 100% 0, 100% 100%, var(--c) 100%, 0 calc(100% - var(--c))); clip-path: polygon(0 0, 100% 0, 100% 100%, var(--c) 100%, 0 calc(100% - var(--c))); } }
+.bk-curl { position: absolute; bottom: 0; width: 0; height: 0; z-index: 6; pointer-events: none; filter: drop-shadow(-3px -3px 5px rgba(60, 40, 10, .3)); animation: bkCurl .95s ease-out forwards; }
+.bk-curl i { position: absolute; inset: 0; }
+.bk-r .bk-curl { right: 0; }
+.bk-r .bk-curl i { -webkit-clip-path: polygon(100% 0, 0 100%, 0 0); clip-path: polygon(100% 0, 0 100%, 0 0); background: linear-gradient(135deg, #FFFFFF 4%, #F6EEDA 30%, #E2D2AC 47%, #C9B386 50%); }
+.bk-l .bk-curl { left: 0; filter: drop-shadow(3px -3px 5px rgba(60, 40, 10, .3)); }
+.bk-l .bk-curl i { -webkit-clip-path: polygon(0 0, 100% 100%, 100% 0); clip-path: polygon(0 0, 100% 100%, 100% 0); background: linear-gradient(225deg, #FFFFFF 4%, #F6EEDA 30%, #E2D2AC 47%, #C9B386 50%); }
+@keyframes bkCurl { 0% { width: 0; height: 0; } 34%, 100% { width: var(--c); height: var(--c); } }
+/* a small dog-ear on the outer bottom corner of a paper page: it wiggles now and then, a tap turns the page */
+.bk-ear { position: absolute; bottom: 0; width: 38px; height: 38px; z-index: 4; border: 0; padding: 0; cursor: pointer; animation: bkEar 4s ease-in-out infinite; }
+.bk-r .bk-ear { right: 0; transform-origin: right bottom; background: linear-gradient(to bottom right, #FFFFFF 0%, #F1E6CB 44%, #C9B386 50%, #E9DCBC 50%, #F5ECD6 100%); border-radius: 8px 0 8px 0; }
+.bk-l .bk-ear { left: 0; transform-origin: left bottom; background: linear-gradient(to bottom left, #FFFFFF 0%, #F1E6CB 44%, #C9B386 50%, #E9DCBC 50%, #F5ECD6 100%); border-radius: 0 8px 0 8px; }
+@keyframes bkEar { 0%, 70%, 100% { transform: scale(1); } 80% { transform: scale(1.45); } 90% { transform: scale(1.1); } }
 /* left page: the picture */
 .bk-when { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 16px 18px 0 22px; }
 .bk-chip { font: 800 14px var(--font, sans-serif); color: #7A5600; background: #FFF1C9; border-radius: 12px; padding: 5px 10px; }
@@ -47,18 +70,18 @@
 .bk-art > div { transform-origin: center; }
 .bk-art svg { width: 100%; height: 100%; max-height: 340px; overflow: visible; }
 .bk-pageno { position: absolute; bottom: 8px; font: 700 13px var(--font, sans-serif); color: #B39B6B; }
-.bk-l .bk-pageno { left: 22px; } .bk-r .bk-pageno { right: 22px; }
+.bk-l .bk-pageno { left: 50px; } .bk-r .bk-pageno { right: 50px; }
 /* right page: the story */
-.bk-text { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 24px 30px 22px; display: flex; flex-direction: column; gap: 10px; }
+.bk-text { --k: 1; flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 24px 30px 22px; display: flex; flex-direction: column; gap: calc(10px * var(--k)); }
 .bk-title { display: flex; align-items: flex-start; gap: 10px; }
-.bk-title h2 { flex: 1; margin: 0; font: 900 25px/1.2 var(--font, sans-serif); color: #C25412; }
+.bk-title h2 { flex: 1; margin: 0; font: 900 calc(25px * var(--k, 1))/1.2 var(--font, sans-serif); color: #C25412; }
 .bk-say { flex: none; width: 46px; height: 46px; border: 0; border-radius: 50%; background: #E9F8F7; color: #0E8C88; font-size: 22px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #BFE6E2; }
 .bk-say.speaking { background: #0E8C88; color: #fff; }
-.bk-text p { margin: 0; font: 600 19px/1.5 var(--font, sans-serif); color: #1E3A4C; }
-.bk-ask { margin-top: 4px; border-radius: 18px; background: #FFF6DB; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
-.bk-ask b { font: 900 17px var(--font, sans-serif); color: #7A5600; }
-.bk-ask .q { font: 700 18px/1.4 var(--font, sans-serif); color: #1E3A4C; }
-.bk-ask .a { font: 700 18px/1.4 var(--font, sans-serif); color: #13693E; background: #E3F7EC; border-radius: 12px; padding: 8px 10px; animation: bkPop .35s ease both; }
+.bk-text p { margin: 0; font: 600 calc(19px * var(--k))/1.45 var(--font, sans-serif); color: #1E3A4C; }
+.bk-ask { margin-top: 4px; border-radius: 18px; background: #FFF6DB; padding: calc(12px * var(--k)) 14px; display: flex; flex-direction: column; gap: calc(8px * var(--k)); }
+.bk-ask b { font: 900 calc(17px * var(--k)) var(--font, sans-serif); color: #7A5600; }
+.bk-ask .q { font: 700 calc(18px * var(--k))/1.4 var(--font, sans-serif); color: #1E3A4C; }
+.bk-ask .a { font: 700 calc(18px * var(--k))/1.4 var(--font, sans-serif); color: #13693E; background: #E3F7EC; border-radius: 12px; padding: 8px 10px; animation: bkPop .35s ease both; }
 .bk-row { display: flex; flex-wrap: wrap; gap: 8px; }
 @keyframes bkPop { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
 /* cover and contents */
@@ -190,8 +213,8 @@
   .ba-dice { font-size: 44px; } .ba-lamp { width: 60px; }
 }
 @media (max-width: 640px) {
-  .bk-title h2 { font-size: 21px; } .bk-text p { font-size: 17px; } .bk-ask .q, .bk-ask .a { font-size: 16px; }
-  .bk-toc { grid-template-columns: 1fr; }
+  .bk-title h2 { font-size: calc(21px * var(--k, 1)); } .bk-text p { font-size: calc(17px * var(--k)); } .bk-ask .q, .bk-ask .a { font-size: calc(16px * var(--k)); }
+  .bk-spread:not(.cover) { grid-template-rows: minmax(0, 30%) minmax(0, 1fr); }
   .bk-cover .cv-t h2 { font-size: 24px; letter-spacing: 0; white-space: nowrap; } .cv-t h2 b { font-size: 15px; letter-spacing: 3px; white-space: normal; } .cv-t small { font-size: 10px; letter-spacing: 1.5px; }
   .bk-cover .cv-t p { font-size: 12px; }
   .ba-grid i { font-size: 15px; padding: 5px 0; } .ba-note { font-size: 16px; }
@@ -499,6 +522,28 @@
     { id: 'may-cong', cap: L('Cỗ máy biết làm tính', 'A machine that adds'),
       svg: `<g class="ba-spin"><circle cx="30" cy="30" r="15" fill="none" stroke="#fff" stroke-width="7" stroke-dasharray="5 4.4"/><circle cx="30" cy="30" r="9" ${W}/><circle cx="30" cy="30" r="2.5" fill="#fff"/></g><g class="ba-spin cv-rev"><circle cx="55" cy="46" r="11" fill="none" stroke="#FFD27A" stroke-width="6" stroke-dasharray="4.3 3.9"/><circle cx="55" cy="46" r="6" fill="none" stroke="#FFD27A" stroke-width="3"/></g>` },
   ];
+  // The story fits its page (user, 2026-11-24: no scrolling if it can be helped): the text sizes are scaled down
+  // step by step (--k) until nothing overflows, never below 70 %; past that the page still scrolls.
+  function fitText(box) {
+    if (!box.isConnected) return;
+    // never smaller than about 15 px for the story lines (19 px on a tablet, 17 px on a phone at k = 1)
+    const kMin = window.innerWidth <= 640 ? 0.88 : 0.79;
+    let k = 1;
+    box.style.setProperty('--k', '1');
+    while (box.scrollHeight > box.clientHeight + 1 && k > kMin) { k = Math.round((k - 0.03) * 100) / 100; box.style.setProperty('--k', String(k)); }
+  }
+  function autoFit(box) {
+    requestAnimationFrame(() => fitText(box));
+    setTimeout(() => fitText(box), 60);   // also when frames are held back (a page in the background)
+    if ('ResizeObserver' in window) { let w = 0, hgt = 0; new ResizeObserver(([e]) => { const r = e.contentRect; if (Math.abs(r.width - w) > 1 || Math.abs(r.height - hgt) > 1) { w = r.width; hgt = r.height; fitText(box); } }).observe(box); }
+  }
+  // the dog-ear in the outer bottom corner: a tap turns the page that way
+  function ear(step) {
+    const b = el('button', 'bk-ear'); b.type = 'button';
+    b.setAttribute('aria-label', step > 0 ? L('Trang sau', 'Next page') : L('Trang trước', 'Previous page'));
+    b.onclick = e => { e.stopPropagation(); go(cur + step); };
+    return b;
+  }
   // every page has its own speaker (user, 2026-11-24): it reads what is on that page; a second tap stops it
   function speaker(textOf, label) {
     const b = el('button', 'bk-say', label ? `🔊 ${label}` : '🔊'); b.type = 'button';
@@ -539,7 +584,7 @@
       toc.append(b);
     });
     body.append(toc);
-    right.append(body);
+    right.append(body, ear(1));
     sp.append(left, right);
     return sp;
   }
@@ -549,7 +594,7 @@
     const left = el('div', 'bk-page bk-l');
     const when = el('div', 'bk-when', `<span class="bk-chip">🕰️ ${s.when}</span><span class="bk-chip where">📍 ${s.where}</span>`);
     when.append(speaker(() => `${L('Chuyện', 'Story')} ${k}: ${s.title}. ${s.when}. ${L('Ở', 'In')} ${s.where}.`));
-    left.append(when, artOf(s.art), el('div', 'bk-pageno', String(k * 2 - 1)));
+    left.append(when, artOf(s.art), el('div', 'bk-pageno', String(k * 2 - 1)), ear(-1));
     const right = el('div', 'bk-page bk-r');
     const body = el('div', 'bk-text');
     const head = el('div', 'bk-title', `<h2>${s.icon} ${s.title}</h2>`);
@@ -560,7 +605,7 @@
     const ask = el('div', 'bk-ask');
     ask.append(el('b', '', L('❓ Đố em', '❓ Can you tell?')), el('div', 'q', s.ask));
     const show = el('button', 'btn small', L('Xem đáp án', 'Show the answer')); show.type = 'button';
-    show.onclick = () => { api.sfx.good(); answered = true; show.replaceWith(el('div', 'a', '✓ ' + s.answer)); };
+    show.onclick = () => { api.sfx.good(); answered = true; show.replaceWith(el('div', 'a', '✓ ' + s.answer)); requestAnimationFrame(() => fitText(body)); };
     ask.append(show);
     body.append(ask);
     const row = el('div', 'bk-row');
@@ -571,7 +616,9 @@
     }
     if (row.children.length) body.append(row);
     right.append(body, el('div', 'bk-pageno', String(k * 2)));
+    if (k < total()) right.append(ear(1));
     sp.append(left, right);
+    autoFit(body);
     // the first time a story is opened it counts as read and earns a star
     const read = readMap();
     if (!read[s.id]) { read[s.id] = 1; api.state().coins += 1; api.save(); }
@@ -595,10 +642,19 @@
     const neu = spreadOf(cur);
     neu.classList.add('in-' + dir);
     bookEl.prepend(neu);                       // under the page that is turning
-    if (old) old.classList.add('out-' + dir);
+    if (old) {
+      // the corner curls first: its size follows the page (a little under half of its shorter side)
+      const page = old.querySelector(dir === 'next' ? '.bk-r' : '.bk-l');
+      if (page) {
+        page.style.setProperty('--c', Math.round(Math.min(page.clientWidth, page.clientHeight) * 0.42) + 'px');
+        const curl = el('div', 'bk-curl'); curl.append(el('i'));
+        page.append(curl);
+      }
+      old.classList.add('out-' + dir);
+    }
     try { api.sfx.tap(); } catch (e) { /* no sound */ }
     setNav();
-    setTimeout(() => { if (old) old.remove(); neu.classList.remove('in-' + dir); busy = false; }, 720);
+    setTimeout(() => { if (old) old.remove(); neu.classList.remove('in-' + dir); busy = false; }, 980);
   }
   function close() { clearTimers(); api.stopSpeech(); window.removeEventListener('keydown', onKey); bookEl = null; }
   function onKey(e) {
