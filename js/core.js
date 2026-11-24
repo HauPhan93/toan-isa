@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v73';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v74';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
   // English mode (Góc phụ huynh → Ngôn ngữ): tx('Vietnamese', 'English'). The parent corner itself stays Vietnamese.
   const EN = U.EN, tx = U.L;
   const G = n => tx('Lớp ' + n, 'Grade ' + n), HK = k => tx('Học kì ' + k, 'Term ' + k);
@@ -82,6 +82,9 @@
   // the Tử/Mẫu key reads like a fraction: "Tử" in the top-left corner, "Mẫu" in the bottom-right, a slash between
   // (user, 2026-11-24: the word did not fit a phone key)
   function frLabel() { return [h('span', { class: 'fr-t' }, tx('Tử', 'Top')), h('span', { class: 'fr-m' }, tx('Mẫu', 'Bottom'))]; }
+  // the back button's arrow: big, chubby and round, drawn so it sits in the middle of the button (user, 2026-11-24
+  // "mũi tên to lên và nằm ở giữa kiểu mập mạp dễ thương" — the ← character was thin and sat off-centre)
+  const BACK_SVG = '<svg class="back-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H6.5M11.5 6 5.5 12l6 6" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function h(tag, attrs, ...kids) {
     const el = document.createElement(tag);
     if (attrs) for (const [k, v] of Object.entries(attrs)) {
@@ -675,7 +678,7 @@
   const coinPill = () => h('div', { class: 'pill' }, h('span', { class: 'e' }, '⭐'), String(S.coins));
   // before(): a screen's own clean-up (timers, speech) run before going home
   const homeBtn = before => h('button', { class: 'icon-btn', 'aria-label': tx('Trang chủ', 'Home'), onclick: () => { sfx.tap(); stopSpeech(true); if (before) before(); showHome(); } }, '🏠');
-  const backBtn = fn => h('button', { class: 'icon-btn', 'aria-label': tx('Quay lại', 'Back'), onclick: () => { sfx.tap(); stopSpeech(true); fn(); } }, '←');
+  const backBtn = fn => h('button', { class: 'icon-btn', 'aria-label': tx('Quay lại', 'Back'), onclick: () => { sfx.tap(); stopSpeech(true); fn(); }, html: BACK_SVG });
   const parentBtn = () => h('button', { class: 'icon-btn', 'aria-label': 'Góc phụ huynh', onclick: () => { sfx.tap(); parentGate(); } }, '⚙️');
 
   /* ---------- home ---------- */
