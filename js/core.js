@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v70';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v71';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
   // English mode (Góc phụ huynh → Ngôn ngữ): tx('Vietnamese', 'English'). The parent corner itself stays Vietnamese.
   const EN = U.EN, tx = U.L;
   const G = n => tx('Lớp ' + n, 'Grade ' + n), HK = k => tx('Học kì ' + k, 'Term ' + k);
@@ -79,6 +79,9 @@
   // The read-aloud button draws its own speaker: the 🔊 emoji sat off-centre on an iPhone (Apple's emoji has its
   // own padding and Safari pads buttons), user 2026-11-24 "loa trong bảng phone lúc làm bài bị lệch"
   const SPEAKER_SVG = '<svg class="spk" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 9.2h3.6L12 5v14l-4.9-4.2H3.5z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M15.6 9.2a4 4 0 0 1 0 5.6M18.3 6.6a7.6 7.6 0 0 1 0 10.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+  // the Tử/Mẫu key reads like a fraction: "Tử" in the top-left corner, "Mẫu" in the bottom-right, a slash between
+  // (user, 2026-11-24: the word did not fit a phone key)
+  function frLabel() { return [h('span', { class: 'fr-t' }, tx('Tử', 'Top')), h('span', { class: 'fr-m' }, tx('Mẫu', 'Bottom'))]; }
   function h(tag, attrs, ...kids) {
     const el = document.createElement(tag);
     if (attrs) for (const [k, v] of Object.entries(attrs)) {
@@ -138,6 +141,29 @@
   // upright, where the answer pad sits under the board — stands beside the question instead of under it, so it
   // is drawn bigger and the board looks balanced (user: "1 hình nhỏ bé và không cân"). Decided again whenever
   // the board changes size (turning the iPad, the feedback growing the answer card).
+  // On a phone a long question took the board and squeezed the picture or the sum under it to a sliver (user,
+  // 2026-11-24 "đề dài nên trên phone bị che phép tính… cần làm chữ trên đề bài nhỏ"): the question's letters
+  // get smaller, 1 px at a time and never below 15 px, until the picture has about 130 px (or the answer line fits).
+  function fitBoardText(board) {
+    const small = () => window.innerWidth <= 640 || window.innerHeight <= 540;
+    const fit = () => {
+      if (!board.isConnected) return;
+      const qt = board.querySelector('.qtext'), qv = board.querySelector(':scope > .qvisual');
+      if (!qt) return;
+      qt.style.fontSize = '';
+      if (!small()) return;
+      const hasPic = qv && qv.querySelector('svg, .viz');
+      const tray = board.querySelector('.board-tray'), ans = board.querySelector('.board-answer');
+      const need = Math.min(130, board.clientHeight * 0.42);
+      const tight = () => (hasPic && qv.getBoundingClientRect().height < need) ||
+        (ans && ans.offsetHeight && tray && ans.getBoundingClientRect().bottom > tray.getBoundingClientRect().top + 1);
+      let px = parseFloat(getComputedStyle(qt).fontSize);
+      while (tight() && px > 15) { px -= 1; qt.style.fontSize = px + 'px'; }
+    };
+    requestAnimationFrame(fit);
+    setTimeout(fit, 80);
+    if ('ResizeObserver' in window) { let w = 0, hh = 0; const ro = new ResizeObserver(([e]) => { if (!board.isConnected) { ro.disconnect(); return; } const r = e.contentRect; if (Math.abs(r.width - w) > 2 || Math.abs(r.height - hh) > 2) { w = r.width; hh = r.height; fit(); } }); ro.observe(board); }
+  }
   function sideBoard(board) {
     const qv = board.querySelector(':scope > .qvisual');
     if (!qv) return;
@@ -980,7 +1006,7 @@
       const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', isFr ? '⇅' : ',', '0', '⌫'];
       const pad = h('div', { class: 'keypad' });
       for (const k of keys) {
-        const b = h('button', { class: 'key' + (k === '⌫' || k === '⇅' || k === ',' ? ' fn' : '') }, k === '⇅' ? tx('Tử/Mẫu', 'Top/Bottom') : k);
+        const b = h('button', { class: 'key' + (k === '⌫' || k === '⇅' || k === ',' ? ' fn' : '') + (k === '⇅' ? ' fr' : '') }, k === '⇅' ? frLabel() : k);
         if (k === ',') commaKey = b;
         b.onclick = () => { if (finished) return; sfx.tap(); press(k); };
         pad.append(b);
@@ -1132,6 +1158,7 @@
         h('div', { class: 'stage' }, board, h('div', { class: 'answer-pane' }, pane))));
     if (window.Scratch) Scratch.attach('practice:' + run.seed);   // giấy nháp, kept for the whole run
     if (visualEl) sideBoard(board);
+    fitBoardText(board);
     keyHandler = qKeys;
     if (S.settings.autoRead) speak(q.speak || q.prompt, sayBtn);
   }
@@ -2094,7 +2121,7 @@
       const isFr = st.it.answer.kind === 'fraction';
       keysEl.innerHTML = '';
       for (const k of ['7', '8', '9', '4', '5', '6', '1', '2', '3', isFr ? '⇅' : ',', '0', '⌫']) {
-        keysEl.append(h('button', { class: 'key' + (k === '⌫' || k === '⇅' || k === ',' ? ' fn' : ''), onclick: () => {
+        keysEl.append(h('button', { class: 'key' + (k === '⌫' || k === '⇅' || k === ',' ? ' fn' : '') + (k === '⇅' ? ' fr' : ''), onclick: () => {
           sfx.tap();
           if (isFr) {
             if (k === '⇅') st.fr.part = st.fr.part === 'num' ? 'den' : 'num';
@@ -2104,7 +2131,7 @@
           else if (k === ',') { if (!st.input.includes(',')) st.input = (st.input || '0') + ','; }
           else if (st.input.replace(',', '').length < 9) st.input = (st.input === '0' ? '' : st.input) + k;
           show();
-        } }, k === '⇅' ? tx('Tử/Mẫu', 'Top/Bottom') : k));
+        } }, k === '⇅' ? frLabel() : k));
       }
     }
     function open(s, sl) {

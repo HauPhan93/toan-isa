@@ -205,7 +205,7 @@ input { font: inherit; }
 .frac-display span { min-width: 64px; text-align: center; padding: 0 8px; border-radius: 10px; line-height: 1.1; }
 .frac-display span.act { background: #FFF1E7; box-shadow: inset 0 0 0 2px var(--orange); }
 .frac-display hr { width: 100%; height: 4px; border: 0; border-radius: 2px; background: var(--ink); margin: 2px 0; }
-.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.keypad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .key {
   height: 62px; border-radius: 18px; background: #fff; box-shadow: inset 0 0 0 2px var(--line), 0 4px 0 var(--line);
   font-size: 28px; font-weight: 800; transition: transform .08s;
@@ -300,7 +300,7 @@ input { font: inherit; }
   .choices { grid-template-columns: repeat(4, 1fr); }
   .choices.sym { grid-template-columns: repeat(3, 1fr); }
   .choices.col1 { grid-template-columns: 1fr 1fr; }
-  .keypad { grid-template-columns: repeat(6, 1fr); }
+  .keypad { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .key { height: 56px; }
 }
 @media (max-width: 640px) {
@@ -527,14 +527,14 @@ body.no-voice .say-btn { display: none; }
 .exam-pad[hidden] { display: none; }
 .ep-pad-row { display: flex; gap: 10px; align-items: stretch; }
 .ep-pad-row .display { flex: 1; min-height: 60px; font-size: 32px; }
-.exam-pad .keypad { grid-template-columns: repeat(6, 1fr); }
+.exam-pad .keypad { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .exam-pad .key { height: 54px; }
 @media (max-width: 760px) {
   .exam-paper { padding: 22px 18px 30px; font-size: 19px; }
   .ep-head { grid-template-columns: 1fr; }
   .ep-boxes { grid-template-columns: 110px 1fr; }
   .exam-terms { grid-template-columns: 1fr; }
-  .exam-pad .keypad { grid-template-columns: repeat(3, 1fr); }
+  .exam-pad .keypad { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* mascot inside fixed-size wrappers: scale the library's SVG to the wrapper */
@@ -808,7 +808,7 @@ body.no-voice .say-btn { display: none; }
   .board-tray { height: 8px; }
   .qvisual { min-height: 0; margin: 4px 0 2px; }
   .say-btn, .board .say-btn { width: 38px; height: 38px; font-size: 18px; border-radius: 12px; }
-  .keypad { grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .keypad { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
   .key { height: 42px; font-size: 21px; border-radius: 12px; }
   .choice { min-height: 50px; font-size: 20px; }
   .choice.txt { font-size: 15px; }
@@ -1239,3 +1239,20 @@ body.no-voice .say-btn { display: none; }
 /* read-aloud button: a drawn speaker, centred on every device (the 🔊 emoji sat off-centre on an iPhone) */
 .say-btn { padding: 0; line-height: 0; -webkit-appearance: none; appearance: none; }
 .say-btn .spk { width: 58%; height: 58%; display: block; pointer-events: none; }
+
+/* phones: the answer pad fits its card without scrolling (user, 2026-11-24 "gõ số bên điện thoại bị dài") — the
+   Tử/Mẫu key no longer widens its column (minmax above) and the pad is a little tighter on short screens */
+.key.fr { position: relative; padding: 0; overflow: hidden;
+  background-image: linear-gradient(to top right, transparent calc(50% - 1px), color-mix(in srgb, currentColor 45%, transparent) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)); }
+.key.fr .fr-t, .key.fr .fr-m { position: absolute; font-size: 13px; font-weight: 900; line-height: 1; }
+.key.fr .fr-t { left: 6px; top: 4px; }
+.key.fr .fr-m { right: 5px; bottom: 5px; }
+@media (min-width: 641px) { .key.fr .fr-t, .key.fr .fr-m { font-size: 16px; } .key.fr .fr-t { left: 10px; top: 7px; } .key.fr .fr-m { right: 9px; bottom: 8px; } }
+@media (max-width: 640px) and (max-height: 760px) {
+  .answer-card { gap: 6px; }
+  .cm-btn { height: 32px; }
+  .col-mode { padding: 3px; }
+  .key { height: 40px; }
+  .keypad { gap: 6px; }
+  .answer-card > .actions { padding-top: 6px; }
+}
