@@ -1,7 +1,7 @@
 /* Toán ISA — "Chuyện kể Toán học": a flip book of short stories from the history of mathematics (user, 2026-11-23:
  * "1 thẻ animation về lịch sử toán học kiểu lật sách tò mò cho các em thích học toán tìm hiểu").
  * Renamed "Lịch sử Toán học" (v61); book frame, corner-curl turns, a speaker on every page and text that fits its
- * page on a tablet (v62–v63).
+ * page on a tablet (v62–v63); on a phone one page at a time, two columns when held sideways (v64).
  * Content: js/content/lichsu.js (window.STORIES). Each story is one spread: a moving picture on the left page, the
  * story, a "Đố em" question and a link to the lesson on the right page. Pages turn with a 3D flip (tap the arrows,
  * swipe, or the ← → keys). API: Story.open(api) — api gives the app's own helpers (h, screen, topbar, speak…).
@@ -51,15 +51,15 @@
   34%, 100% { -webkit-clip-path: polygon(0 0, 100% 0, 100% 100%, var(--c) 100%, 0 calc(100% - var(--c))); clip-path: polygon(0 0, 100% 0, 100% 100%, var(--c) 100%, 0 calc(100% - var(--c))); } }
 .bk-curl { position: absolute; bottom: 0; width: 0; height: 0; z-index: 6; pointer-events: none; filter: drop-shadow(-3px -3px 5px rgba(60, 40, 10, .3)); animation: bkCurl .95s ease-out forwards; }
 .bk-curl i { position: absolute; inset: 0; }
-.bk-r .bk-curl { right: 0; }
-.bk-r .bk-curl i { -webkit-clip-path: polygon(100% 0, 0 100%, 0 0); clip-path: polygon(100% 0, 0 100%, 0 0); background: linear-gradient(135deg, #FFFFFF 4%, #F6EEDA 30%, #E2D2AC 47%, #C9B386 50%); }
-.bk-l .bk-curl { left: 0; filter: drop-shadow(3px -3px 5px rgba(60, 40, 10, .3)); }
-.bk-l .bk-curl i { -webkit-clip-path: polygon(0 0, 100% 100%, 100% 0); clip-path: polygon(0 0, 100% 100%, 100% 0); background: linear-gradient(225deg, #FFFFFF 4%, #F6EEDA 30%, #E2D2AC 47%, #C9B386 50%); }
+.bk-curl.r { right: 0; }
+.bk-curl.r i { -webkit-clip-path: polygon(100% 0, 0 100%, 0 0); clip-path: polygon(100% 0, 0 100%, 0 0); background: linear-gradient(135deg, #FFFFFF 4%, #F6EEDA 30%, #E2D2AC 47%, #C9B386 50%); }
+.bk-curl.l { left: 0; filter: drop-shadow(3px -3px 5px rgba(60, 40, 10, .3)); }
+.bk-curl.l i { -webkit-clip-path: polygon(0 0, 100% 100%, 100% 0); clip-path: polygon(0 0, 100% 100%, 100% 0); background: linear-gradient(225deg, #FFFFFF 4%, #F6EEDA 30%, #E2D2AC 47%, #C9B386 50%); }
 @keyframes bkCurl { 0% { width: 0; height: 0; } 34%, 100% { width: var(--c); height: var(--c); } }
 /* a small dog-ear on the outer bottom corner of a paper page: it wiggles now and then, a tap turns the page */
 .bk-ear { position: absolute; bottom: 0; width: 38px; height: 38px; z-index: 4; border: 0; padding: 0; cursor: pointer; animation: bkEar 4s ease-in-out infinite; }
-.bk-r .bk-ear { right: 0; transform-origin: right bottom; background: linear-gradient(to bottom right, #FFFFFF 0%, #F1E6CB 44%, #C9B386 50%, #E9DCBC 50%, #F5ECD6 100%); border-radius: 8px 0 8px 0; }
-.bk-l .bk-ear { left: 0; transform-origin: left bottom; background: linear-gradient(to bottom left, #FFFFFF 0%, #F1E6CB 44%, #C9B386 50%, #E9DCBC 50%, #F5ECD6 100%); border-radius: 0 8px 0 8px; }
+.bk-ear.f { right: 0; transform-origin: right bottom; background: linear-gradient(to bottom right, #FFFFFF 0%, #F1E6CB 44%, #C9B386 50%, #E9DCBC 50%, #F5ECD6 100%); border-radius: 8px 0 8px 0; }
+.bk-ear.b { left: 0; transform-origin: left bottom; background: linear-gradient(to bottom left, #FFFFFF 0%, #F1E6CB 44%, #C9B386 50%, #E9DCBC 50%, #F5ECD6 100%); border-radius: 0 8px 0 8px; }
 @keyframes bkEar { 0%, 70%, 100% { transform: scale(1); } 80% { transform: scale(1.45); } 90% { transform: scale(1.1); } }
 /* left page: the picture */
 .bk-when { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 16px 18px 0 22px; }
@@ -73,6 +73,7 @@
 .bk-l .bk-pageno { left: 50px; } .bk-r .bk-pageno { right: 50px; }
 /* right page: the story */
 .bk-text { --k: 1; flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 24px 30px 22px; display: flex; flex-direction: column; gap: calc(10px * var(--k)); }
+.bk-flow { display: flex; flex-direction: column; gap: calc(10px * var(--k)); }
 .bk-title { display: flex; align-items: flex-start; gap: 10px; }
 .bk-title h2 { flex: 1; margin: 0; font: 900 calc(25px * var(--k, 1))/1.2 var(--font, sans-serif); color: #C25412; }
 .bk-say { flex: none; width: 46px; height: 46px; border: 0; border-radius: 50%; background: #E9F8F7; color: #0E8C88; font-size: 22px; display: grid; place-items: center; cursor: pointer; box-shadow: 0 3px 0 #BFE6E2; }
@@ -219,15 +220,66 @@
   .bk-cover .cv-t p { font-size: 12px; }
   .ba-grid i { font-size: 15px; padding: 5px 0; } .ba-note { font-size: 16px; }
 }
+/* a phone (user, 2026-11-24: the book did not read well on an iPhone): one page at a time — the cover, the contents,
+   then each story's picture page and its story page. .wide = a phone held sideways. */
+.bk-ptitle { display: none; }
+.bk-wrap.one { padding: 0 10px calc(8px + var(--safe-b, 0px)); gap: 8px; }
+.bk-wrap.one .bk-book { margin: 6px 10px 12px 6px; }
+.bk-wrap.one .bk-book::before { inset: -6px -10px -12px -6px; }
+body:has(.bk-wrap.one) .topbar .sub { display: none; }
+.bk-wrap.one .bk-text p { line-height: 1.4; }
+.bk-wrap.one .bk-book::after { display: none; }
+.bk-wrap.one .bk-spread { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 0; }
+.bk-wrap.one .bk-page { border-radius: 4px 10px 10px 4px; transform-origin: left center;
+  box-shadow: inset 16px 0 16px -14px rgba(90, 60, 20, .35), 1px 1px 0 #E3D5B6, 3px 3px 0 #FBF5E6, 4px 4px 0 #DED0B0, 6px 6px 0 #F8F0DD, 7px 7px 0 #D2C19C, 8px 9px 12px rgba(0, 20, 30, .25); }
+.bk-wrap.one .bk-page:not(.bk-cover) { background: linear-gradient(270deg, #F6ECD4, #FFFDF7 8%, #FFFDF7 94%, #F1E6CC); }
+.bk-wrap.one .bk-text { padding: 10px 16px 28px; }
+.bk-wrap.one .bk-ptitle { display: block; padding: 8px 18px 0 22px; text-align: center; font: 900 21px/1.2 var(--font, sans-serif); color: #C25412; }
+/* turning: forward, the page lifts its corner and swings off to the left; back, the page before comes down over it */
+.bk-wrap.one .bk-spread.out-next .bk-page { animation: bkOutR .95s ease-in-out forwards, bkCutR .95s ease-out forwards; }
+.bk-wrap.one .bk-spread.in-next .bk-page, .bk-wrap.one .bk-spread.out-prev .bk-page { animation: none; }
+.bk-wrap.one .bk-spread.in-prev { z-index: 3; }
+.bk-wrap.one .bk-spread.in-prev .bk-page { animation: bkBack .7s ease-out both; }
+@keyframes bkBack { from { transform: rotateY(-90deg); } to { transform: rotateY(0); } }
+/* upright: the cover keeps its tall layout, three drawings above the title and three below */
+.bk-wrap.one:not(.wide) .cv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr); grid-template-areas: "a b c" "t t t" "d e f"; gap: 10px 6px; }
+.bk-wrap.one:not(.wide) .cv-c, .bk-wrap.one:not(.wide) .cv-f { display: flex; }
+.bk-wrap.one:not(.wide) .bk-cover .cv-t h2 { font-size: 34px; letter-spacing: 1px; }
+.bk-wrap.one:not(.wide) .cv-t h2 b { font-size: 19px; letter-spacing: 5px; }
+.bk-wrap.one:not(.wide) .bk-cover .cv-t p { font-size: 14px; }
+.bk-wrap.one:not(.wide) .cv-v span { font-size: 11px; }
+/* sideways: the cover is one row, and the story page is set in two columns like an open book */
+/* sideways the screen is short: the buttons move to the sides of the book (☰ ◀ book ▶) so the book keeps the height */
+.bk-wrap.wide { flex-direction: row; align-items: center; gap: 8px; padding: 0 max(10px, env(safe-area-inset-right, 0px)) calc(6px + var(--safe-b, 0px)) max(10px, env(safe-area-inset-left, 0px)); }
+.bk-wrap.wide .bk-book { align-self: stretch; order: 0; }
+.bk-wrap.wide .bk-nav { display: contents; }
+.bk-wrap.wide .bk-nav .mid { display: none; }
+.bk-wrap.wide .bk-nav .btn { flex: none; order: -1; }
+.bk-wrap.wide .bk-nav .btn:last-child { order: 1; }
+.bk-wrap.wide .bk-cover.cv { padding: 8px 12px; }
+.bk-wrap.wide .cv-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); grid-template-areas: "a b t d e"; gap: 6px; }
+.bk-wrap.wide .cv-c, .bk-wrap.wide .cv-f { display: none; }
+.bk-wrap.wide .cv-t { align-self: center; padding: 8px 2px; }
+.bk-wrap.wide .bk-cover .cv-t h2 { font-size: 30px; } .bk-wrap.wide .cv-t h2 b { font-size: 17px; letter-spacing: 4px; }
+.bk-wrap.wide .bk-when { padding-top: 10px; } .bk-wrap.wide .bk-ptitle { padding-top: 4px; font-size: 19px; } .bk-wrap.wide .bk-art { padding-bottom: 10px; }
+.bk-wrap.wide .bk-text { padding: 12px 22px 30px; }
+.bk-wrap.wide .bk-text.cols .bk-flow { display: block; column-count: 2; column-gap: 44px; column-rule: 2px solid #F0E6CF; }
+.bk-wrap.wide .bk-text.cols .bk-flow > * + * { margin-top: calc(10px * var(--k)); }
+.bk-wrap.wide .bk-text.cols .bk-ask, .bk-wrap.wide .bk-text.cols .bk-title { break-inside: avoid; -webkit-column-break-inside: avoid; }
 @media (prefers-reduced-motion: reduce) {
   .bk-spread * { animation-duration: .01s !important; animation-iteration-count: 1 !important; }
   .ba-draw { stroke-dashoffset: 0; }
 }
 `;
-  let api = null, cur = 0, timers = [], busy = false, bookEl = null, navMid = null, prevBtn = null, nextBtn = null;
+  // pg = the page on screen: 0 the cover, 1 the contents, 2k story k's picture, 2k + 1 its story. A tablet shows the
+  // spread of two pages (pg is then always even); a phone shows one page at a time (one = true).
+  let api = null, pg = 0, one = false, timers = [], busy = false, bookEl = null, wrapEl = null, navMid = null, prevBtn = null, nextBtn = null, tocBtn = null;
   const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
   const stories = () => window.STORIES || [];
-  const total = () => stories().length;            // page 0 is the cover, pages 1…total are the stories
+  const total = () => stories().length;            // spread 0 is the cover, spreads 1…total are the stories
+  const lastPage = () => total() * 2 + 1;
+  const isPhone = () => Math.min(window.innerWidth, window.innerHeight) <= 500;
+  const shown = p => (one ? p : Math.floor(p / 2));   // what is on screen for page p: that page, or its spread
   const clearTimers = () => { timers.forEach(t => { clearInterval(t); clearTimeout(t); }); timers = []; };
   const readMap = () => { const S = api.state(); if (!S.stories || typeof S.stories !== 'object') S.stories = {}; return S.stories; };
 
@@ -528,6 +580,8 @@
     if (!box.isConnected) return;
     // never smaller than about 15 px for the story lines (19 px on a tablet, 17 px on a phone at k = 1)
     const kMin = window.innerWidth <= 640 ? 0.88 : 0.79;
+    // a phone held sideways sets the story in two even columns (.bk-flow); what still does not fit scrolls
+    box.classList.toggle('cols', !!box.closest('.bk-wrap.wide'));
     let k = 1;
     box.style.setProperty('--k', '1');
     while (box.scrollHeight > box.clientHeight + 1 && k > kMin) { k = Math.round((k - 0.03) * 100) / 100; box.style.setProperty('--k', String(k)); }
@@ -539,9 +593,9 @@
   }
   // the dog-ear in the outer bottom corner: a tap turns the page that way
   function ear(step) {
-    const b = el('button', 'bk-ear'); b.type = 'button';
+    const b = el('button', 'bk-ear ' + (step > 0 ? 'f' : 'b')); b.type = 'button';
     b.setAttribute('aria-label', step > 0 ? L('Trang sau', 'Next page') : L('Trang trước', 'Previous page'));
-    b.onclick = e => { e.stopPropagation(); go(cur + step); };
+    b.onclick = e => { e.stopPropagation(); turn(step); };
     return b;
   }
   // every page has its own speaker (user, 2026-11-24): it reads what is on that page; a second tap stops it
@@ -562,7 +616,7 @@
       const k = stories().findIndex(s => s.id === v.id);
       const b = el('button', 'cv-v cv-' + 'abcdef'[n], `<svg viewBox="0 0 80 64" aria-hidden="true">${v.svg}</svg><span>${v.cap}</span>`);
       b.type = 'button'; b.setAttribute('aria-label', v.cap);
-      if (k >= 0) b.onclick = () => { api.sfx.tap(); go(k + 1); }; else b.disabled = true;
+      if (k >= 0) b.onclick = () => { api.sfx.tap(); goPage((k + 1) * 2); }; else b.disabled = true;
       grid.append(b);
     });
     const sub = L(`${total()} câu chuyện từ thời cổ đại đến nay`, `${total()} stories from ancient times to today`);
@@ -580,7 +634,7 @@
     const toc = el('div', 'bk-toc');
     stories().forEach((s, k) => {
       const b = el('button', '', `<span class="no">${k + 1}.</span><span class="ic">${s.icon}</span><span class="t">${s.title}${read[s.id] ? ' <span class="ok">✓</span>' : ''}</span><span class="dots"></span><span class="pg">${k * 2 + 1}</span>`);
-      b.type = 'button'; b.onclick = () => { api.sfx.tap(); go(k + 1); };
+      b.type = 'button'; b.onclick = () => { api.sfx.tap(); goPage((k + 1) * 2); };
       toc.append(b);
     });
     body.append(toc);
@@ -594,27 +648,28 @@
     const left = el('div', 'bk-page bk-l');
     const when = el('div', 'bk-when', `<span class="bk-chip">🕰️ ${s.when}</span><span class="bk-chip where">📍 ${s.where}</span>`);
     when.append(speaker(() => `${L('Chuyện', 'Story')} ${k}: ${s.title}. ${s.when}. ${L('Ở', 'In')} ${s.where}.`));
-    left.append(when, artOf(s.art), el('div', 'bk-pageno', String(k * 2 - 1)), ear(-1));
+    // on a phone the picture page stands alone, so it also shows the story's title
+    left.append(when, el('div', 'bk-ptitle', `${s.icon} ${s.title}`), artOf(s.art), el('div', 'bk-pageno', String(k * 2 - 1)), ear(-1));
     const right = el('div', 'bk-page bk-r');
     const body = el('div', 'bk-text');
     const head = el('div', 'bk-title', `<h2>${s.icon} ${s.title}</h2>`);
     let answered = false;
     head.append(speaker(() => [s.title].concat(s.text, L('Đố em', 'Can you tell?') + ': ' + s.ask, answered ? L('Đáp án', 'Answer') + ': ' + s.answer : []).join('. ')));
-    body.append(head);
-    s.text.forEach(t => body.append(el('p', '', t)));
+    const flow = el('div', 'bk-flow'); body.append(flow); flow.append(head);
+    s.text.forEach(t => flow.append(el('p', '', t)));
     const ask = el('div', 'bk-ask');
     ask.append(el('b', '', L('❓ Đố em', '❓ Can you tell?')), el('div', 'q', s.ask));
     const show = el('button', 'btn small', L('Xem đáp án', 'Show the answer')); show.type = 'button';
     show.onclick = () => { api.sfx.good(); answered = true; show.replaceWith(el('div', 'a', '✓ ' + s.answer)); requestAnimationFrame(() => fitText(body)); };
     ask.append(show);
-    body.append(ask);
+    flow.append(ask);
     const row = el('div', 'bk-row');
     if (s.lesson && api.hasLesson(s.lesson)) {
       const b = el('button', 'btn small teal', L('📘 Học bài này', '📘 Learn this')); b.type = 'button';
       b.onclick = () => { api.sfx.tap(); close(); api.startLesson(s.lesson); };
       row.append(b);
     }
-    if (row.children.length) body.append(row);
+    if (row.children.length) flow.append(row);
     right.append(body, el('div', 'bk-pageno', String(k * 2)));
     if (k < total()) right.append(ear(1));
     sp.append(left, right);
@@ -624,30 +679,49 @@
     if (!read[s.id]) { read[s.id] = 1; api.state().coins += 1; api.save(); }
     return sp;
   }
-  const spreadOf = k => (k === 0 ? coverSpread() : storySpread(k));
+  // what page p shows: its spread on a tablet; on a phone that page alone, with its own dog-ears
+  function pageOf(p) {
+    const s = Math.floor(p / 2), sp = s === 0 ? coverSpread() : storySpread(s);
+    if (!one) return sp;
+    sp.classList.add('one');
+    sp.children[p % 2 ? 0 : 1].remove();
+    const page = sp.firstElementChild;
+    page.querySelectorAll(':scope > .bk-ear').forEach(e => e.remove());
+    if (p > 0) page.append(ear(-1));
+    if (p < lastPage()) page.append(ear(1));
+    return sp;
+  }
 
   function setNav() {
-    navMid.textContent = cur === 0 ? L('Bìa sách', 'Cover') : `${L('Chuyện', 'Story')} ${cur}/${total()}`;
-    prevBtn.disabled = cur === 0; nextBtn.disabled = cur === total();
-    nextBtn.textContent = cur === 0 ? L('Mở sách ▶', 'Open the book ▶') : L('Trang sau ▶', 'Next ▶');
+    const s = Math.floor(pg / 2);
+    navMid.textContent = s > 0 ? `${L('Chuyện', 'Story')} ${s}/${total()}` : one && pg === 1 ? L('Mục lục', 'Contents') : L('Bìa sách', 'Cover');
+    prevBtn.disabled = pg === 0;
+    nextBtn.disabled = one ? pg === lastPage() : s === total();
+    // a phone has no room for words on the buttons (they broke over two lines): arrows and the contents sign
+    prevBtn.textContent = one ? '◀' : L('◀ Trang trước', '◀ Back');
+    tocBtn.textContent = one ? '☰' : L('☰ Mục lục', '☰ Contents');
+    nextBtn.textContent = one ? '▶' : pg === 0 ? L('Mở sách ▶', 'Open the book ▶') : L('Trang sau ▶', 'Next ▶');
   }
-  function go(to) {
-    if (busy || to === cur || to < 0 || to > total() || !bookEl) return;
+  const turn = step => goPage(one ? pg + step : pg + 2 * step);
+  function goPage(to) {
+    if (!one) to = Math.floor(to / 2) * 2;       // a spread starts on its left page
+    if (busy || !bookEl || to < 0 || to > lastPage() || shown(to) === shown(pg)) return;
     api.stopSpeech();
     busy = true;
-    const dir = to > cur ? 'next' : 'prev';
+    const dir = to > pg ? 'next' : 'prev';
     const old = bookEl.querySelector('.bk-spread');
     clearTimers();
-    cur = to;
-    const neu = spreadOf(cur);
+    pg = to;
+    const neu = pageOf(pg);
     neu.classList.add('in-' + dir);
     bookEl.prepend(neu);                       // under the page that is turning
     if (old) {
-      // the corner curls first: its size follows the page (a little under half of its shorter side)
-      const page = old.querySelector(dir === 'next' ? '.bk-r' : '.bk-l');
+      // the corner curls first: its size follows the page (a little under half of its shorter side).
+      // On a phone only a forward turn curls: going back, the page before comes down over this one.
+      const page = one ? (dir === 'next' ? old.querySelector('.bk-page') : null) : old.querySelector(dir === 'next' ? '.bk-r' : '.bk-l');
       if (page) {
         page.style.setProperty('--c', Math.round(Math.min(page.clientWidth, page.clientHeight) * 0.42) + 'px');
-        const curl = el('div', 'bk-curl'); curl.append(el('i'));
+        const curl = el('div', 'bk-curl ' + (dir === 'next' ? 'r' : 'l')); curl.append(el('i'));
         page.append(curl);
       }
       old.classList.add('out-' + dir);
@@ -656,34 +730,52 @@
     setNav();
     setTimeout(() => { if (old) old.remove(); neu.classList.remove('in-' + dir); busy = false; }, 980);
   }
-  function close() { clearTimers(); api.stopSpeech(); window.removeEventListener('keydown', onKey); bookEl = null; }
+  // turning the phone (or resizing a window) switches between one page and the spread, on the same page
+  function onResize() {
+    if (!bookEl || !bookEl.isConnected) { window.removeEventListener('resize', onResize); return; }
+    const o = isPhone(), w = o && window.innerWidth > window.innerHeight;
+    const was = wrapEl.classList.contains('wide');
+    wrapEl.classList.toggle('wide', w);
+    if (o === one && w === was) return;
+    if (o !== one) { one = o; wrapEl.classList.toggle('one', one); if (!one) pg = Math.floor(pg / 2) * 2; }
+    clearTimers(); busy = false;
+    bookEl.replaceChildren(pageOf(pg));
+    setNav();
+  }
+  function close() { clearTimers(); api.stopSpeech(); window.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize); bookEl = null; }
   function onKey(e) {
     if (!bookEl || !bookEl.isConnected) { window.removeEventListener('keydown', onKey); return; }
-    if (e.key === 'ArrowRight') go(cur + 1); else if (e.key === 'ArrowLeft') go(cur - 1);
+    if (e.key === 'ArrowRight') turn(1); else if (e.key === 'ArrowLeft') turn(-1);
   }
 
+  // startAt: the story to open at (0 = the cover)
   function open(a, startAt) {
     api = a;
     if (!document.getElementById('story-css')) { const st = el('style'); st.id = 'story-css'; st.textContent = CSS; document.head.append(st); }
     clearTimers(); busy = false;
-    cur = Math.max(0, Math.min(total(), startAt | 0));
+    one = isPhone();
+    pg = Math.max(0, Math.min(total(), startAt | 0)) * 2;
+    wrapEl = el('div', 'bk-wrap' + (one ? ' one' : '') + (one && window.innerWidth > window.innerHeight ? ' wide' : ''));
     bookEl = el('div', 'bk-book');
-    bookEl.append(spreadOf(cur));
-    prevBtn = el('button', 'btn small ghost', L('◀ Trang trước', '◀ Back')); prevBtn.type = 'button'; prevBtn.onclick = () => go(cur - 1);
-    nextBtn = el('button', 'btn small', ''); nextBtn.type = 'button'; nextBtn.onclick = () => go(cur + 1);
-    const tocBtn = el('button', 'btn small ghost', L('☰ Mục lục', '☰ Contents')); tocBtn.type = 'button'; tocBtn.onclick = () => go(0);
+    prevBtn = el('button', 'btn small ghost'); prevBtn.type = 'button'; prevBtn.onclick = () => turn(-1);
+    prevBtn.setAttribute('aria-label', L('Trang trước', 'Previous page'));
+    nextBtn = el('button', 'btn small'); nextBtn.type = 'button'; nextBtn.onclick = () => turn(1);
+    nextBtn.setAttribute('aria-label', L('Trang sau', 'Next page'));
+    tocBtn = el('button', 'btn small ghost'); tocBtn.type = 'button'; tocBtn.onclick = () => goPage(one ? 1 : 0);
+    tocBtn.setAttribute('aria-label', L('Mục lục', 'Contents'));
     navMid = el('div', 'mid');
     const nav = el('div', 'bk-nav');
     nav.append(prevBtn, tocBtn, navMid, nextBtn);
-    const wrap = el('div', 'bk-wrap');
-    wrap.append(bookEl, nav);
+    wrapEl.append(bookEl, nav);
     // swipe to turn the page
     let sx = null, sy = 0;
     bookEl.addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY; });
-    bookEl.addEventListener('pointerup', e => { if (sx == null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null; if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) go(cur + (dx < 0 ? 1 : -1)); });
-    api.screen(api.topbar(L('Lịch sử Toán học', 'History of Maths'), L('Lật từng trang để khám phá', 'Turn the pages to explore'), api.homeBtn(close), []), wrap);
+    bookEl.addEventListener('pointerup', e => { if (sx == null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null; if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) turn(dx < 0 ? 1 : -1); });
+    api.screen(api.topbar(L('Lịch sử Toán học', 'History of Maths'), L('Lật từng trang để khám phá', 'Turn the pages to explore'), api.homeBtn(close), []), wrapEl);
+    bookEl.append(pageOf(pg));                 // after the screen is up, so the story text can measure itself
     setNav();
     window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
   }
   window.Story = { open };
 })();
