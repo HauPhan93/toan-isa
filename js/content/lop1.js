@@ -252,7 +252,12 @@
             return Q(T(`${n} gồm mấy và mấy?`, `${n} is made of which two numbers?`), both, U.choices(rng, right, wrong), T('Đếm từng nhóm màu.', 'Count each colour group.'), T(`${n} gồm ${a} và ${b}.`, `${n} is made of ${a} and ${b}.`));
           }
           if (f === 3) {
-            return Q(T(`? và ${b} là ${n}`, `? and ${b} make ${n}`), vz('objects', { groups: [{ emoji: '❔', count: 1, label: '?' }, { emoji: eb, count: b, label: b }] }), num(a), T(`Đếm thêm từ ${b} cho đến ${n}: được mấy lần?`, `Count on from ${b} up to ${n}. How many did you count on?`), T(`${a} và ${b} là ${n}.`, `${a} and ${b} make ${n}.`), { hintVisual: both });
+            // "? và 3 là 4" was too bare for a grade-1 child (user, 2026-11-24): say it with the things in the picture
+            const NM = { '🔴': ['chấm đỏ', 'red dot', 'chấm'], '🔵': ['chấm xanh', 'blue dot', 'chấm'], '🌹': ['bông hồng', 'rose', 'bông hoa'], '🌼': ['bông cúc', 'daisy', 'bông hoa'],
+              '🍎': ['quả táo đỏ', 'red apple', 'quả táo'], '🍏': ['quả táo xanh', 'green apple', 'quả táo'], '🐔': ['con gà mái', 'hen', 'con gà'], '🐥': ['con gà con', 'chick', 'con gà'],
+              '🚗': ['xe con', 'car', 'chiếc xe'], '🚌': ['xe buýt', 'bus', 'chiếc xe'], '🟡': ['chấm vàng', 'yellow dot', 'chấm'], '🟢': ['chấm xanh lá', 'green dot', 'chấm'] };
+            const pl = (w, c) => (c === 1 ? w : w === 'daisy' ? 'daisies' : w === 'bus' ? 'buses' : w + 's');
+            return Q(T(`Có ${b} ${NM[eb][0]}. Thêm mấy ${NM[ea][0]} nữa thì được ${n} ${NM[ea][2]}?`, `There ${b === 1 ? 'is' : 'are'} ${b} ${pl(NM[eb][1], b)}. How many ${pl(NM[ea][1], 2)} do we add to make ${n} in all?`), vz('objects', { groups: [{ emoji: '❔', count: 1, label: '?' }, { emoji: eb, count: b, label: b }] }), num(a), T(`Đếm thêm từ ${b} cho đến ${n}: được mấy lần?`, `Count on from ${b} up to ${n}. How many did you count on?`), T(`${a} và ${b} là ${n}.`, `${a} and ${b} make ${n}.`), { hintVisual: both });
           }
           const ok = R(rng, 0, 1) === 1, shownB = ok ? b : (b + 1 <= 10 ? b + 1 : b - 1);
           const TF = EN ? ['True', 'False'] : ['Đúng', 'Sai'];
