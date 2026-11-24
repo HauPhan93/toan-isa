@@ -529,7 +529,7 @@
     let sx = null, sy = 0;
     bookEl.addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY; });
     bookEl.addEventListener('pointerup', e => { if (sx == null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null; if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) go(cur + (dx < 0 ? 1 : -1)); });
-    api.screen(api.topbar(L('Chuyện kể Toán học', 'Stories of Mathematics'), L('Lật từng trang để khám phá', 'Turn the pages to explore'), api.backBtn(() => { close(); api.home(); }), []), wrap);
+    api.screen(api.topbar(L('Chuyện kể Toán học', 'Stories of Mathematics'), L('Lật từng trang để khám phá', 'Turn the pages to explore'), api.homeBtn(close), []), wrap);
     setNav();
     window.addEventListener('keydown', onKey);
   }

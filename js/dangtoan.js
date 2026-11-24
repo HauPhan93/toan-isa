@@ -110,7 +110,7 @@
       inn.append(h('section', { class: 'card dk-sec' }, h('h3', null, `${L('Học kì', 'Term')} ${sem} · ${ks.length} ${L('dạng toán', ks.length === 1 ? 'kind' : 'kinds')}`), list));
     }
     wrap.append(inn);
-    api.screen(api.topbar(L('Học dạng toán', 'Kinds of problem'), L('Chọn lớp, rồi chọn dạng toán em muốn học', 'Choose a grade, then the kind you want to learn'), api.backBtn(api.home), [tabs]), wrap);
+    api.screen(api.topbar(L('Học dạng toán', 'Kinds of problem'), L('Chọn lớp, rồi chọn dạng toán em muốn học', 'Choose a grade, then the kind you want to learn'), api.homeBtn(), [tabs]), wrap);
   }
 
   /* ---------- 2. one kind ---------- */

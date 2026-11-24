@@ -5,7 +5,7 @@
   const APP = document.getElementById('app');
   const QUESTIONS_PER_LESSON = 10;
   const STORE_KEY = 'toanisa.v1';
-  const APP_VERSION = 'v59';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
+  const APP_VERSION = 'v60';   // keep in step with VERSION in sw.js; shown in Góc phụ huynh
   // English mode (Góc phụ huynh → Ngôn ngữ): tx('Vietnamese', 'English'). The parent corner itself stays Vietnamese.
   const EN = U.EN, tx = U.L;
   const G = n => tx('Lớp ' + n, 'Grade ' + n), HK = k => tx('Học kì ' + k, 'Term ' + k);
@@ -644,7 +644,8 @@
       ...(right || []));
   }
   const coinPill = () => h('div', { class: 'pill' }, h('span', { class: 'e' }, '⭐'), String(S.coins));
-  const homeBtn = () => h('button', { class: 'icon-btn', 'aria-label': tx('Trang chủ', 'Home'), onclick: () => { sfx.tap(); showHome(); } }, '🏠');
+  // before(): a screen's own clean-up (timers, speech) run before going home
+  const homeBtn = before => h('button', { class: 'icon-btn', 'aria-label': tx('Trang chủ', 'Home'), onclick: () => { sfx.tap(); stopSpeech(true); if (before) before(); showHome(); } }, '🏠');
   const backBtn = fn => h('button', { class: 'icon-btn', 'aria-label': tx('Quay lại', 'Back'), onclick: () => { sfx.tap(); stopSpeech(true); fn(); } }, '←');
   const parentBtn = () => h('button', { class: 'icon-btn', 'aria-label': 'Góc phụ huynh', onclick: () => { sfx.tap(); parentGate(); } }, '⚙️');
 

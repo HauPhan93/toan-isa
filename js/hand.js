@@ -196,14 +196,17 @@
     const commas = items.filter(isComma).map(it => ({ comma: true, x: it.b.x + it.b.w / 2 }));
     // can strokes a..b (in writing order) be one digit? each one must sit over the ones before it
     const over = (a, b) => {
-      let x0 = ink[a].b.x, x1 = ink[a].b.x + ink[a].b.w;
+      let x0 = ink[a].b.x, x1 = ink[a].b.x + ink[a].b.w, y0 = ink[a].b.y, y1 = ink[a].b.y + ink[a].b.h;
       for (let k = a + 1; k <= b; k++) {
         const it = ink[k], cx = it.b.x + it.b.w / 2, gc = (x0 + x1) / 2, w = Math.max(x1 - x0, 1);
         const ov = Math.min(x1, it.b.x + it.b.w) - Math.max(x0, it.b.x);
         if (!((cx >= x0 - 0.05 * H && cx <= x1 + 0.05 * H) || (gc >= it.b.x && gc <= it.b.x + it.b.w) || ov > 0.6 * Math.min(w, it.b.w))) return false;
         x0 = Math.min(x0, it.b.x); x1 = Math.max(x1, it.b.x + it.b.w);
+        y0 = Math.min(y0, it.b.y); y1 = Math.max(y1, it.b.y + it.b.h);
       }
-      return x1 - x0 <= 1.05 * H;   // one digit is not much wider than it is tall
+      // one digit is not much wider than it is tall — measured on the strokes together: a 4 drawn as a wide
+      // open corner plus a short stem below it is taller than either stroke alone (iPad sample read as "41")
+      return x1 - x0 <= 1.05 * Math.max(H, y1 - y0);
     };
     const cost = (a, b) => {
       const list = recognizeCached(ink.slice(a, b + 1).map(it => it.st));
